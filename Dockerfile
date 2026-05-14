@@ -82,7 +82,13 @@ COPY --parents --chown=default:default \
     dynamic-plugins/package.json dynamic-plugins/yarn.lock dynamic-plugins/backstage.json \
     dynamic-plugins/_utils/package.json dynamic-plugins/downloads/package.json \
     /build/
-RUN cd dynamic-plugins && yarn install --immutable
+# TODO(step-2): re-add --immutable. Greenfield's freshly regenerated
+# dynamic-plugins/yarn.lock has 906 fewer resolutions than the container
+# expects (despite identical yarn 4.12.0 + identical .yarnrc.yml). Likely
+# a host yarn-global-cache shadowing real resolutions. Drop --immutable
+# for now so the container regenerates whatever it needs; revisit when
+# CI is set up (Step 6) and the build runs in a clean cache env.
+RUN cd dynamic-plugins && yarn install
 
 # --- Source + builds ------------------------------------------------------------
 # Now the full tree. node_modules/ (created above) survives — COPY only adds/overwrites,
