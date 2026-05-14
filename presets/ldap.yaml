@@ -73,13 +73,13 @@ appConfig:
           users:
             - dn: ${LDAP_USERS_BASE_DN}
               options:
-                filter: ${LDAP_USERS_FILTER:(uid=*)}
+                filter: ${LDAP_USERS_FILTER:-(uid=*)}
               map:
                 description: l
           groups:
             - dn: ${LDAP_GROUPS_BASE_DN}
               options:
-                filter: ${LDAP_GROUPS_FILTER:(objectClass=groupOfNames)}
+                filter: ${LDAP_GROUPS_FILTER:-(objectClass=groupOfNames)}
               map:
                 description: l
           schedule:
