@@ -30,6 +30,7 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
   - ADR-009: Configuration profiles
   - ADR-010: Unified image, preset catalog, OCI dynamic plugins
   - ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset
+  - ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)
 - docs/UPGRADING.md - How to upgrade Backstage, Node.js base image, and dependencies
 - docs/ROADMAP_FEATURES.md - Planned features and product evolution
 - docs/ROADMAP_BACKLOG.md - Technical debt, skipped tests, and outdated documentation

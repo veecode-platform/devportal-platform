@@ -1,0 +1,142 @@
+name: Publish
+
+# Multi-arch image publish to DockerHub. Mirrors the pattern used by
+# veecode-platform/devportal-base and devportal-distro: matrix builds for
+# amd64 + arm64, single-arch tags pushed per job, then a `manifest` job
+# stitches them into a multi-arch manifest under both `<version>` and
+# `latest` tags.
+#
+# Currently triggered ONLY via `workflow_dispatch` (manual). To switch to
+# tag-driven publishing once the product is ready for consumers, replace
+# the `on:` block with the commented-out version below.
+#
+# Secrets required (configure at the org or repo level before first run):
+#   - DOCKER_USERNAME / DOCKER_PASSWORD  (DockerHub push)
+# Note: no Red Hat credentials needed — the Dockerfile pulls UBI from
+# the anonymous mirror (registry.access.redhat.com). See ADR-012.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to publish (must match package.json version; e.g. 0.1.0)'
+        required: true
+        type: string
+
+  # When ready to publish on every release tag, comment out workflow_dispatch
+  # above and uncomment the block below. Tag scheme matches base/distro
+  # (e.g. `git tag 0.1.0 && git push --tags`).
+  #
+  # push:
+  #   tags:
+  #     - '*.*.*'
+
+permissions:
+  contents: read
+
+env:
+  DOCKER_BUILDKIT: "1"
+  IMAGE_NAME: docker.io/veecode/devportal-platform
+
+jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve version (manual input or git tag)
+        id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ -n "${INPUT_VERSION}" ]; then
+            VERSION="${INPUT_VERSION}"
+            echo "Manual dispatch — version=${VERSION}"
+          else
+            # Tag-driven path (when on: push tags is enabled)
+            VERSION="${REF#refs/tags/}"
+            echo "Tag-driven — version=${VERSION}"
+          fi
+          # Hard shape check before VERSION is interpolated into any shell
+          # context downstream (build-push-action tags, manifest names, etc).
+          # workflow_dispatch inputs are user-controlled; defend in depth.
+          # Accepts semver-ish: 1.2.3 or 1.2.3-prerelease.4 ; rejects anything
+          # with shell metacharacters.
+          if ! echo "${VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+            echo "ERROR: version (${VERSION}) is not in expected semver shape (e.g. 1.2.3 or 1.2.3-rc.1)." >&2
+            exit 1
+          fi
+          PKG_VERSION=$(grep '"version"' package.json | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+          if [ "${VERSION}" != "${PKG_VERSION}" ]; then
+            echo "ERROR: requested version (${VERSION}) does not match package.json version (${PKG_VERSION})." >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: validate-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux/amd64
+            arch: amd64
+          - os: ubuntu-22.04-arm
+            platform: linux/arm64
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & push per-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}-${{ matrix.arch }}
+
+  manifest:
+    needs: [validate-version, build]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate-version.outputs.version }}
+    steps:
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Create multi-arch manifest (versioned tag)
+        run: |
+          docker buildx imagetools create -t "${IMAGE_NAME}:${VERSION}" \
+            "${IMAGE_NAME}:${VERSION}-amd64" \
+            "${IMAGE_NAME}:${VERSION}-arm64"
+
+      - name: Create multi-arch manifest (latest tag)
+        run: |
+          docker buildx imagetools create -t "${IMAGE_NAME}:latest" \
+            "${IMAGE_NAME}:${VERSION}-amd64" \
+            "${IMAGE_NAME}:${VERSION}-arm64"
