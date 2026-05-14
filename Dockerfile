@@ -81,7 +81,6 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
 COPY --parents --chown=default:default \
     dynamic-plugins/package.json dynamic-plugins/yarn.lock dynamic-plugins/backstage.json \
     dynamic-plugins/_utils/package.json dynamic-plugins/downloads/package.json \
-    dynamic-plugins/packages/*/package.json dynamic-plugins/wrappers/*/package.json \
     /build/
 RUN cd dynamic-plugins && yarn install --immutable
 
@@ -183,9 +182,7 @@ COPY --chown=default:default --from=builder /build/rbac-policy.csv ./
 COPY --chown=default:default --from=builder /build/rbac-policy-extensions.csv /tmp/rbac-policy-extensions.csv
 RUN cat /tmp/rbac-policy-extensions.csv >> /app/rbac-policy.csv && rm /tmp/rbac-policy-extensions.csv
 
-COPY --chown=default:default --from=builder /build/app-config.yaml /build/app-config.production.yaml /build/app-config.distro.yaml /build/app-config.dynamic-plugins.yaml ./
-COPY --chown=default:default --from=builder /build/app-config.azure.yaml /build/app-config.github.yaml /build/app-config.gitlab.yaml /build/app-config.keycloak.yaml /build/app-config.ldap.yaml ./
-COPY --chown=default:default --from=builder /build/profiles/*.yaml ./
+COPY --chown=default:default --from=builder /build/app-config.yaml /build/app-config.production.yaml /build/app-config.distro.yaml ./
 
 # Dynamic plugins: built artifacts + pre-installation
 COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dynamic-plugins/dist
@@ -268,7 +265,6 @@ RUN set -e; \
 COPY --chown=default:default --from=builder /build/dynamic-plugins.yaml /app/
 COPY --chown=default:default --from=builder /build/dynamic-plugins.default.yaml /app/
 COPY --chown=default:default --from=builder /build/extensions-install.yaml /app/
-COPY --chown=default:default --from=builder /build/presets /app/presets
 COPY --chown=default:default --from=builder /build/docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
 COPY --chown=default:default --chmod=755 --from=builder /build/docker/install-dynamic-plugins.sh /app/install-dynamic-plugins.sh
 
