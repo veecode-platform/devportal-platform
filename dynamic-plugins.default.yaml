@@ -419,6 +419,34 @@ plugins:
                 importName: LogoutButton
                 config:
                   priority: 10
+
+  # VeeCode theme — frontend dynamic plugin exposing light + dark theme
+  # providers. Gated by presets/veecode-theme.yaml (NOT in `recommended`
+  # — the theme is its own preset so a downstream brand can swap it by
+  # name without stacking. See ADR-011 § "theme as a dynamic plugin and a
+  # preset".)
+  - package: veecode-platform-plugin-veecode-theme-dynamic
+    preInstalled: true
+    disabled: true   # theme-tier (gated by presets/veecode-theme.yaml)
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          veecode-platform.plugin-veecode-theme:
+            # The `themes:` entries reuse the `light`/`dark` ids so the
+            # DynamicRoot shell drops the like-id static themes
+            # (@red-hat-developer-hub/backstage-plugin-theme) and uses these
+            # instead; if the plugin fails to load, the static themes remain.
+            # See ADR-011 § validation criteria #1-5.
+            themes:
+              - id: light
+                title: VeeCode Light
+                variant: light
+                importName: VeecodeLightThemeProvider
+              - id: dark
+                title: VeeCode Dark
+                variant: dark
+                importName: VeecodeDarkThemeProvider
+
   - package: backstage-community-plugin-tech-radar-dynamic
     preInstalled: true
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)

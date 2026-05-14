@@ -1,0 +1,39 @@
+name: veecode-theme
+description: VeeCode brand theme — palette (light + dark) plus app.branding (logos, favicons).
+version: 1.0.0
+
+# No required variables. Theme assumes branding assets are bundled in the image
+# (packages/app/public/) and reachable at root-relative URLs.
+requires:
+  variables: {}
+
+# The theme is delivered as a frontend dynamic plugin (see
+# dynamic-plugins/wrappers/veecode-platform-plugin-veecode-theme).
+# It ships DISABLED in dynamic-plugins.default.yaml under
+# `veecode-platform-plugin-veecode-theme-dynamic`; this preset only flips
+# `disabled` to false. The package name MUST match the default entry — the
+# install script merges shallow per key, so a name mismatch installs a second
+# copy under a different name → both register the same theme id → React
+# unmount churn.
+#
+# Why a SEPARATE preset (not folded into `recommended`):
+# A downstream customer that wants to swap the brand chrome creates
+# `<company>-theme.yaml` mirroring this file with their own colors/logos
+# and runs VEECODE_PRESETS=recommended,<company>-theme — REPLACING this
+# preset, not stacking with it. If theme were inside `recommended`, both
+# theme ids would coexist in the theme picker. See ADR-011.
+plugins:
+  - package: veecode-platform-plugin-veecode-theme-dynamic
+    preInstalled: true
+    disabled: false
+
+# Brand assets are bundled into the image at packages/app/public/ and served
+# at root-relative URLs by the static handler in the backend. Override via
+# app-config.local.yaml or environment for white-label deployments.
+appConfig:
+  app:
+    title: VeeCode DevPortal
+    branding:
+      fullLogo: /veecode-logo.png
+      iconLogo: /veecode-logo.png
+      fullLogoWidth: 150

@@ -20,20 +20,30 @@
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import CssBaseline from '@mui/material/CssBaseline';
-// import { ThemeProvider } from '@mui/material/styles';
-import { UnifiedThemeProvider, createUnifiedTheme } from '@backstage/theme';
-import { useLoaderTheme } from '@red-hat-developer-hub/backstage-plugin-theme';
+import {
+  UnifiedThemeProvider,
+  themes as backstageThemes,
+} from '@backstage/theme';
 
+/*
+ * Loader is rendered before the Backstage App is instantiated — i.e. before
+ * DynamicRoot has loaded the dynamic theme plugins. Per ADR-011 Phase 1, the
+ * VeeCode theme is delivered as a dynamic frontend plugin (see
+ * dynamic-plugins/wrappers/veecode-platform-plugin-veecode-theme);
+ * DynamicRoot registers it as an AppThemeProvider in createApp (see
+ * DynamicRoot.tsx lines 533-636) and the runtime theme takes effect at the
+ * app-mount boundary.
+ *
+ * Loader covers a short loading window before that. Previously it consumed
+ * `useLoaderTheme()` from the RHDH theme package, which HTTP-fetched
+ * `/theme.json` baked alongside the app bundle — a mechanism that fights
+ * the dynamic-plugin path. We now use Backstage's bundled light theme as a
+ * neutral loading-state surface; once createApp mounts, the dynamic
+ * VeeCode theme assumes control without a flicker that matters in practice.
+ */
 const Loader = () => {
-  // Access theme context before Backstage App is instantiated
-  const theme = useLoaderTheme();
-  const unifiedTheme = createUnifiedTheme({
-    palette: theme.palette,
-    // other theme properties
-  });
-
   return (
-    <UnifiedThemeProvider theme={unifiedTheme}>
+    <UnifiedThemeProvider theme={backstageThemes.light}>
       <CssBaseline />
       <Box
         sx={{

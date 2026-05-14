@@ -202,6 +202,7 @@ RUN set -e; \
       backstage-community-plugin-tech-radar-backend-dynamic \
       veecode-platform-plugin-veecode-global-header-dynamic \
       veecode-platform-plugin-veecode-homepage-dynamic \
+      veecode-platform-plugin-veecode-theme-dynamic \
       veecode-platform-backstage-plugin-about-backend-dynamic \
       veecode-platform-backstage-plugin-about-dynamic \
       devportal-marketplace-backend-dynamic-dynamic \
