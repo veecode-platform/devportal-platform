@@ -1,0 +1,37 @@
+name: jenkins
+description: Jenkins CI tab on entity pages — enables the bundled Jenkins frontend and backend plugins.
+version: 1.0.0
+
+requires:
+  variables:
+    JENKINS_URL:
+      description: Jenkins server base URL.
+      required: true
+      example: https://jenkins.example.com
+    JENKINS_USERNAME:
+      description: Jenkins user for API access.
+      required: true
+      example: backstage-bot
+    JENKINS_TOKEN:
+      description: Jenkins API token for the user above.
+      required: true
+      example: 11xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# What this preset does:
+#  - Enables the Jenkins frontend plugin (CI tab on entity pages).
+#  - Enables the Jenkins backend plugin (proxies build/status API calls).
+#  - Both wrappers are pre-baked into the image (./dynamic-plugins/dist/).
+#    The pluginConfig (mountPoints) lives in dynamic-plugins.default.yaml.
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-jenkins
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-jenkins-backend-dynamic
+    disabled: false
+
+appConfig:
+  jenkins:
+    instances:
+      - name: default
+        baseUrl: ${JENKINS_URL}
+        username: ${JENKINS_USERNAME}
+        apiKey: ${JENKINS_TOKEN}

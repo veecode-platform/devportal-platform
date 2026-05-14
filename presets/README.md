@@ -104,13 +104,19 @@ appConfig:
 | Preset | Description | Required variables |
 |---|---|---|
 | [`recommended.yaml`](./recommended.yaml) | Curated baseline (marketplace, RBAC, tech-radar, pending-changes) | none |
+| [`veecode-theme.yaml`](./veecode-theme.yaml) | VeeCode brand theme (palette + logos) | none |
 | [`github.yaml`](./github.yaml) | GitHub OAuth + catalog provider + integration | `GITHUB_PAT`, `GITHUB_ORG` |
+| [`gitlab.yaml`](./gitlab.yaml) | GitLab OAuth + catalog provider | `GITLAB_HOST`, `GITLAB_AUTH_CLIENT_ID`, `GITLAB_AUTH_CLIENT_SECRET`, `GITLAB_TOKEN`, `GITLAB_GROUP` |
+| [`azure.yaml`](./azure.yaml) | Azure DevOps catalog + scaffolder + pipelines UI | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_HOST`, `AZURE_DEVOPS_ORG`, `AZURE_DEVOPS_PROJECT` |
+| [`keycloak.yaml`](./keycloak.yaml) | Keycloak/OIDC auth + user-group sync | `KEYCLOAK_BASE_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`, `AUTH_SESSION_SECRET` |
+| [`ldap.yaml`](./ldap.yaml) | LDAP auth + user-group sync | `LDAP_URL`, `LDAP_DN`, `LDAP_SECRET`, `LDAP_USERS_BASE_DN`, `LDAP_GROUPS_BASE_DN` |
+| [`jenkins.yaml`](./jenkins.yaml) | Jenkins CI tab on entity pages | `JENKINS_URL`, `JENKINS_USERNAME`, `JENKINS_TOKEN` |
+| [`kubernetes.yaml`](./kubernetes.yaml) | Kubernetes workloads tab on entity pages | `K8S_CLUSTER_NAME`, `K8S_CLUSTER_URL`, `K8S_CLUSTER_TOKEN` |
+| [`sonarqube.yaml`](./sonarqube.yaml) | SonarQube code quality tab + scaffolder action | `SONARQUBE_BASE_URL`, `SONARQUBE_API_KEY` |
 
-Additional integration presets (`azure`, `gitlab`, `keycloak`, `ldap`, `jenkins`,
-`sonarqube`, `kubernetes`) land in Step 5 of the bootstrap and will be added
-to this table when they ship.
-
-Presets compose. `VEECODE_PRESETS=recommended,github` enables both.
+Presets compose. `VEECODE_PRESETS=recommended,github` enables both. A common
+shape: `recommended,veecode-theme,<one or two integrations>` covers the
+out-of-box VeeCode experience plus the customer's SCM/auth.
 
 ## Two primary paths of use
 

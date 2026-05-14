@@ -1,0 +1,87 @@
+name: ldap
+description: LDAP auth + user/group sync — configures the static LDAP auth provider and ldapOrg catalog provider.
+version: 1.0.0
+
+requires:
+  variables:
+    LDAP_URL:
+      description: LDAP server URL (ldap:// or ldaps://).
+      required: true
+      example: ldap://ldap.example.com:389
+    LDAP_DN:
+      description: Bind DN for the admin/service account used to search the directory.
+      required: true
+      example: cn=admin,dc=example,dc=com
+    LDAP_SECRET:
+      description: Password for the bind DN.
+      required: true
+      example: my-ldap-password
+    LDAP_USERS_BASE_DN:
+      description: Base DN for user searches.
+      required: true
+      example: ou=users,dc=example,dc=com
+    LDAP_GROUPS_BASE_DN:
+      description: Base DN for group searches.
+      required: true
+      example: ou=groups,dc=example,dc=com
+    LDAP_USERS_FILTER:
+      description: LDAP filter for user entries. Defaults to `(uid=*)` if unset.
+      required: false
+      example: "(uid=*)"
+    LDAP_GROUPS_FILTER:
+      description: LDAP filter for group entries. Defaults to `(objectClass=groupOfNames)` if unset.
+      required: false
+      example: "(objectClass=groupOfNames)"
+
+# What this preset does:
+#  - Auth provider (static backend plugin — backstage-plugin-auth-backend-module-ldap-provider)
+#    is compiled into packages/backend/src/index.ts. Config-only here.
+#  - Catalog provider (catalog-backend-module-ldap-org, static) — syncs users
+#    and groups from the directory. Also static, config-only here.
+#  - No dynamic plugins required.
+plugins: []
+
+appConfig:
+  signInPage: ldap
+
+  auth:
+    environment: production
+    providers:
+      ldap:
+        production:
+          cookies:
+            secure: false
+            field: backstage-token
+          ldapAuthenticationOptions:
+            userSearchBase: ${LDAP_USERS_BASE_DN}
+            usernameAttribute: uid
+            adminDn: ${LDAP_DN}
+            adminPassword: ${LDAP_SECRET}
+            ldapOpts:
+              url: ${LDAP_URL}
+              tlsOptions:
+                rejectUnauthorized: false
+
+  catalog:
+    providers:
+      ldapOrg:
+        default:
+          target: ${LDAP_URL}
+          bind:
+            dn: ${LDAP_DN}
+            secret: ${LDAP_SECRET}
+          users:
+            - dn: ${LDAP_USERS_BASE_DN}
+              options:
+                filter: ${LDAP_USERS_FILTER:-(uid=*)}
+              map:
+                description: l
+          groups:
+            - dn: ${LDAP_GROUPS_BASE_DN}
+              options:
+                filter: ${LDAP_GROUPS_FILTER:-(objectClass=groupOfNames)}
+              map:
+                description: l
+          schedule:
+            frequency: PT1H
+            timeout: PT15M

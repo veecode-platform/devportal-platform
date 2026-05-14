@@ -1,0 +1,85 @@
+name: gitlab
+description: GitLab OAuth auth + repo/org discovery — configures the static GitLab auth provider and GitLab catalog provider.
+version: 1.0.0
+
+requires:
+  variables:
+    GITLAB_HOST:
+      description: GitLab hostname. Use `gitlab.com` for GitLab.com or your self-hosted instance hostname.
+      required: true
+      example: gitlab.com
+    GITLAB_AUTH_CLIENT_ID:
+      description: OAuth Application ID (for sign-in).
+      required: true
+      example: "1234567890abcdef"
+    GITLAB_AUTH_CLIENT_SECRET:
+      description: OAuth Application Secret.
+      required: true
+      example: gloas-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    GITLAB_TOKEN:
+      description: Personal/Group Access Token with `read_api` scope (used by the catalog provider for repo discovery and org sync).
+      required: true
+      example: glpat-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    GITLAB_GROUP:
+      description: Root group for org sync and repo discovery.
+      required: true
+      example: my-org
+    GITLAB_GROUP_PATTERN:
+      description: Regex pattern to match groups for catalog sync.
+      required: false
+      example: "[\\ \\S]*"
+
+# What this preset does:
+#  - Auth provider (static backend plugin) — GitLab OAuth is compiled into
+#    packages/backend/src/index.ts. This preset only *configures* it.
+#  - Catalog provider (catalog-backend-module-gitlab, static) — discovers repos
+#    and syncs users/groups. Also static, config-only here.
+#  - No dynamic plugins required.
+plugins: []
+
+appConfig:
+  signInPage: gitlab
+
+  auth:
+    environment: production
+    providers:
+      gitlab:
+        production:
+          clientId: ${GITLAB_AUTH_CLIENT_ID}
+          clientSecret: ${GITLAB_AUTH_CLIENT_SECRET}
+          # For self-hosted GitLab uncomment:
+          # audience: https://${GITLAB_HOST}
+          signIn:
+            resolvers:
+              - resolver: usernameMatchingUserEntityName
+              - resolver: emailMatchingUserEntityProfileEmail
+              - resolver: emailLocalPartMatchingUserEntityName
+
+  integrations:
+    gitlab:
+      - host: ${GITLAB_HOST}
+        token: ${GITLAB_TOKEN}
+
+  catalog:
+    providers:
+      gitlab:
+        default:
+          host: ${GITLAB_HOST}
+          group: ${GITLAB_GROUP}
+          orgEnabled: true
+          restrictUsersToGroup: true
+          includeUsersWithoutSeat: true
+          relations:
+            - INHERITED
+            - DESCENDANTS
+            - SHARED_FROM_GROUPS
+          groupPattern: ${GITLAB_GROUP_PATTERN}
+          branch: main
+          fallbackBranch: master
+          skipForkedRepos: false
+          entityFilename: catalog-info.yaml
+          rules:
+            - allow: [Group, User]
+          schedule:
+            frequency: { minutes: 5 }
+            timeout: { minutes: 3 }
