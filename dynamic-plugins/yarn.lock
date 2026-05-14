@@ -7816,22 +7816,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/backstage-plugin-extensions-common@npm:^0.14.5":
-  version: 0.14.5
-  resolution: "@red-hat-developer-hub/backstage-plugin-extensions-common@npm:0.14.5"
-  dependencies:
-    "@backstage/backend-plugin-api": "npm:^1.5.0"
-    "@backstage/catalog-client": "npm:^1.12.1"
-    "@backstage/catalog-model": "npm:^1.7.6"
-    "@backstage/errors": "npm:^1.2.7"
-    "@backstage/plugin-permission-common": "npm:^0.9.3"
-  peerDependencies:
-    "@backstage/backend-plugin-api": ^1.5.0
-    "@backstage/types": ^1.2.2
-  checksum: 10c0/aa456d4e5e5235f8c2214ba97957f5c48b7a22a9d330e6dcbf896fc5840dee6526ae5de1e40e2979dd5732ee41944844bd33e9afe9134fd26bf0d26ffac3d292
-  languageName: node
-  linkType: hard
-
 "@red-hat-developer-hub/backstage-plugin-extensions-common@npm:^0.15.0":
   version: 0.15.0
   resolution: "@red-hat-developer-hub/backstage-plugin-extensions-common@npm:0.15.0"
@@ -13487,7 +13471,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"devportal-marketplace-backend@workspace:packages/devportal-marketplace-backend":
+"devportal-marketplace-backend-dynamic@workspace:wrappers/devportal-marketplace-backend-dynamic":
+  version: 0.0.0-use.local
+  resolution: "devportal-marketplace-backend-dynamic@workspace:wrappers/devportal-marketplace-backend-dynamic"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@janus-idp/cli": "npm:3.6.1"
+    devportal-marketplace-backend: "workspace:^"
+    typescript: "npm:5.9.3"
+  languageName: unknown
+  linkType: soft
+
+"devportal-marketplace-backend@workspace:^, devportal-marketplace-backend@workspace:packages/devportal-marketplace-backend":
   version: 0.0.0-use.local
   resolution: "devportal-marketplace-backend@workspace:packages/devportal-marketplace-backend"
   dependencies:
@@ -13502,7 +13497,7 @@ __metadata:
     "@backstage/plugin-permission-common": "npm:^0.9.7"
     "@backstage/plugin-permission-node": "npm:^0.10.11"
     "@backstage/types": "npm:^1.2.2"
-    "@red-hat-developer-hub/backstage-plugin-extensions-common": "npm:^0.14.5"
+    "@red-hat-developer-hub/backstage-plugin-extensions-common": "npm:^0.15.0"
     express: "npm:^4.17.1"
     express-promise-router: "npm:^4.1.0"
     typescript: "npm:5.9.3"
@@ -13511,7 +13506,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"devportal-marketplace-frontend@workspace:packages/devportal-marketplace-frontend":
+"devportal-marketplace-frontend-dynamic@workspace:wrappers/devportal-marketplace-frontend-dynamic":
+  version: 0.0.0-use.local
+  resolution: "devportal-marketplace-frontend-dynamic@workspace:wrappers/devportal-marketplace-frontend-dynamic"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@janus-idp/cli": "npm:3.6.1"
+    devportal-marketplace-frontend: "workspace:^"
+    typescript: "npm:5.9.3"
+  languageName: unknown
+  linkType: soft
+
+"devportal-marketplace-frontend@workspace:^, devportal-marketplace-frontend@workspace:packages/devportal-marketplace-frontend":
   version: 0.0.0-use.local
   resolution: "devportal-marketplace-frontend@workspace:packages/devportal-marketplace-frontend"
   dependencies:
@@ -13543,7 +13549,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"devportal-pending-changes@workspace:packages/devportal-pending-changes":
+"devportal-pending-changes-dynamic@workspace:wrappers/devportal-pending-changes-dynamic":
+  version: 0.0.0-use.local
+  resolution: "devportal-pending-changes-dynamic@workspace:wrappers/devportal-pending-changes-dynamic"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@janus-idp/cli": "npm:3.6.1"
+    devportal-pending-changes: "workspace:^"
+    typescript: "npm:5.9.3"
+  languageName: unknown
+  linkType: soft
+
+"devportal-pending-changes@workspace:^, devportal-pending-changes@workspace:packages/devportal-pending-changes":
   version: 0.0.0-use.local
   resolution: "devportal-pending-changes@workspace:packages/devportal-pending-changes"
   dependencies:
