@@ -1,0 +1,6 @@
+# Code owners for devportal-base
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for all files
+# Update @YOUR_GITHUB_HANDLE with your actual GitHub username
+* @YOUR_GITHUB_HANDLE

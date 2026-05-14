@@ -1,0 +1,27 @@
+.git
+**/.yarnrc.yml
+**/.yarn/cache
+**/.yarn/install-state.gz
+**/node_modules
+*.local.yaml
+# no generated plugin files
+dynamic-plugins-root/*
+!dynamic-plugins-root/.gitkeep
+# no generated build files
+**/dist
+**/dist-types
+**/dist-dynamic
+**/dist-scalprum
+!dynamic-plugins-docker/**/dist*
+!dynamic-plugins-docker/**/node_modules
+archive
+# no compressed files
+*.gz
+*.tgz
+*.zip
+*.tar.gz
+**/.turbo
+**/.webpack-cache
+# include bundle jars for CI docker build
+!packages/backend/dist/bundle.tar.gz
+!packages/backend/dist/skeleton.tar.gz

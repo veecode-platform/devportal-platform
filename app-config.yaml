@@ -1,0 +1,187 @@
+app:
+  title: VeeCode DevPortal
+  baseUrl: http://localhost:3000
+  analytics:
+    ga4:
+      measurementId: soueu
+  branding:
+    fullLogo: https://veecode-platform.github.io/support/logos/logo.svg
+    #fullLogoDark: https://veecode-platform.github.io/support/logos/logo-black.svg
+    # new form breaks sidebar, check later
+    #fullLogo:
+    #  light: https://veecode-platform.github.io/support/logos/logo.svg
+    #  dark: https://veecode-platform.github.io/support/logos/logo.svg
+    iconLogo: https://veecode-platform.github.io/support/logos/logo-mobile.png
+    fullLogoWidth: 150
+    theme:
+      light:
+        variant: "backstage"
+        palette:
+          navigation:
+            background: "#222222" # your fixed light theme sidebar background
+      dark:
+        variant: "backstage"
+        palette:
+          navigation:
+            background: "#222222" # same fixed color for dark theme
+  packages: all
+
+organization:
+  name: VeeCode
+
+i18n:
+  locales:
+    - en
+    - pt      # add the locales you want exposed in Settings
+  defaultLocale: en
+
+backend:
+  baseUrl: http://localhost:7007
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+    # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
+    # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+    script-src:
+      [
+        "'self'",
+        "'unsafe-eval'",
+        'https://www.google-analytics.com',
+        'https://www.googletagmanager.com',
+      ]
+    img-src:
+      [
+        "'self'",
+        'data:',
+        'https://www.google-analytics.com',
+        'https://www.googletagmanager.com',
+        'https://platform.vee.codes',
+        'https://avatars.githubusercontent.com/',
+        'https://veecode-platform.github.io',
+        'https://img.shields.io'
+      ]
+  cors:
+    origin: http://localhost:3000
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
+  # This is for local development only, it is not recommended to use this in production
+  # The production database configuration is stored in app-config.production.yaml
+  database:
+    client: better-sqlite3
+    connection: ':memory:'
+  # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
+
+  auth:
+    dangerouslyDisableDefaultAuthPolicy: false
+    # Notice: This test-token can be used to add notifications to the backstage demo application.
+    # Production enironments should define a token in a more secure way that supports rotation.
+    # externalAccess:
+    #   - type: static
+    #     options:
+    #       token: myowntoken
+    #       subject: test-subject
+  reading:
+    allow:
+      - host: github.com
+      - host: gitlab.com
+      - host: api.apis.guru
+      - host: example.com
+      - host: platform.vee.codes
+      - host: '*.mozilla.org'
+  actions:
+    pluginSources:
+      - catalog
+      - scaffolder
+auth:
+  environment: development
+  # see https://backstage.io/docs/auth/ to learn about auth providers
+  providers:
+    # See https://backstage.io/docs/auth/guest/provider
+    #guest: {}
+    guest:
+      userEntityRef: user:default/admin
+      ownershipEntityRefs: [group:default/admins]
+      dangerouslyAllowOutsideDevelopment: true
+
+# proxy:
+  ### Example for how to add a proxy endpoint for the frontend.
+  ### A typical reason to do this is to handle HTTPS and CORS for internal services.
+  # endpoints:
+  #   '/test':
+  #     target: 'https://example.com'
+  #     changeOrigin: true
+
+# Reference documentation http://backstage.io/docs/features/techdocs/configuration
+# Note: After experimenting with basic setup, use CI/CD to generate docs
+# and an external cloud storage when deploying TechDocs for production use-case.
+# https://backstage.io/docs/features/techdocs/how-to-guides#how-to-migrate-from-techdocs-basic-to-recommended-deployment-approach
+techdocs:
+  builder: 'local' # Alternatives - 'external'
+  generator:
+    runIn: 'local' # Alternatives - 'local'
+  publisher:
+    type: 'local' # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+
+# scaffolder:
+  # see https://backstage.io/docs/features/software-templates/configuration for software template options
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    # Plugin/Package/Collection are the kinds the marketplace ("extensions") catalog uses —
+    # ingested by the catalog-backend-module-extensions provider from the plugin-catalog-index
+    # (extracted to /app/catalog-entities/extensions/ by entrypoint.sh). Without them in the
+    # allow-list the provider's entities are rejected and the marketplace "Catalog" tab is empty.
+    - allow: [Component, System, API, Resource, Location, User, Group, Template, Plugin, Package, Collection]
+  locations:
+    # Local example data, file locations are relative to the backend process, typically `packages/backend`
+    # Consolidated into a single Location aggregator file under `examples`
+    - type: file
+      target: ../../examples/catalog-all.yaml
+
+    ## Uncomment these lines to add more example data
+    # - type: url
+    #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
+
+    # - type: url
+    #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
+    #   rules:
+    #     - allow: [User, Group]
+
+# kubernetes:
+  # see https://backstage.io/docs/features/kubernetes/configuration for kubernetes configuration options
+
+# see https://backstage.io/docs/permissions/getting-started for more on the permission framework
+permission:
+  # setting this to `false` will disable permissions
+  # enabled: false
+  enabled: true
+  rbac:
+    policies-csv-file: ../../rbac-policy.csv
+    pluginsWithPermission:
+      - catalog
+      - scaffolder
+      - permission
+    admin:
+      users:
+        - name: group:default/admins
+        - name: group:default/backstage-admins
+      superUsers:
+        - name: group:default/admins
+        - name: group:default/backstage-admins
+# tech radar backend plugin
+techRadar:
+  url: https://platform.vee.codes/techradar.json
+#  url: https://github.com/backstage/community-plugins/blob/main/workspaces/tech-radar/plugins/tech-radar-common/src/sampleTechRadarResponse.json
+
+# bug da veecodesignin page
+platform:
+  guest:
+    enabled: true
+# bug from jenkins scaffolder plugin
+jenkins:
+  baseUrl: http://localhost:8080 # anything
+
+dynamicPlugins:
+  rootDirectory: dynamic-plugins-root

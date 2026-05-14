@@ -1,0 +1,72 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "YARN_ENABLE_GLOBAL_CACHE",
+    "YARN_ENABLE_IMMUTABLE_CACHE",
+    "YARN_ENABLE_MIRROR",
+    "YARN_GLOBAL_FOLDER",
+    "GITHUB_CLIENT_ID",
+    "GITHUB_CLIENT_SECRET",
+    "GITHUB_APP_ID",
+    "GITHUB_PRIVATE_KEY",
+    "GITHUB_ORG",
+    "VIRTUAL_ENV",
+    "VIRTUAL_ENV_PROMPT_PROMPT",
+    "DECK_KONG_ADDR",
+    "AZURE_CLIENT_ID",
+    "AZURE_CLIENT_SECRET",
+    "AZURE_TENANT_ID",
+    "AZURE_ORGANIZATION",
+    "AZURE_PROJECT",
+    "AZURE_TOKEN",
+    "AUTH_SESSION_SECRET",
+    "LDAP_URL",
+    "LDAP_DN",
+    "LDAP_SECRET",
+    "LDAP_USERS_BASE_DN",
+    "LDAP_USERS_FILTER",
+    "LDAP_GROUPS_BASE_DN",
+    "LDAP_GROUPS_FILTER",
+    "GITLAB_HOST",
+    "GITLAB_AUTH_CLIENT_ID",
+    "GITLAB_AUTH_CLIENT_SECRET",
+    "GITLAB_TOKEN",
+    "GITLAB_GROUP",
+    "GITLAB_GROUP_PATTERN"
+  ],
+  "globalDependencies": [
+    "app-config.yaml",
+    "app-config.dynamic-plugins.yaml",
+    "app-config.github.yaml",
+    "app-config.gitlab.yaml",
+    "dynamic-plugins.default.yaml"
+  ],
+  "tasks": {
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "outputs": ["dist/**"],
+      "dependsOn": ["^build", "tsc"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "test": {
+      "outputs": ["coverage/**"]
+    },
+    "lint:check": {},
+    "lint:fix": {
+      "cache": false
+    },
+    "prettier:check": {},
+    "prettier:fix": {
+      "cache": false
+    },
+    "tsc": {
+      "outputs": ["../../dist-types/**"],
+      "dependsOn": ["^tsc"]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: my-own-db
+spec:
+  type: database
+  owner: admins
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: my-own-vault
+spec:
+  type: vault
+  owner: admins
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: my-own-bucket
+spec:
+  type: bucket
+  owner: admins
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: development
+spec:
+  type: environment
+  owner: admins
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: production
+spec:
+  type: environment
+  owner: admins

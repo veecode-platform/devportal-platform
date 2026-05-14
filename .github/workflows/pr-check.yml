@@ -1,0 +1,86 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+  repository_dispatch:
+    types: [pr-validate]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+
+      - name: Set pending status
+        if: github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.client_payload.sha }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+            -f state=pending \
+            -f context=validate \
+            -f description="Validation in progress" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+      - name: Set up Node.js + Corepack (Yarn 4)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable Corepack & Yarn 4
+        run: |
+          npm i -g corepack
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
+          yarn config set nodeLinker node-modules
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: TypeScript check
+        run: yarn tsc
+
+      - name: Lint check
+        run: yarn lint:check
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Report status
+        if: always() && github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.client_payload.sha }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then
+            STATE="success"
+            DESC="All checks passed"
+          else
+            STATE="failure"
+            DESC="Validation failed"
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+            -f state="$STATE" \
+            -f context=validate \
+            -f description="$DESC" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

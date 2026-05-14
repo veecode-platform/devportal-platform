@@ -1,0 +1,82 @@
+app:
+  # Should be the same as backend.baseUrl when using the `app-backend` plugin.
+  baseUrl: http://localhost:7007
+  listen: {}
+
+backend:
+  # Note that the baseUrl should be the URL that the browser and other clients
+  # should use when communicating with the backend, i.e. it needs to be
+  # reachable not just from within the backend host, but from all of your
+  # callers. When its value is "http://localhost:7007", it's strictly private
+  # and can't be reached by others.
+  baseUrl: http://localhost:7007
+  # The listener can also be expressed as a single <host>:<port> string. In this case we bind to
+  # all interfaces, the most permissive setting. The right value depends on your specific deployment.
+  listen:
+    port: 7007
+    # Bind to all interfaces (0.0.0.0) for Docker compatibility
+    host: 0.0.0.0
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+    # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
+    # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+  cors:
+    origin: http://localhost:7007
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
+
+auth:
+  experimentalDynamicClientRegistration:
+    enabled: true
+    allowedRedirectUriPatterns:
+      - 'http://127.0.0.1:*/callback'
+      - 'http://localhost:*/callback'
+  experimentalRefreshToken:
+    enabled: true
+    tokenLifetime: { days: 30 }
+    maxRotationLifetime: { years: 1 }
+    maxTokensPerUser: 20
+
+catalog:
+  locations:
+    # Local example data, file locations are relative to the backend process, typically `packages/backend`
+    - type: file
+      target: /app/examples/entities.yaml
+    # Local example templates
+    - type: file
+      target: /app/examples/template-nodejs/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: /app/examples/template-openapi/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: /app/examples/template-azure-nodejs/template.yaml
+      rules:
+        - allow: [Template]
+    # Local example organizational data
+    - type: file
+      target: /app/examples/org.yaml
+      rules:
+        - allow: [User, Group]  
+    # Local example apis
+    - type: file
+      target: /app/examples/apis.yaml
+    # Local example resources
+    - type: file
+      target: /app/examples/resources.yaml
+    # Local example clusters
+    - type: file
+      target: /app/examples/clusters.yaml
+    # Local example techdocs documentation
+    - type: file
+      target: /app/examples/techdocs/catalog-info.yaml
+    - type: file
+      target: /app/examples/template-nodejs/catalog-info.yaml
+    - type: file
+      target: /app/examples/template-openapi/catalog-info.yaml
+
+permission:
+  rbac:
+    policies-csv-file: ${RBAC_POLICY_PATH:-/app/rbac-policy.csv}

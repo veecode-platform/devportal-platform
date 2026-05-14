@@ -1,0 +1,324 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with this repository.
+
+## Project Overview
+
+VeeCode DevPortal is an open-source Backstage distribution designed for production use. It provides a minimal, extensible foundation with dynamic plugin loading capabilities. This is **not** a fork of RHDH but draws inspiration and patterns from Red Hat Developer Hub.
+
+**Key characteristics:**
+
+- Yarn 4 monorepo with workspaces (always try to use the same yarn version, latest stable)
+- Frontend app: packages/app folder
+- Backend app: packages/backend folder
+- Internal static plugins: plugins/\* folders
+- Static plugins: the ones imported in packages.json (backend plugins in Backend app, frontend plugins in Frontend app)
+- Dynamic plugin architecture replicated from RHDH (using Scalprum)
+- Node.js 20 or above required
+
+## Understanding the codebase
+
+- docs/adr/ - Architecture Decision Records (ADRs) explaining why decisions were made:
+  - ADR-001: Scalprum dynamic plugins
+  - ADR-002: Base vs distro image
+  - ADR-003: UBI10 Node.js base image
+  - ADR-004: Static vs dynamic plugins
+  - ADR-005: Testing strategy
+  - ADR-006: Yarn 4 workspaces
+  - ADR-007: Jest watch false
+  - ADR-008: Trunk-based development
+  - ADR-009: Configuration profiles
+  - ADR-010: Unified image, preset catalog, OCI dynamic plugins
+  - ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset
+- docs/UPGRADING.md - How to upgrade Backstage, Node.js base image, and dependencies
+- docs/ROADMAP_FEATURES.md - Planned features and product evolution
+- docs/ROADMAP_BACKLOG.md - Technical debt, skipped tests, and outdated documentation
+- docs/BACKSTAGE_ARCHITECTURE.md - Core Backstage architecture, frontend/backend components, and plugin system
+- docs/CONFIGURATION_GUIDE.md - YAML-based configuration hierarchy and core settings (outdated)
+- docs/DEVELOPMENT_GUIDE.md - Getting started, prerequisites, and development workflow (outdated)
+- docs/DOCKER_DEVELOPMENT.md - Docker setup for local development and production builds (outdated)
+- docs/DYNAMIC_PLUGINS_ARCHITECTURE.md - Scalprum-based dynamic plugin system (outdated)
+- docs/DYNAMIC_PLUGIN_TRANSLATIONS.md - Internationalization for dynamic plugin menu items
+- docs/MONOREPO_STRUCTURE.md - Yarn workspaces, package management, and repository organization (outdated)
+- docs/MUI_MIGRATION_STATUS.md - Material-UI v4 to v5 migration progress and compatibility layer (outdated)
+- docs/PLUGINS.md - Static vs dynamic plugins, core plugin list, and plugin architecture
+- docs/PROJECT_CONTEXT.md - Technology stack, architecture overview, and AI assistant guidance (outdated)
+- docs/RBAC.md - Role-based access control configuration and policies
+
+## Known Issues
+
+Testing coverage is low due to migration to DevPortal Base repository. See Testing Strategy below.
+
+## Common Commands
+
+### Initial Setup
+
+```bash
+make full && yarn check-dynamic-plugins   # Or: yarn init-local
+```
+
+### Development
+
+```bash
+yarn dev-local                            # Start with local config (app-config.local.yaml)
+yarn dev                                  # Start with base config only
+LOG_LEVEL=debug yarn dev-local            # With debug logging
+yarn debug-local                          # With Node.js inspector enabled
+```
+
+### Building
+
+```bash
+yarn build                                # Build all packages (turbo)
+yarn build:backend                        # Build backend only
+yarn tsc                                  # TypeScript check all packages
+```
+
+### Testing
+
+```bash
+yarn test                                 # Run tests (turbo)
+yarn test:all                             # Run all tests with coverage
+yarn test:e2e                             # Run Playwright e2e tests
+```
+
+### Linting
+
+```bash
+yarn lint:check                           # Check linting (turbo)
+yarn lint:fix                             # Fix linting issues (turbo)
+yarn prettier:check                       # Check formatting
+```
+
+### Single Package Operations
+
+```bash
+yarn workspace backend test               # Test backend package
+yarn workspace app build                  # Build app package
+yarn workspace @internal/plugin-dynamic-plugins-info test
+```
+
+### Dynamic Plugins
+
+```bash
+cd dynamic-plugins/
+yarn install && yarn build && yarn export-dynamic
+yarn copy-dynamic-plugins $(pwd)/../dynamic-plugins-root
+```
+
+## Architecture
+
+### Monorepo Structure
+
+```pre
+packages/
+  app/           # Frontend application (Scalprum-based dynamic shell)
+  backend/       # Backend server with static plugins
+  plugin-utils/  # Shared utilities
+
+plugins/         # Internal plugins (workspace packages)
+  dynamic-plugins-info/          # Frontend plugin for viewing loaded plugins
+  dynamic-plugins-info-backend/  # Backend API for plugin info
+  scalprum-backend/              # Backend support for dynamic frontend loading
+
+dynamic-plugins/                 # Build workspace for preinstalled plugins
+  wrappers/      # Compatibility wrappers for legacy static plugins
+  downloads/     # Native dynamic plugins (defined in plugins.json)
+  _utils/        # Build utilities
+
+dynamic-plugins-root/            # Runtime directory for loaded dynamic plugins
+```
+
+### Plugin Types
+
+1. **Static Plugins**: Compiled into the application bundle (backend: auth providers, catalog, scaffolder, permissions, RBAC; frontend: minimal core)
+
+2. **Dynamic Plugins**: Loaded at runtime from `dynamic-plugins-root/` directory
+
+   - **Preinstalled**: Baked into image, optionally enabled via config
+   - **Downloaded**: Fetched from registries at startup
+
+3. **Internal Plugins** (`@internal/*`): Workspace packages in `plugins/` directory
+
+### Frontend Architecture
+
+The frontend uses Scalprum for dynamic plugin loading instead of standard Backstage routing. Key files:
+
+- `packages/app/src/App.tsx` - Root component with ScalprumRoot
+- `packages/app/src/components/DynamicRoot/` - Dynamic plugin mounting infrastructure
+- `packages/app/src/apis.ts` - API factories
+
+Dynamic plugins builds (frontend or backend) use `janus-cli` or its more recent version `rhdh-cli`.
+
+### Backend Architecture
+
+The backend (`packages/backend/src/index.ts`) initializes:
+
+1. Default service factories with custom logging
+2. Dynamic plugin feature loader with custom module resolution for wrapper packages
+3. Static plugins (catalog, auth, scaffolder, permissions, search, etc.)
+4. Internal plugins (dynamic-plugins-info-backend, scalprum-backend)
+
+### Configuration Files
+
+- `app-config.yaml` - Base configuration (guest auth, local SQLite)
+- `app-config.production.yaml` - Container/production paths
+- `app-config.dynamic-plugins.yaml` - Dynamic plugin configurations
+- `app-config.local.yaml` - Local developer overrides (gitignored)
+
+### Configuration Profiles
+
+Profiles provide pre-packaged authentication and integration setups activated via a single environment variable. The startup script (`scripts/start-base.sh`) merges profile-specific config files on top of the base configuration. See [ADR-009](docs/adr/009-configuration-profiles.md) for details.
+
+**Available profiles** (set via `VEECODE_PROFILE` env var):
+
+| Profile    | Config File                | Auth Provider             |
+| ---------- | -------------------------- | ------------------------- |
+| `github`   | `app-config.github.yaml`   | GitHub OAuth + GitHub App |
+| `keycloak` | `app-config.keycloak.yaml` | OIDC/Keycloak             |
+| `azure`    | `app-config.azure.yaml`    | Microsoft/Azure AD        |
+| `ldap`     | `app-config.ldap.yaml`     | LDAP                      |
+| `gitlab`   | `app-config.gitlab.yaml`   | GitLab OAuth              |
+| `local`    | `app-config.local.yaml`    | Developer overrides       |
+
+Each profile configures auth providers, sign-in resolvers, SCM integrations, and catalog providers for that identity source. Secrets are passed via environment variables (e.g., `GITHUB_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`).
+
+**Adding a new profile checklist:**
+
+1. Create `app-config.<profile>.yaml` configuration file
+2. Add case to `scripts/start-base.sh`
+3. Add environment variables to `turbo.json` `globalEnv` array (required for local dev)
+4. Add config file to `turbo.json` `globalDependencies` array
+5. Update ADR-009 and this table
+
+## Tech Docs Setup
+
+For local TechDocs generation:
+
+```bash
+python3 -m venv $(pwd)/venv
+source venv/bin/activate
+pip install -r python/requirements.txt
+```
+
+Keep the venv activated when running DevPortal.
+
+## Default Ports
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:7007`
+
+## Testing Backend APIs
+
+This is very important: testing backend APIs directly is an excellent way to investigate issues and to build automated backend tests.
+
+```bash
+# Get user token via guest auth
+USER_TOKEN="$(curl -s -X POST http://localhost:7007/api/auth/guest/refresh \
+  -H 'Content-Type: application/json' -d '{}' | jq -r '.backstageIdentity.token')"
+
+# Use token for API calls
+curl -H "Authorization: Bearer $USER_TOKEN" http://localhost:7007/api/catalog/entities
+```
+
+## Testing Strategy
+
+**Principle: Test as you go, don't stop to backfill.**
+
+Testing improves organically alongside feature work. No dedicated "testing sprints" that block delivery.
+
+### Rules for when to write tests
+
+| Situation                   | Action              |
+| --------------------------- | ------------------- |
+| Writing new code            | Add unit test       |
+| Fixing a bug                | Add regression test |
+| Refactoring old code        | Add test first      |
+| Just reading/using old code | Leave it alone      |
+
+### Priority areas (when you have time)
+
+1. **Backend APIs** - Easy to test, high value
+2. **Internal plugins** (`plugins/*`) - Isolated, testable units
+3. **Shared utilities** (`packages/plugin-utils`)
+
+### Skip for now
+
+- Complex frontend component tests (DynamicRoot, Scalprum integration)
+- E2E tests (high maintenance cost)
+
+## Browser Automation
+
+**Prefer `agent-browser` over Puppeteer MCP tools** for web automation. It provides cleaner element discovery with refs (`@e1`, `@e2`) instead of CSS selectors, avoiding selector failures and custom JavaScript workarounds.
+
+Run `agent-browser --help` for all commands.
+
+Core workflow:
+
+1. `agent-browser open <url>` - Navigate to page
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
+3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
+4. Re-snapshot after page changes
+
+### CI enforcement
+
+- PR checks run `yarn test` - prevents new regressions
+- Pre-commit hooks catch issues early
+
+## Git Workflow
+
+**Trunk-based development with short-lived branches.**
+
+### Rules
+
+1. **Never push directly to main** - Always use feature branches and PRs
+2. **Keep branches short-lived** - Hours to days, not weeks
+3. **Wait for CI** - `validate` check must pass before merge
+4. **Squash merge** - Keep main history clean
+5. **Delete branch after merge** - No stale branches
+
+### Workflow
+
+```bash
+# 1. Create feature branch
+git checkout -b feat/my-feature
+
+# 2. Make changes and commit
+git add .
+git commit -m "Add my feature"
+
+# 3. Push and create PR
+git push -u origin feat/my-feature
+gh pr create --fill
+
+# 4. Wait for CI, then merge
+gh pr merge --squash --delete-branch
+
+# 5. Update local main
+git checkout main && git pull
+```
+
+### Branch Naming
+
+- `feat/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation only
+- `refactor/` - Code refactoring
+- `chore/` - Maintenance tasks
+
+### Exceptions
+
+Direct push to main (bypassing branch protection) is allowed for:
+
+**Low-risk changes:**
+
+- Pure documentation changes (markdown files, comments only)
+- ADR additions or updates
+- CLAUDE.md updates
+
+**Emergencies only:**
+
+- Critical security fixes that can't wait for CI
+- CI pipeline fixes when PR checks are broken
+
+For emergencies, document the reason in the commit message.

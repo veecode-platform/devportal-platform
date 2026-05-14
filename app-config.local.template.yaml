@@ -1,0 +1,18 @@
+# Backstage override configuration for your local development environment
+
+# bug da veecodesignin page
+platform:
+  guest:
+    enabled: true
+
+auth:
+  experimentalDynamicClientRegistration:
+    enabled: true
+    allowedRedirectUriPatterns:
+      - 'http://127.0.0.1:*/callback'
+      - 'http://localhost:*/callback'
+  experimentalRefreshToken:
+    enabled: true
+    tokenLifetime: { days: 30 }
+    maxRotationLifetime: { years: 1 }
+    maxTokensPerUser: 20

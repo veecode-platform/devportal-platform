@@ -1,0 +1,89 @@
+name: Automated Update Check
+
+on:
+  schedule:
+    - cron: '0 22 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: automated-update
+  cancel-in-progress: true
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack (Yarn 4.12.0)
+        run: npm i -g corepack && corepack enable && corepack prepare yarn@4.12.0 --activate
+
+      - name: Install skopeo
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Login to Red Hat registry
+        env:
+          rh_user: ${{ secrets.REDHAT_USER }}
+          rh_pass: ${{ secrets.REDHAT_PASS }}
+        if: ${{ env.rh_user != '' && env.rh_pass != '' }}
+        run: |
+          echo "$rh_pass" | skopeo login registry.redhat.io -u "$rh_user" --password-stdin
+
+      - name: Install agent-browser
+        run: npm install -g agent-browser && agent-browser install --with-deps
+
+      - name: Read prompt file
+        id: read-prompt
+        run: |
+          {
+            echo 'PROMPT<<EOF'
+            cat .github/prompts/automated-update-ci.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run maintenance agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.read-prompt.outputs.PROMPT }}
+          claude_args: "--model claude-sonnet-4-6 --allowedTools Bash,Read,Edit,Write,Glob,Grep"
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger PR checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_BRANCH="chore/automated-update-$(date -u +%Y-%m-%d)"
+          PR_NUMBER=$(gh pr list --state open --head "$PR_BRANCH" --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            HEAD_SHA=$(git rev-parse "origin/$PR_BRANCH")
+            gh api "repos/${GITHUB_REPOSITORY}/dispatches" \
+              -f event_type=pr-validate \
+              -f "client_payload[ref]=$PR_BRANCH" \
+              -f "client_payload[sha]=$HEAD_SHA"
+            echo "Triggered pr-validate for PR #$PR_NUMBER (sha: $HEAD_SHA)"
+          else
+            echo "No open PR found for branch $PR_BRANCH, skipping check trigger"
+          fi
+
+      - name: Upload visual regression screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-screenshots
+          path: /tmp/visual-regression/
+          if-no-files-found: ignore
+          retention-days: 30

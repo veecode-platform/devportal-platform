@@ -1,0 +1,7 @@
+# Build-time requirements for VeeCode DevPortal Tech Docs
+# This includes runtime requirements plus build tools
+
+# Include all runtime requirements
+-r requirements.in
+
+# Additional build-time tools can be added here if needed

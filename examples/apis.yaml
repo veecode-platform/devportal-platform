@@ -1,0 +1,54 @@
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: apis-guru
+  description: The apis.guru REST API
+spec:
+  type: openapi
+  lifecycle: production
+  owner: group:admins
+  definition:
+    $openapi: https://api.apis.guru/v2/openapi.yaml
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: my-grpc-api-1
+  description: Some grpc api
+spec:
+  type: grpc-docs
+  lifecycle: production
+  owner: group:admins
+  definition: |
+    {
+      "syntax": "proto3",
+      "package": "example",
+      "messages": [
+        {
+          "name": "HelloRequest",
+          "fields": [
+            { "name": "name", "number": 1, "label": "optional", "type": "string" }
+          ]
+        },
+        {
+          "name": "HelloReply",
+          "fields": [
+            { "name": "message", "number": 1, "label": "optional", "type": "string" }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "Greeter",
+          "methods": [
+            {
+              "name": "SayHello",
+              "inputType": "HelloRequest",
+              "outputType": "HelloReply",
+              "clientStreaming": false,
+              "serverStreaming": false
+            }
+          ]
+        }
+      ]
+    }

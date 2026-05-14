@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(markdownlint:*)",
+      "Bash(git -C /Users/andre/projetos/veecode/devportal-base log --oneline -20)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "mcp__github__get_pull_request_status",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run watch:*)",
+      "Bash(make release:*)",
+      "Bash(git status:*)",
+      "Bash(git branch:*)",
+      "Bash(yarn workspace app lint:check:*)",
+      "Bash(yarn lint:check:*)",
+      "Bash(yarn tsc:*)"
+    ]
+  },
+  "enabledMcpjsonServers": ["memory", "puppeteer", "sequential-thinking"],
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
+  }
+}

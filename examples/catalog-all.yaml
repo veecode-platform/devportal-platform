@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: examples-all
+spec:
+  type: file
+  targets:
+    - ./entities.yaml
+    - ./template-nodejs/template.yaml
+    - ./template-openapi/template.yaml
+    - ./template-azure-nodejs/template.yaml
+    - ./org.yaml
+    - ./apis.yaml
+    - ./resources.yaml
+    - ./clusters.yaml
+    - ./techdocs/catalog-info.yaml
+    - ./template-nodejs/catalog-info.yaml
+    - ./template-openapi/catalog-info.yaml
+

@@ -1,0 +1,87 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 10 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to scan'
+        required: false
+        default: 'latest'
+  workflow_run:
+    workflows: ["build-backend-image"]
+    types: [completed]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag || 'latest' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack (Yarn 4.12.0)
+        run: npm i -g corepack && corepack enable && corepack prepare yarn@4.12.0 --activate
+
+      - name: Install trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+
+      - name: Resolve image tag from publish
+        if: github.event_name == 'workflow_run'
+        run: |
+          VERSION=$(grep '"version"' package.json | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+          echo "IMAGE_TAG=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Read prompt file
+        id: read-prompt
+        run: |
+          {
+            echo 'PROMPT<<EOF'
+            cat .github/prompts/security-scan.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run security agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.read-prompt.outputs.PROMPT }}
+          claude_args: "--model claude-sonnet-4-6 --allowedTools Bash,Read,Edit,Write,Glob,Grep"
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+
+      - name: Trigger PR checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          PR_BRANCH="chore/security-fix-$(date -u +%Y-%m-%d)"
+          PR_NUMBER=$(gh pr list --repo "$REPO" --state open --head "$PR_BRANCH" --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            HEAD_SHA=$(git rev-parse "origin/$PR_BRANCH")
+            gh api "repos/$REPO/dispatches" \
+              -f event_type=pr-validate \
+              -f "client_payload[ref]=$PR_BRANCH" \
+              -f "client_payload[sha]=$HEAD_SHA"
+            echo "Triggered pr-validate for PR #$PR_NUMBER (sha: $HEAD_SHA)"
+          else
+            echo "No open PR found for branch $PR_BRANCH, skipping check trigger"
+          fi

@@ -1,0 +1,42 @@
+#
+# This is a dynamic plugins config file bundled with the devportal-base image.
+# It is used to define the behaviour of the dynamic plugins system pre-startup.
+#
+# Plugins at "dynamic-plugins-root" will be loaded at startup, and its default 
+# content is defined by the "dynamic-plugins" workspace (downloads and wrappers).
+# This file defines, on the other hand, defines the plugins that will be copied 
+# into the "dynamic-plugins-root" folder during startup.
+#
+# It is important to undertand: pre-installed plugins are bundled with the image.
+# They are forcibly loaded at startup if placed in the "dynamic-plugins-root" folder.
+# They are **not** forcibly loaded if kept somewhere else.
+#
+# This config file will enumerate plugins that:
+#
+# 1. Are bundled in the image file system, but outside the "dynamic-plugins-root" folder.
+# 2. Are not bundled in the image, but are available for download.
+#
+# A start script will process this file and make sure enabled plugins are copied
+# into the "dynamic-plugins-root" folder *and* that their configuration gets merged
+# into a proper dedicated "app-config" file.
+#
+includes:
+  # Always start by merging the defaults that ship inside the image — the
+  # proto-templates (every shippable plugin, mostly disabled, with pluginConfig).
+  - dynamic-plugins.default.yaml
+  # Plugins installed/enabled via the marketplace UI.
+  - extensions-install.yaml
+  # The entrypoint preset resolver (VEECODE_PRESETS) appends one
+  # `preset-<name>-plugins.yaml` fragment per selected preset to this list at
+  # startup — see entrypoint.sh and presets/README.md.
+
+# This top-level `plugins:` list is the operator's last-word override: it is
+# merged AFTER every `includes:` entry (including the preset fragments), so
+# anything listed here wins over any preset. Keep it EMPTY in the shipped image —
+# plugin selection is driven by dynamic-plugins.default.yaml + VEECODE_PRESETS.
+#
+# (It used to carry disabled stubs for the github/azure/jenkins/kubernetes/MCP
+# plugins and the dynamic-plugins-info override — all exact duplicates of entries
+# already in dynamic-plugins.default.yaml, and, because this list runs last, they
+# silently re-disabled anything an integration preset tried to enable. Removed.)
+plugins: []

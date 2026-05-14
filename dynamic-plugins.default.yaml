@@ -1,0 +1,592 @@
+#
+# dynamic plugins defaults
+#
+plugins:
+# Group: Kubernetes
+  # currently the BE plugin is static, so this is commented out
+  # - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
+  #   disabled: true
+  #   pluginConfig:
+  #     kubernetes:
+  #       serviceLocatorMethod:
+  #         type: 'multiTenant'
+  #       clusterLocatorMethods:
+  #         - type: 'config'
+  #           clusters:
+  #             - name: ${K8S_CLUSTER_NAME}
+  #               url: ${K8S_CLUSTER_URL}
+  #               authProvider: 'serviceAccount'
+  #               skipTLSVerify: true
+  #               serviceAccountToken: ${K8S_CLUSTER_TOKEN}
+  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-kubernetes:
+            # Declare the tab (path + title) and bind it to a mountPoint
+            entityTabs:
+              - path: /kubernetes
+                title: Kubernetes
+                mountPoint: entity.page.kubernetes
+                config:
+                  if:
+                    allOf:
+                      - hasAnnotation: backstage.io/kubernetes-label-selector
+                      # - hasAnnotation: backstage.io/kubernetes-id
+                      # - hasAnnotation: backstage.io/kubernetes-namespace
+            mountPoints:
+              - mountPoint: entity.page.kubernetes/cards
+                importName: EntityKubernetesContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: backstage.io/kubernetes-label-selector
+                  # if:
+                  #   anyOf:
+                  #     - hasAnnotation: backstage.io/kubernetes-id
+                  #     - hasAnnotation: backstage.io/kubernetes-namespace
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-floating-action-button-dynamic
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-global-floating-action-button:
+            mountPoints:
+              - mountPoint: application/listener
+                importName: DynamicGlobalFloatingActionButton
+              - mountPoint: global.floatingactionbutton/config
+                importName: NullComponent
+                config:
+                  icon: github
+                  label: 'Git'
+                  toolTip: 'Github'
+                  to: https://github.com/veecode-platform/devportal-distro
+
+  - package: ./dynamic-plugins/dist/roadiehq-backstage-plugin-security-insights-dynamic
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          roadiehq.backstage-plugin-security-insights:
+            # 1) Declare the tab (path + title) and bind it to a mountPoint
+            entityTabs:
+              - path: /security-insights
+                title: Security Insights
+                mountPoint: entity.page.security-insights
+                # (optional) move it left/right in the tab bar
+                # priority: -1
+                config:
+                  if:
+                    allOf:
+                      - isSecurityInsightsAvailable
+            mountPoints:
+              - mountPoint: entity.page.security-insights/cards
+                importName: EntitySecurityInsightsContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"   # full width page content
+                  if:
+                    allOf:
+                      - isSecurityInsightsAvailable
+              - mountPoint: entity.page.overview/cards
+                importName: EntityDependabotAlertsCard
+                config:
+                  layout:
+                    gridRowStart:
+                      lg: "-1"           # Row 2 (About is likely row 1)
+                    gridColumnStart:
+                      lg: "5"           # Right side, start at column 7
+                    gridColumnEnd:
+                      lg: "-1"          # Extend to end
+                      md: "span 12"
+                      xs: "span 12"
+                  if:
+                    allOf:
+                      - isSecurityInsightsAvailable
+  - package: ./dynamic-plugins/dist/roadiehq-backstage-plugin-github-insights-dynamic
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          roadiehq.backstage-plugin-github-insights:
+            entityTabs:
+              - path: /code-insights
+                title: Code Insights
+                mountPoint: entity.page.code-insights
+                config:
+                  if:
+                    allOf:
+                      - isGithubInsightsAvailable   # only show when it makes sense
+                      - hasAnnotation: "github.com/project-slug"
+            mountPoints:
+              - mountPoint: entity.page.code-insights/cards
+                importName: EntityGithubInsightsContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"   # full width page content
+                  if:
+                    allOf:
+                      - isGithubInsightsAvailable   # only show when it makes sense
+                      - hasAnnotation: "github.com/project-slug"
+            # mountPoints:
+            #   - mountPoint: entity.page.overview/cards
+            #     importName: EntityGithubInsightsLanguagesCard
+            #     config:
+            #       layout:
+            #         gridRowEnd:
+            #           lg: "span 2"
+            #         gridColumnStart:
+            #           lg: "5"           # Right side
+            #         gridColumnEnd:
+            #           lg: "-1"          # Extend to end
+            #           md: "span 12"
+            #           xs: "span 12"                
+            #       if:
+            #         allOf:
+            #           - isGithubInsightsAvailable
+            #   - mountPoint: entity.page.overview/cards
+            #     importName: EntityGithubInsightsComplianceCard
+            #     config:
+            #       layout:
+            #         gridColumnStart:
+            #           lg: "1"
+            #         gridColumnEnd:
+            #           lg: "span 4"      # Left half
+            #           md: "span 4"
+            #           xs: "span 6"
+            #       if:
+            #         allOf:
+            #           - isGithubInsightsAvailable
+                      
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-github-actions-dynamic
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-github-actions:
+            mountPoints:
+              - mountPoint: entity.page.ci/cards
+                importName: EntityGithubActionsContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - isGithubActionsAvailable
+
+  - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-backend-dynamic
+    disabled: true
+
+  - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-dynamic
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          veecode-platform.backstage-plugin-github-workflows:
+            mountPoints:
+              - mountPoint: entity.page.overview/cards
+                importName: EntityGithubWorkflowsCard
+                config:
+                  layout:
+                    gridRowStart:
+                      lg: "4"
+                    gridColumnStart:
+                      lg: "1"
+                    gridColumnEnd:
+                      lg: "span 6"
+                  if:
+                    anyOf:
+                      - hasAnnotation: "github.com/workflows"
+                      - hasAnnotation: "vee.codes/has-github-workflows"
+
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-azure-devops-dynamic
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-azure-devops:
+            mountPoints:
+              - mountPoint: entity.page.ci/cards
+                importName: EntityAzurePipelinesContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - isAzureDevOpsAvailable
+              - mountPoint: entity.page.pull-requests/cards
+                importName: EntityAzurePullRequestsContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - isAzureDevOpsAvailable
+
+  # Azure DevOps backend (serves the frontend above) — enabled by presets/azure.yaml
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-azure-devops-backend-dynamic
+    disabled: true
+
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-jenkins-backend-dynamic
+    disabled: true
+    # pluginConfig:
+    #   jenkins:
+    #     instances:
+    #       - name: default
+    #         baseUrl: ${JENKINS_URL}
+    #         username: ${JENKINS_USERNAME}
+    #         apiKey: ${JENKINS_TOKEN}
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-jenkins
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-jenkins:
+            mountPoints:
+              - mountPoint: entity.page.ci/cards
+                importName: EntityJenkinsContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - isJenkinsAvailable
+  # SONARQUBE
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-sonarqube-dynamic
+    disabled: true
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-sonarqube
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-sonarqube:
+            entityTabs:
+              - path: /code-quality
+                title: Code Quality
+                mountPoint: entity.page.code-quality
+                config:
+                  if:
+                    allOf:
+                      - isSonarQubeAvailable
+            mountPoints:
+            - mountPoint: entity.page.code-quality/cards
+              importName: SonarQubeRelatedEntitiesOverview
+              config:
+                layout:
+                  gridColumn: "1 / -1"
+                if:
+                  allOf:
+                  - isSonarQubeAvailable
+            - mountPoint: entity.page.overview/cards
+              importName: EntitySonarQubeCard
+              config:
+                layout:
+                  gridColumnEnd:
+                    lg: span 4
+                    md: span 6
+                    xs: span 12
+                if:
+                  allOf:
+                  - isSonarQubeAvailable
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-sonarqube-backend-dynamic
+    disabled: true
+
+  # ── Pre-installed plugins (config only) ──────────────────────────────
+  # These plugins are already present in dynamic-plugins-root/ at image
+  # build time (from devportal-base or copied/extracted in the Dockerfile).
+  # The preInstalled flag tells the install script to skip installation
+  # and only merge the pluginConfig into the generated app-config.
+  #
+  # Tiering (see docs/adr/010-unified-image-and-presets.md and presets/README.md):
+  #   - Core      → disabled: false here, always on (global header, homepage,
+  #                 About + backend, dynamic-plugins-info). Not gated by a preset.
+  #   - recommended → disabled: true here; the pluginConfig stays so a preset only
+  #                 has to flip `disabled` (install-dynamic-plugins.py merges shallow
+  #                 per-key). Enabled via VEECODE_PRESETS=recommended. (RBAC,
+  #                 tech-radar + backend, marketplace front/back, pending-changes,
+  #                 catalog-backend-module-extensions.)
+  - package: backstage-community-plugin-rbac
+    preInstalled: true
+    disabled: true   # recommended-tier
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-rbac:
+            dynamicRoutes:
+              - path: /rbac
+                importName: RbacPage
+                menuItem:
+                  text: RBAC
+                  textKey: menuItem.rbac
+                  icon: admin
+                config:
+                  props:
+                    width: 1500
+                    height: 800
+            appIcons:
+              - name: admin
+                importName: RbacIcon
+            menuItems:
+              rbac:
+                parent: admin
+                title: RBAC
+                titleKey: menuItem.rbac
+                icon: admin
+  - package: veecode-platform-plugin-veecode-homepage-dynamic
+    preInstalled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          veecode-platform.plugin-veecode-homepage:
+            translationResources:
+              - importName: homepageTranslations
+                ref: homepageTranslationRef
+            dynamicRoutes:
+              - path: /
+                importName: VeecodeHomepagePage
+                config:
+                  props:
+                    width: 1500
+                    height: 800
+  - package: veecode-platform-plugin-veecode-global-header-dynamic
+    preInstalled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          veecode-platform.plugin-veecode-global-header:
+            translationResources:
+              - importName: globalHeaderTranslations
+                ref: globalHeaderTranslationRef
+            mountPoints:
+              - mountPoint: application/header
+                importName: GlobalHeader
+                config:
+                  position: above-main-content
+              - mountPoint: global.header/component
+                importName: SearchComponent
+                config:
+                  priority: 100
+              - mountPoint: global.header/component
+                importName: Spacer
+                config:
+                  priority: 99
+                  props:
+                    growFactor: 0
+              - mountPoint: global.header/component
+                importName: Divider
+                config:
+                  priority: 90
+              - mountPoint: global.header/component
+                importName: NotificationButton
+                config:
+                  priority: 60
+              - mountPoint: global.header/component
+                importName: StarredDropdown
+                config:
+                  priority: 70
+                  props:
+                    growFactor: 0
+              - mountPoint: global.header/component
+                importName: ToggleThemeButton
+                config:
+                  priority: 75
+                  props:
+                    growFactor: 0
+              - mountPoint: global.header/component
+                importName: ProfileDropdown
+                config:
+                  priority: 10
+              - mountPoint: global.header/profile
+                importName: MenuItemLink
+                config:
+                  priority: 100
+                  props:
+                    title: Settings
+                    link: /settings
+                    icon: manageAccounts
+              - mountPoint: global.header/profile
+                importName: MenuItemLink
+                config:
+                  priority: 90
+                  props:
+                    title: My profile
+                    titleKey: profile.myProfile
+                    type: user
+              - mountPoint: global.header/profile
+                importName: LogoutButton
+                config:
+                  priority: 10
+  - package: backstage-community-plugin-tech-radar-dynamic
+    preInstalled: true
+    disabled: true   # recommended-tier
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-tech-radar:
+            appIcons:
+              - name: techRadar
+                importName: TechRadarIcon
+            dynamicRoutes:
+              - path: /tech-radar
+                importName: TechRadarPage
+                menuItem:
+                  icon: techRadar
+                  text: Tech Radar
+                  textKey: menuItem.techRadar
+                config:
+                  props:
+                    width: 1500
+                    height: 800
+  - package: backstage-community-plugin-tech-radar-backend-dynamic
+    preInstalled: true
+    disabled: true   # recommended-tier
+
+  # ABOUT plugin
+  - package: veecode-platform-backstage-plugin-about-backend-dynamic
+    preInstalled: true
+  - package: veecode-platform-backstage-plugin-about-dynamic
+    preInstalled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          veecode-platform.backstage-plugin-about:
+            appIcons:
+              - name: aboutIcon
+                importName: AboutIcon
+            dynamicRoutes:
+              - path: /about
+                importName: AboutPage
+                menuItem:
+                  icon: aboutIcon
+                  text: About
+                  enabled: true
+            menuItems:
+              about:
+                parent: admin
+                title: About
+                icon: aboutIcon
+
+  # ── Internal plugins-info (legacy extensions table) ─────────────────
+  # Override base image defaults: remove /extensions route and sidebar item.
+  # The admin group is preserved (inherited from base config).
+  - package: internal-plugin-dynamic-plugins-info
+    preInstalled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          internal.plugin-dynamic-plugins-info:
+            dynamicRoutes: []
+            mountPoints: []
+            menuItems:
+              extensions:
+                enabled: false
+
+  # ── Extensions Marketplace ──────────────────────────────────────────
+  # RHDH frontend — DISABLED (replaced by devportal fork)
+  - package: red-hat-developer-hub-backstage-plugin-extensions
+    preInstalled: true
+    disabled: true
+  # DevPortal marketplace frontend (fork of RHDH extensions frontend)
+  - package: devportal-marketplace-frontend-dynamic
+    preInstalled: true
+    disabled: true   # recommended-tier
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          devportal.marketplace-frontend:
+            appIcons:
+              - name: pluginsIcon
+                importName: PluginsIcon
+            dynamicRoutes:
+              - path: /marketplace
+                importName: DynamicExtensionsPluginRouter
+                menuItem:
+                  icon: pluginsIcon
+                  text: Marketplace
+            menuItems:
+              marketplace:
+                title: Marketplace
+                icon: pluginsIcon
+  # RHDH backend DISABLED — replaced by devportal-marketplace-backend.
+  # DO NOT enable both simultaneously — they share pluginId "extensions"
+  # and would conflict on /api/extensions/* routes.
+  - package: oci://quay.io/veecode/extensions:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-extensions-backend
+    disabled: true
+  # DevPortal custom marketplace backend
+  - package: devportal-marketplace-backend-dynamic-dynamic
+    preInstalled: true
+    disabled: true   # recommended-tier
+  # Pending changes indicator (header badge next to notifications bell)
+  - package: devportal-pending-changes-dynamic
+    preInstalled: true
+    disabled: true   # recommended-tier
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          devportal.pending-changes:
+            mountPoints:
+              - mountPoint: global.header/component
+                importName: PendingChangesButton
+                config:
+                  priority: 55
+                  props:
+                    pollingIntervalMs: 30000
+  # Catalog backend module — entity providers for Extension/Package/Collection kinds
+  # (powers the marketplace "Catalog" tab — recommended-tier, ships with the marketplace)
+  - package: red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
+    preInstalled: true
+    disabled: true   # recommended-tier
+    pluginConfig:
+      extensions:
+        directory: /app/catalog-entities/extensions
+        installation:
+          enabled: true
+          saveToSingleFile:
+            file: /app/extensions-install.yaml
+
+  # ── MCP (Model Context Protocol) ───────────────────────────────────
+  # MCP Actions Backend — exposes Backstage actions as MCP tools for AI clients
+  # NOTE: pluginSources consolidated here to avoid install-dynamic-plugins.py crash
+  # when multiple plugins define the same config key (shallow merge, not array merge)
+  - package: oci://quay.io/veecode/backstage:bs_${BACKSTAGE_VERSION}!backstage-plugin-mcp-actions-backend
+    disabled: true
+    pluginConfig:
+      backend:
+        actions:
+          pluginSources:
+            - mcp-actions
+            - software-catalog-mcp-extras
+            - techdocs-mcp-extras
+            - scaffolder-mcp-extras
+            - catalog
+            - scaffolder
+
+  # MCP Tool Plugins — register tools on the MCP actions server
+  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
+    disabled: true
+  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras
+    disabled: true
+  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+    disabled: true
+  # MCP Chat — AI chat interface inside Backstage
+  - package: oci://quay.io/veecode/mcp-chat:bs_${BACKSTAGE_VERSION}!backstage-community-plugin-mcp-chat-backend
+    disabled: true
+  - package: oci://quay.io/veecode/mcp-chat:bs_${BACKSTAGE_VERSION}!backstage-community-plugin-mcp-chat
+    disabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-mcp-chat:
+            dynamicRoutes:
+              - path: /mcp-chat
+                importName: McpChatPage
+                menuItem:
+                  icon: chat
+                  text: MCP Chat
+            menuItems:
+              mcp-chat:
+                title: MCP Chat
+                icon: chat

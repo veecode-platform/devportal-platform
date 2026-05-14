@@ -1,0 +1,25 @@
+# please keep this in sync with packages/app/src/App.tsx
+dynamicPlugins:
+  frontend:
+    internal.plugin-dynamic-plugins-info:
+      appIcons:
+        - name: adminIcon
+          importName: AdminIcon
+        - name: rbacIcon
+          importName: RbacIcon
+      dynamicRoutes:
+        - path: /rbac
+          importName: RbacPage
+          menuItem:
+            icon: rbacIcon
+            text: RBAC
+      menuItems:
+        admin:
+          title: Administration
+          titleKey: menuItem.administration
+          icon: adminIcon
+        rbac:
+          parent: admin
+          title: RBAC
+          titleKey: menuItem.rbac
+          icon: rbacIcon

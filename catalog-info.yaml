@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: devportal-platform
+  description: VeeCode DevPortal Platform — unified OCI image with preset catalog (Backstage 1.49.4)
+  annotations:
+    github.com/project-slug: veecode-platform/devportal-platform
+spec:
+  type: website
+  owner: group:developers
+  lifecycle: production
+  system: devportal

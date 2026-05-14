@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: examples-catalog-docs
+  title: Examples Catalog Documentation
+  description: Complete documentation of the examples folder structure and catalog entities
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: documentation
+  lifecycle: experimental
+  owner: admins
+  system: examples

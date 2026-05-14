@@ -1,0 +1,22 @@
+site_name: Examples Catalog Documentation
+site_description: Complete guide to the VeeCode DevPortal examples folder and catalog entities
+repo_name: veecode-platform/devportal-base
+repo_url: https://github.com/veecode-platform/devportal-base
+edit_uri: edit/main/examples/techdocs/docs/
+nav:
+  - Home: index.md
+  - Examples Overview:
+      - Folder Structure: overview/folder-structure.md
+      - Catalog Files: overview/catalog-files.md
+  - Entity Types:
+      - Components: entities/components.md
+      - Systems: entities/systems.md
+      - APIs: entities/apis.md
+      - Resources: entities/resources.md
+      - Users & Groups: entities/users-groups.md
+plugins:
+  - search
+  - mermaid2
+  - techdocs-core
+theme:
+  name: material

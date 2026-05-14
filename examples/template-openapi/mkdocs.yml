@@ -1,0 +1,14 @@
+site_name: Template Documentation
+site_description: Simple explanation of Backstage templates
+repo_name: veecode-platform/devportal-base
+repo_url: https://github.com/veecode-platform/devportal-base
+nav:
+  - Home: index.md
+  - What is an API Template?: what-is-api-template.md
+  - Before Scaffolding: before-scaffolding.md
+  - After Scaffolding: after-scaffolding.md
+plugins:
+  - search
+  - techdocs-core
+theme:
+  name: material
