@@ -1,0 +1,50 @@
+name: recommended
+description: Curated baseline — RBAC, tech radar, marketplace, pending-changes. No external integrations.
+version: 1.0.0
+
+# No required variables. The recommended preset assumes guest auth and no SCM
+# integration. Add an integration preset to wire the portal to your stack, e.g.
+# VEECODE_PRESETS=recommended,github
+requires:
+  variables: {}
+
+# These plugins are pre-installed in the unified image (built from the
+# dynamic-plugins workspace / extracted in the Dockerfile) but ship DISABLED
+# in dynamic-plugins.default.yaml — this preset is what turns them on. Their
+# pluginConfig (dynamicRoutes, mountPoints, RBAC scope) stays in
+# dynamic-plugins.default.yaml; install-dynamic-plugins.py merges shallow per
+# key, so an entry here only has to flip `disabled` (the package name MUST
+# match the one in dynamic-plugins.default.yaml or the merge won't happen and
+# a second copy gets installed under a different name → backend crash).
+#
+# Core chrome (global header, homepage, About, dynamic-plugins-info) is NOT
+# here — it's always-on (disabled: false in dynamic-plugins.default.yaml) and
+# not gated by any preset. See presets/README.md "Tiers".
+plugins:
+  - package: backstage-community-plugin-rbac
+    preInstalled: true
+    disabled: false
+  - package: backstage-community-plugin-tech-radar-dynamic
+    preInstalled: true
+    disabled: false
+  - package: backstage-community-plugin-tech-radar-backend-dynamic
+    preInstalled: true
+    disabled: false
+  - package: devportal-marketplace-frontend-dynamic
+    preInstalled: true
+    disabled: false
+  - package: devportal-marketplace-backend-dynamic-dynamic
+    preInstalled: true
+    disabled: false
+  - package: devportal-pending-changes-dynamic
+    preInstalled: true
+    disabled: false
+  # Catalog backend module — ingests the bundled plugin catalog so the
+  # marketplace "Catalog" tab is populated.
+  - package: red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
+    preInstalled: true
+    disabled: false
+
+# No app-config additions — the baseline runs on app-config.yaml plus the
+# platform-level config files.
+appConfig: {}

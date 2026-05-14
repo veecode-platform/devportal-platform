@@ -310,7 +310,7 @@ plugins:
   #                 catalog-backend-module-extensions.)
   - package: backstage-community-plugin-rbac
     preInstalled: true
-    disabled: false  # recommended-tier (Step 2 baked-on; Step 3 will flip back to true when preset assumes control)
+    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -421,7 +421,7 @@ plugins:
                   priority: 10
   - package: backstage-community-plugin-tech-radar-dynamic
     preInstalled: true
-    disabled: false  # recommended-tier (Step 2 baked-on; Step 3 will flip back to true when preset assumes control)
+    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -442,7 +442,7 @@ plugins:
                     height: 800
   - package: backstage-community-plugin-tech-radar-backend-dynamic
     preInstalled: true
-    disabled: false  # recommended-tier (Step 2 baked-on; Step 3 will flip back to true when preset assumes control)
+    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
 
   # ABOUT plugin
   - package: veecode-platform-backstage-plugin-about-backend-dynamic
@@ -492,7 +492,7 @@ plugins:
   # DevPortal marketplace frontend (fork of RHDH extensions frontend)
   - package: devportal-marketplace-frontend-dynamic
     preInstalled: true
-    disabled: false  # recommended-tier (Step 2 baked-on; Step 3 will flip back to true when preset assumes control)
+    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -518,11 +518,11 @@ plugins:
   # DevPortal custom marketplace backend
   - package: devportal-marketplace-backend-dynamic-dynamic
     preInstalled: true
-    disabled: false  # recommended-tier (Step 2 baked-on; Step 3 will flip back to true when preset assumes control)
+    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
   # Pending changes indicator (header badge next to notifications bell)
   - package: devportal-pending-changes-dynamic
     preInstalled: true
-    disabled: false  # recommended-tier (Step 2 baked-on; Step 3 will flip back to true when preset assumes control)
+    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -538,7 +538,7 @@ plugins:
   # (powers the marketplace "Catalog" tab — recommended-tier, ships with the marketplace)
   - package: red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
     preInstalled: true
-    disabled: false  # recommended-tier (Step 2 baked-on; Step 3 will flip back to true when preset assumes control)
+    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       extensions:
         directory: /app/catalog-entities/extensions
