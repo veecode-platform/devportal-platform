@@ -1,0 +1,66 @@
+name: azure
+description: Azure DevOps-integrated stack — catalog/scaffolder providers (static, configured here) + Azure DevOps UI.
+version: 1.0.0
+
+requires:
+  variables:
+    AZURE_DEVOPS_TOKEN:
+      description: Azure DevOps Personal Access Token (PAT) with `Code (Read)`, `Build (Read)`, and `Project and Team (Read)` scopes.
+      required: true
+      docs: https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate
+      example: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    AZURE_DEVOPS_HOST:
+      description: Azure DevOps host. Use `dev.azure.com` for Azure DevOps Services or your on-prem TFS hostname.
+      required: true
+      example: dev.azure.com
+    AZURE_DEVOPS_ORG:
+      description: Azure DevOps organization (slug). The catalog provider discovers entities under this org.
+      required: true
+      example: my-org
+    AZURE_DEVOPS_PROJECT:
+      description: Azure DevOps project (slug) to discover catalog-info.yaml files from. Required by the (static) catalog-backend-module-azure provider.
+      required: true
+      example: my-project
+
+# What this preset does:
+#  - The Azure *backend* plugins — catalog-backend-module-azure, scaffolder-backend-module-azure,
+#    catalog-backend-module-azure-devops-annotator-processor, scaffolder-backend-module-azure-devops —
+#    are STATIC in the unified devportal backend (compiled in via `backend.add(import(...))`,
+#    see packages/backend/src/index.ts). They are NOT dynamic plugins / not OCI artifacts.
+#    This preset only *configures* them — the `appConfig:` block below.
+#  - The `plugins:` list is just the dynamic UI add-ons. A `./dynamic-plugins/dist/X` entry
+#    references a wrapper baked from the dynamic-plugins/ workspace; its `package:` must match
+#    the (disabled) entry in dynamic-plugins.default.yaml so install-dynamic-plugins.py
+#    merges/flips `disabled` (the pluginConfig — mountPoints — lives there).
+plugins:
+  # Azure DevOps frontend — pipeline + PR cards on entity pages (pluginConfig in dynamic-plugins.default.yaml).
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-azure-devops-dynamic
+    disabled: false
+  # Azure DevOps backend (serves the frontend above).
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-azure-devops-backend-dynamic
+    disabled: false
+
+appConfig:
+  integrations:
+    azure:
+      - host: ${AZURE_DEVOPS_HOST}
+        credentials:
+          - personalAccessToken: ${AZURE_DEVOPS_TOKEN}
+
+  azureDevOps:
+    host: ${AZURE_DEVOPS_HOST}
+    organization: ${AZURE_DEVOPS_ORG}
+    token: ${AZURE_DEVOPS_TOKEN}
+
+  catalog:
+    providers:
+      # Azure DevOps entity discovery — scans repos in the project for catalog-info.yaml.
+      # Schema (catalog-backend-module-azure): organization + project are required.
+      azureDevOps:
+        default:
+          host: ${AZURE_DEVOPS_HOST}
+          organization: ${AZURE_DEVOPS_ORG}
+          project: ${AZURE_DEVOPS_PROJECT}
+          schedule:
+            frequency: { minutes: 30 }
+            timeout: { minutes: 3 }

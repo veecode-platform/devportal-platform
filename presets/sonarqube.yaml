@@ -1,0 +1,33 @@
+name: sonarqube
+description: SonarQube code quality tab on entity pages — enables the bundled SonarQube frontend, backend, and scaffolder action.
+version: 1.0.0
+
+requires:
+  variables:
+    SONARQUBE_BASE_URL:
+      description: SonarQube server base URL.
+      required: true
+      example: https://sonarqube.example.com
+    SONARQUBE_API_KEY:
+      description: SonarQube user token with read access to projects.
+      required: true
+      example: squ_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# What this preset does:
+#  - Enables the SonarQube frontend plugin (Code Quality tab on entity pages).
+#  - Enables the SonarQube backend plugin (proxies API calls, hides the token).
+#  - Enables the SonarQube scaffolder backend module (sonarqube:create-project action).
+#  - All three wrappers are pre-baked into the image (./dynamic-plugins/dist/).
+#    The pluginConfig (mountPoints / entityTabs) lives in dynamic-plugins.default.yaml.
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-sonarqube
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-sonarqube-backend-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-sonarqube-dynamic
+    disabled: false
+
+appConfig:
+  sonarqube:
+    baseUrl: ${SONARQUBE_BASE_URL}
+    apiKey: ${SONARQUBE_API_KEY}

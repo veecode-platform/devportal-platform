@@ -1,0 +1,72 @@
+name: keycloak
+description: Keycloak/OIDC auth + user/group sync — configures the static OIDC provider and keycloakOrg catalog provider.
+version: 1.0.0
+
+requires:
+  variables:
+    KEYCLOAK_BASE_URL:
+      description: Keycloak base URL (e.g. https://keycloak.example.com/auth).
+      required: true
+      example: https://keycloak.example.com/auth
+    KEYCLOAK_REALM:
+      description: Keycloak realm name.
+      required: true
+      example: master
+    KEYCLOAK_CLIENT_ID:
+      description: OAuth client ID registered in the realm.
+      required: true
+      example: backstage
+    KEYCLOAK_CLIENT_SECRET:
+      description: OAuth client secret for the registered client.
+      required: true
+      example: my-secret
+    AUTH_SESSION_SECRET:
+      description: Random secret used to sign session cookies.
+      required: true
+      example: change-me-32-chars-min
+
+# What this preset does:
+#  - Auth provider (static backend plugin) — the OIDC provider is compiled into
+#    packages/backend/src/index.ts. This preset only *configures* it.
+#  - Catalog provider (catalog-backend-module-keycloak-org, static) — syncs
+#    Keycloak users and groups into the catalog. Also static, config-only here.
+#  - No dynamic plugins required.
+plugins: []
+
+appConfig:
+  signInPage: keycloak
+
+  auth:
+    session:
+      secret: ${AUTH_SESSION_SECRET}
+      cookieName: backstage-auth-session
+      sameSite: lax
+      secure: false
+    environment: production
+    providers:
+      oidc:
+        production:
+          metadataUrl: ${KEYCLOAK_BASE_URL}/realms/${KEYCLOAK_REALM}
+          clientId: ${KEYCLOAK_CLIENT_ID}
+          clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+          prompt: auto
+          signIn:
+            resolvers:
+              - resolver: oidcSubClaimMatchingKeycloakUserId
+              - resolver: preferredUsernameMatchingUserEntityName
+              - resolver: emailMatchingUserEntityProfileEmail
+              - resolver: emailLocalPartMatchingUserEntityName
+
+  catalog:
+    providers:
+      keycloakOrg:
+        default:
+          baseUrl: ${KEYCLOAK_BASE_URL}
+          loginRealm: ${KEYCLOAK_REALM}
+          realm: ${KEYCLOAK_REALM}
+          clientId: ${KEYCLOAK_CLIENT_ID}
+          clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+          schedule:
+            frequency: { minutes: 10 }
+            initialDelay: { seconds: 15 }
+            timeout: { minutes: 10 }

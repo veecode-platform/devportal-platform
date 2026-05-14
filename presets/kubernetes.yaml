@@ -1,0 +1,41 @@
+name: kubernetes
+description: Kubernetes workloads tab on entity pages — enables the bundled Kubernetes frontend and configures the static backend.
+version: 1.0.0
+
+requires:
+  variables:
+    K8S_CLUSTER_NAME:
+      description: Display name for the cluster in the UI.
+      required: true
+      example: my-cluster
+    K8S_CLUSTER_URL:
+      description: Kubernetes API server URL.
+      required: true
+      example: https://k8s.example.com:6443
+    K8S_CLUSTER_TOKEN:
+      description: Service account token with read access to pods, deployments, and related resources.
+      required: true
+      example: eyJhbGciOiJSUzI1NiIsInR5...
+
+# What this preset does:
+#  - Enables the Kubernetes frontend plugin (Kubernetes tab on entity pages).
+#    The wrapper is pre-baked into the image; pluginConfig (mountPoints/entityTabs)
+#    lives in dynamic-plugins.default.yaml.
+#  - The Kubernetes *backend* plugin is STATIC (compiled into
+#    packages/backend/src/index.ts). This preset only configures it via appConfig.
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic
+    disabled: false
+
+appConfig:
+  kubernetes:
+    serviceLocatorMethod:
+      type: multiTenant
+    clusterLocatorMethods:
+      - type: config
+        clusters:
+          - name: ${K8S_CLUSTER_NAME}
+            url: ${K8S_CLUSTER_URL}
+            authProvider: serviceAccount
+            skipTLSVerify: true
+            serviceAccountToken: ${K8S_CLUSTER_TOKEN}
