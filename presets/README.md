@@ -103,22 +103,60 @@ appConfig:
 
 | Preset | Description | Required variables |
 |---|---|---|
-| [`recommended.yaml`](./recommended.yaml) | Curated baseline (marketplace, RBAC, home, header) | none |
-| [`github.yaml`](./github.yaml) | GitHub catalog + scaffolder + workflows | `GITHUB_PAT`, `GITHUB_ORG` |
-| [`azure.yaml`](./azure.yaml) | Azure DevOps catalog + scaffolder + pipelines | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_HOST`, `AZURE_DEVOPS_ORG` |
+| [`recommended.yaml`](./recommended.yaml) | Curated baseline (marketplace, RBAC, tech-radar, pending-changes) | none |
+| [`github.yaml`](./github.yaml) | GitHub OAuth + catalog provider + integration | `GITHUB_PAT`, `GITHUB_ORG` |
+
+Additional integration presets (`azure`, `gitlab`, `keycloak`, `ldap`, `jenkins`,
+`sonarqube`, `kubernetes`) land in Step 5 of the bootstrap and will be added
+to this table when they ship.
 
 Presets compose. `VEECODE_PRESETS=recommended,github` enables both.
 
-## Composition rules
+## Two primary paths of use
 
-When two presets enable the same plugin, the LATER preset's `pluginConfig`
-wins (last-merge-wins, like the existing app-config merge).
+This image supports **two equally first-class** operator paths — preset is
+sugar over the same underlying mechanism, not a replacement for raw Backstage
+configuration:
 
-When two presets declare overlapping `appConfig` keys, the LATER preset's
-value wins.
+1. **Preset path (shortcut)** — `VEECODE_PRESETS=recommended,github` plus the
+   required env vars. The entrypoint resolves each preset into a
+   `preset-<name>-plugins.yaml` fragment and a `app-config.preset-<name>.yaml`,
+   appends them to `dynamic-plugins.yaml`'s `includes:`, and adds each app-config
+   as a `--config` flag. Use this when your stack matches one of the catalog
+   entries.
 
-Required variables from all enabled presets are unioned. A variable
-required by any preset is required overall.
+2. **Raw Backstage path** — leave `VEECODE_PRESETS` unset and mount your own
+   `app-config.yaml`, `dynamic-plugins.yaml`, and overrides via volume. Internally
+   the image's load order still applies, but the operator owns the full surface.
+   Use this when you need something a preset doesn't cover, or when you already
+   have a Helm chart that produces these files.
+
+The two paths layer naturally: an operator's `app-config.local.yaml` always wins
+over preset configs (see the precedence table in `entrypoint.sh`).
+
+## Composition rules — read carefully
+
+Presets compose by being listed in `VEECODE_PRESETS=a,b,c`. The composition
+happens at runtime in `install-dynamic-plugins.py` and `entrypoint.sh`, NOT via
+preset inheritance (presets are flat — no `extends:` keyword).
+
+- **Plugins**: each preset's `plugins:` block is written to its own
+  `preset-<name>-plugins.yaml` fragment and added to `dynamic-plugins.yaml`'s
+  `includes:`. `install-dynamic-plugins.py` then loads each fragment and merges
+  per `package` key — **shallow merge, last-write-wins on the entry as a whole**.
+  Caveat: the `package:` field must match the entry already present in
+  `dynamic-plugins.default.yaml` exactly. A mismatch installs the plugin a
+  second time under a different name and the backend crashes on the duplicate
+  registration. See the comments in `presets/recommended.yaml` for the
+  contract.
+- **`appConfig`**: each preset's `appConfig:` block is written to its own
+  `app-config.preset-<name>.yaml` and added to the backend's `--config` list, in
+  preset order. Backstage's config loader deep-merges `--config` files
+  natively, so two presets that touch the same key path merge under standard
+  Backstage rules (object merges, scalar last-wins).
+- **`requires.variables`**: unioned across presets. A variable required by any
+  preset is required overall, and the resolver exits 78 with a combined
+  error message listing every missing var before the backend starts.
 
 ## Adding a new preset
 

@@ -136,12 +136,29 @@ happens in the plugin code, not the preset.
 
 When the entrypoint loads multiple presets (`VEECODE_PRESETS=a,b,c`):
 
-1. Required variables are unioned across presets.
-2. Plugin lists are concatenated. Duplicate `package` refs are
-   deduplicated by last-occurrence (later preset wins on
-   `pluginConfig`).
-3. `appConfig` blocks are deep-merged in order. Later presets
-   override earlier ones on overlapping keys.
+1. **Required variables are unioned across presets.** A variable required by
+   any selected preset is required overall; the resolver exits 78 with a
+   combined error message before the backend starts.
+
+2. **Plugins** — each preset's `plugins:` block is written to its own
+   `preset-<name>-plugins.yaml` fragment and added to `dynamic-plugins.yaml`'s
+   `includes:`. `install-dynamic-plugins.py` then loads each fragment and merges
+   per `package` key — **shallow merge, last-write-wins on the entry as a
+   whole**. Two presets that reference the same `package:` produce a single
+   installation governed by the later preset's `pluginConfig`.
+
+   **Critical contract**: the `package:` field MUST match the entry already
+   present in `dynamic-plugins.default.yaml` exactly (down to any trailing
+   `-dynamic` suffix that janus-cli appends automatically — e.g.
+   `devportal-marketplace-backend-dynamic-dynamic` is the real wrapper output
+   name). A mismatch installs the plugin a second time under a different name
+   and the backend crashes on the duplicate registration. See the comments at
+   the top of `recommended.yaml` for examples.
+
+3. **`appConfig`** — each preset's `appConfig:` block is written to its own
+   `app-config.preset-<name>.yaml` and added to the backend's `--config` list
+   in preset order. Backstage's native config loader deep-merges `--config`
+   files: object-level merges and scalar last-write-wins on overlapping keys.
 
 ## Reserved env var prefixes
 
