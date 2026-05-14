@@ -32,13 +32,8 @@ jobs:
       - name: Install skopeo
         run: sudo apt-get update && sudo apt-get install -y skopeo
 
-      - name: Login to Red Hat registry
-        env:
-          rh_user: ${{ secrets.REDHAT_USER }}
-          rh_pass: ${{ secrets.REDHAT_PASS }}
-        if: ${{ env.rh_user != '' && env.rh_pass != '' }}
-        run: |
-          echo "$rh_pass" | skopeo login registry.redhat.io -u "$rh_user" --password-stdin
+      # No Red Hat registry login: the maintenance agent queries UBI tags
+      # from registry.access.redhat.com (anonymous mirror). See ADR-012.
 
       - name: Install agent-browser
         run: npm install -g agent-browser && agent-browser install --with-deps

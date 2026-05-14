@@ -9,7 +9,13 @@
 #   docker build . -t veecode/devportal:poc \
 #     --memory=4g --memory-swap=6g --build-arg DEVPORTAL_VERSION=poc
 
-ARG NODE_BASE=registry.redhat.io/ubi10/nodejs-22:10.1-1775712813
+# Red Hat publishes UBI on two registries: `registry.redhat.io` (authenticated,
+# also serves entitled/paid content) and `registry.access.redhat.com` (anonymous,
+# UBI-only mirror). They serve the same UBI image bit-for-bit — same digest, same
+# release stream, same `/etc/yum.repos.d/` baked in. We pull from the anonymous
+# mirror so the build needs no Red Hat credentials in CI, in forks, or on
+# contributor laptops. See `docs/adr/012-anonymous-ubi-mirror.md`.
+ARG NODE_BASE=registry.access.redhat.com/ubi10/nodejs-22:10.1-1775712813
 
 # Pinned versions of CLI binaries shipped in the runtime image.
 ARG YQ_VERSION=4.53.2
