@@ -1,0 +1,12 @@
+{
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "tsc": {
+      "outputs": [
+        "../../dist-types/wrappers/backstage-community-plugin-tech-radar/**"
+      ]
+    }
+  }
+}

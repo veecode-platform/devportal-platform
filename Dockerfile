@@ -81,6 +81,7 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
 COPY --parents --chown=default:default \
     dynamic-plugins/package.json dynamic-plugins/yarn.lock dynamic-plugins/backstage.json \
     dynamic-plugins/_utils/package.json dynamic-plugins/downloads/package.json \
+    dynamic-plugins/packages/*/package.json dynamic-plugins/wrappers/*/package.json \
     /build/
 RUN cd dynamic-plugins && yarn install --immutable
 
