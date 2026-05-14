@@ -161,6 +161,20 @@ export const InternalPluginsMap: Record<string, string> = {
     './dynamic-plugins/dist/backstage-plugin-catalog-backend-module-ldap-dynamic',
   'backstage-plugin-catalog-backend-module-msgraph-dynamic':
     './dynamic-plugins/dist/backstage-plugin-catalog-backend-module-msgraph-dynamic',
+
+  // VeeCode / devportal local wrappers (live under `dynamic-plugins/wrappers/`).
+  // The exported dist dir is `${package.name}-dynamic` — note the double suffix
+  // for marketplace-backend, whose package name already ends in `-dynamic`.
+  'devportal-marketplace-backend-dynamic':
+    './dynamic-plugins/dist/devportal-marketplace-backend-dynamic-dynamic',
+  'devportal-marketplace-frontend-dynamic':
+    './dynamic-plugins/dist/devportal-marketplace-frontend-dynamic',
+  'devportal-pending-changes-dynamic':
+    './dynamic-plugins/dist/devportal-pending-changes-dynamic',
+  'veecode-platform-plugin-veecode-theme':
+    './dynamic-plugins/dist/veecode-platform-plugin-veecode-theme-dynamic',
+  'backstage-plugin-kubernetes':
+    './dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic',
 };
 
 export const getNotEnabledInternalPlugins = (enabledPlugins: string[]) => {
