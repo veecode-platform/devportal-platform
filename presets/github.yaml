@@ -1,0 +1,67 @@
+name: github
+description: GitHub-integrated stack — catalog/scaffolder providers (static, configured here) + GitHub Actions / Workflows UI.
+version: 1.0.0
+
+requires:
+  variables:
+    GITHUB_PAT:
+      description: GitHub Personal Access Token with `repo` and `read:org` scopes. Used by the (static) catalog provider for org/repo discovery and by the (static) scaffolder for repository creation.
+      required: true
+      docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
+      example: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    GITHUB_ORG:
+      description: GitHub organization to discover entities from. The catalog provider scans repos under this org for `catalog-info.yaml`.
+      required: true
+      example: my-org
+
+# What this preset does:
+#  - The GitHub *backend* plugins — catalog-backend-module-github, -github-org,
+#    scaffolder-backend-module-github, events-backend-module-github, the GitHub auth
+#    provider — are STATIC in the unified devportal backend (compiled in via
+#    `backend.add(import('@backstage/plugin-…'))`, see packages/backend/src/index.ts).
+#    They are NOT dynamic plugins and are NOT published as OCI artifacts; the
+#    devportal-plugin-export-overlays `backstage` workspace explicitly excludes them
+#    ("static in devportal-base"). This preset only *configures* them — the `appConfig:`
+#    block below.
+#  - The `plugins:` list is therefore just the dynamic UI add-ons. A `./dynamic-plugins/dist/X`
+#    entry references a wrapper baked into the image from the dynamic-plugins/ workspace;
+#    its `package:` must match the (disabled) entry in dynamic-plugins.default.yaml so
+#    install-dynamic-plugins.py merges/flips `disabled` (the pluginConfig — mountPoints —
+#    lives there).
+#  - The GitHub auth provider config still lives in app-config.github.yaml (the ADR-009
+#    profile, kept active via VEECODE_PROFILE=github). Folding it into this preset's
+#    appConfig is a later step — the ADR-009 → presets consolidation.
+plugins:
+  # GitHub Actions UI — CI tab on entity pages (pluginConfig in dynamic-plugins.default.yaml).
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-github-actions-dynamic
+    disabled: false
+
+  # GitHub Workflows (VeeCode) — workflow trigger card + its backend. COMMENTED OUT:
+  # referenced by dynamic-plugins.default.yaml (disabled) but the dynamic-plugins/ workspace
+  # doesn't currently produce these wrappers, so enabling them fails at install. Re-enable
+  # once the wrapper is built/published. Tracked in the migration follow-up debt task.
+  # - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-dynamic
+  #   disabled: false
+  # - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-backend-dynamic
+  #   disabled: false
+
+appConfig:
+  integrations:
+    github:
+      - host: github.com
+        token: ${GITHUB_PAT}
+
+  catalog:
+    providers:
+      # GitHub repo discovery — scans repos under the org for catalog-info.yaml.
+      github:
+        default:
+          organization: ${GITHUB_ORG}
+          schedule:
+            frequency: { minutes: 30 }
+            timeout: { minutes: 3 }
+      # NOTE: GitHub org/team discovery (the static catalog-backend-module-github-org)
+      # is intentionally NOT configured here — it needs a `catalog.providers.githubOrg`
+      # block whose schema requires an `id` (and more), and we keep this preset to
+      # repo discovery. Add `catalog.providers.githubOrg: { id: …, githubUrl: …,
+      # schedule: … }` to your deployment's config if you want User/Group ingestion.
