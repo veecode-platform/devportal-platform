@@ -23,7 +23,7 @@ const DEFAULT_ROWS_DISPLAYED = 5;
 // mockapi returns enabled plugins
 // keys from InternalPluginsMap are internal plugins
 const plugins = [
-  ...Object.keys(InternalPluginsMap).map(name => ({
+  ...[...InternalPluginsMap].map(name => ({
     name,
     version: undefined,
     role: undefined,
