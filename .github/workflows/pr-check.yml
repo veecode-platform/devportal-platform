@@ -75,7 +75,12 @@ jobs:
         run: |
           set -e
           export BACKSTAGE_VERSION="$(jq -r .version backstage.json)"
+          if [ -z "$BACKSTAGE_VERSION" ] || [ "$BACKSTAGE_VERSION" = "null" ]; then
+            echo "::error::Could not read BACKSTAGE_VERSION from backstage.json"
+            exit 1
+          fi
           export PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
+          # Strip the !<selector> suffix before dedup — multiple entries can share the same OCI image
           mapfile -t refs < <(grep -oE 'oci://[^!"[:space:]]+' dynamic-plugins.default.yaml | sort -u)
           if [ "${#refs[@]}" -eq 0 ]; then
             echo "No OCI refs found in dynamic-plugins.default.yaml — skipping skopeo check"
