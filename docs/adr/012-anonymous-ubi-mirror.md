@@ -63,14 +63,13 @@ the two registries.
 ### Benefits
 
 - **No Red Hat credentials needed for build**. `REDHAT_USER` /
-  `REDHAT_PASS` secrets are not required by `build-check.yml`,
-  `publish.yml`, or `automated-update.yml`.
-- **Fork-safe CI**. PRs from forks (community contributors) can run
-  build-check without org secret access; we removed the
-  `if: github.event.pull_request.head.repo.full_name == ...` guard that
-  previously skipped fork builds.
+  `REDHAT_PASS` secrets are not required by `publish.yml` or
+  `automated-update.yml`.
 - **Friction-free local build**. Contributors do not need a Red Hat
   developer account to `docker build .` on their laptop.
+- **Fork-safe by default** for any future PR-time build workflow.
+  Whoever re-introduces one will not have to design around missing
+  secret access in fork-PR runs.
 - **One less org-level secret** to provision when bootstrapping new
   related repos. (`devportal-base` and `devportal-distro` still use
   the gated registry — they pre-date this decision, and we are not
@@ -109,7 +108,6 @@ whole product position.
 ## Related files
 
 - `Dockerfile` (line referencing `NODE_BASE`)
-- `.github/workflows/build-check.yml`
 - `.github/workflows/publish.yml`
 - `.github/workflows/automated-update.yml`
 - ADR-003 in `devportal-base` (chose UBI10; this ADR refines *where* we

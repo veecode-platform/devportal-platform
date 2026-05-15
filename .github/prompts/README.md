@@ -1,6 +1,6 @@
 # Claude Code Prompts
 
-Orchestrator prompts for automated maintenance of devportal-base.
+Orchestrator prompts for agent-driven work on devportal-platform.
 
 ## Prompts
 
@@ -9,6 +9,7 @@ Orchestrator prompts for automated maintenance of devportal-base.
 | `automated-update.md` | Dry-run (local) — applies updates to working tree only, no git operations |
 | `automated-update-ci.md` | CI version — creates branch, commits, opens PR via GitHub Actions |
 | `security-scan.md` | Security vulnerability scanning (separate workflow) |
+| `docs-refresh.md` | **One-shot** — handoff for a fresh-context agent to author `docs/`. Not CI-driven; invoke when ready. |
 
 ## Running a dry-run locally
 

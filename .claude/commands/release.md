@@ -28,7 +28,7 @@ Release a new version and monitor the Docker Hub image publication:
 
 5. **Report results**:
    - If successful:
-     - Confirm the images were pushed: `veecode/devportal-base:<version>`, `veecode/devportal-base:latest`
+     - Confirm the images were pushed: `veecode/devportal-platform:<version>`, `veecode/devportal-platform:latest`
      - Show the workflow URL for reference
    - If failed:
      - Identify which job failed using `gh run view <run-id> --log-failed`
@@ -51,4 +51,4 @@ Release a new version and monitor the Docker Hub image publication:
 
 - The `build-backend-image` workflow is triggered by tags matching `*.*.*`
 - Build runs on both `ubuntu-latest` (amd64) and `ubuntu-22.04-arm` (arm64)
-- Final images: `docker.io/veecode/devportal-base:<version>` and `:latest`
+- Final images: `docker.io/veecode/devportal-platform:<version>` and `:latest`

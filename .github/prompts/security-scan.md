@@ -36,7 +36,7 @@ This keeps the conversation context clean for reasoning about errors.
 The image tag to scan is provided via the IMAGE_TAG environment variable.
 Default to `latest` if the variable is not set.
 
-Full image reference: veecode/devportal-base:$IMAGE_TAG
+Full image reference: veecode/devportal-platform:$IMAGE_TAG
 
 ## Step 1 — Pre-flight: close previous security PR
 
@@ -76,7 +76,7 @@ Create a branch from main: chore/security-fix-YYYY-MM-DD
 
 Follow the process described in .claude/commands/security-scan.md
 
-Use the image reference: veecode/devportal-base:$IMAGE_TAG
+Use the image reference: veecode/devportal-platform:$IMAGE_TAG
 
 After the scan completes, extract only actionable vulnerabilities (with
 fixes available) using `jq`:
@@ -168,7 +168,7 @@ If fixes were applied: open a PR with the following body format:
 ## Security Fix — YYYY-MM-DD
 
 ### Image scanned
-veecode/devportal-base:$IMAGE_TAG
+veecode/devportal-platform:$IMAGE_TAG
 
 ### Vulnerabilities found
 - Critical: <N>
