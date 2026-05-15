@@ -24,7 +24,7 @@ requires:
 #  - The Kubernetes *backend* plugin is STATIC (compiled into
 #    packages/backend/src/index.ts). This preset only configures it via appConfig.
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes
     disabled: false
 
 appConfig:

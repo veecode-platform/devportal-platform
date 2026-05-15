@@ -18,7 +18,7 @@ plugins:
   #               authProvider: 'serviceAccount'
   #               skipTLSVerify: true
   #               serviceAccountToken: ${K8S_CLUSTER_TOKEN}
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -48,7 +48,7 @@ plugins:
                   #   anyOf:
                   #     - hasAnnotation: backstage.io/kubernetes-id
                   #     - hasAnnotation: backstage.io/kubernetes-namespace
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-floating-action-button-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/global-floating-action-button:bs_1.49.4!red-hat-developer-hub-backstage-plugin-global-floating-action-button
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -308,8 +308,7 @@ plugins:
   #                 per-key). Enabled via VEECODE_PRESETS=recommended. (RBAC,
   #                 tech-radar + backend, marketplace front/back, pending-changes,
   #                 catalog-backend-module-extensions.)
-  - package: backstage-community-plugin-rbac
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
@@ -447,8 +446,7 @@ plugins:
                 variant: dark
                 importName: VeecodeDarkThemeProvider
 
-  - package: backstage-community-plugin-tech-radar-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
@@ -468,8 +466,7 @@ plugins:
                   props:
                     width: 1500
                     height: 800
-  - package: backstage-community-plugin-tech-radar-backend-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
 
   # ABOUT plugin
