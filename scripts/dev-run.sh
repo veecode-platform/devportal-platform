@@ -102,7 +102,7 @@ case "$CMD" in
     # file and (re)generates app-config.dynamic-plugins.yaml in this directory.
     chmod -R a+rwX "$DP_ROOT_LOCAL"
     echo "extracted $IMAGE's dynamic-plugins-root → $DP_ROOT_LOCAL  ($(ls "$DP_ROOT_LOCAL" | grep -c . ) entries, chmod a+rwX)"
-    echo "edit it (add/swap a plugin dir, or run: cd dynamic-plugins && yarn build && yarn export-dynamic && yarn copy-dynamic-plugins '$DP_ROOT_LOCAL'),"
+    echo "edit it (add/swap a plugin dir, or patch JS files in place — there is no host-side dynamic-plugins build anymore),"
     echo "then: $0 run    (it will mount this dir over /app/dynamic-plugins-root/ — no build)"
     ;;
   run)

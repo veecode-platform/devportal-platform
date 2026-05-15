@@ -94,16 +94,9 @@ yarn workspace @internal/plugin-dynamic-plugins-info test
 
 ### Dynamic Plugins
 
-```bash
-make full                                 # install + tsc + export + copy to dist (both workspaces)
+Dynamic plugins are fetched as OCI bundles at boot by `docker/install-dynamic-plugins.py`. The legacy host-side `dynamic-plugins/` workspace is gone — there is no `yarn build && yarn export-dynamic && yarn copy-dynamic-plugins` step anymore. The complete plugin inventory lives in `dynamic-plugins.default.yaml` (with `oci://${PLUGIN_REGISTRY}/<workspace>:bs_${BACKSTAGE_VERSION}!<selector>` refs), and presets flip `disabled: false` to turn entries on.
 
-# Manual equivalent:
-cd dynamic-plugins/
-yarn install && yarn build && yarn export-dynamic
-yarn copy-dynamic-plugins $(pwd)/dist
-```
-
-At image build time, the Dockerfile copies the built bundles from `dynamic-plugins/dist/` into `/app/dynamic-plugins-root/`. There is no host-side `dynamic-plugins-root/` directory; for local development use `./scripts/dev-run.sh dp-extract` to copy the image's set into `.devrun-cache/dynamic-plugins-root/` for editing — see [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) § "Image overlay loop".
+For local-overlay editing of plugin bundles, run `./scripts/dev-run.sh dp-extract` to copy the image's `/app/dynamic-plugins-root/` into `.devrun-cache/dynamic-plugins-root/`, edit in place, then `./scripts/dev-run.sh run` to mount it back over the image — no rebuild. See [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) § "Image overlay loop".
 
 ## Architecture
 
