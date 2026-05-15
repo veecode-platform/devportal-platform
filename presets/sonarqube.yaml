@@ -20,11 +20,11 @@ requires:
 #  - All three wrappers are pre-baked into the image (./dynamic-plugins/dist/).
 #    The pluginConfig (mountPoints / entityTabs) lives in dynamic-plugins.default.yaml.
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-sonarqube
+  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube
     disabled: false
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-sonarqube-backend-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube-backend
     disabled: false
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-sonarqube-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.48.4!backstage-community-plugin-scaffolder-backend-module-sonarqube
     disabled: false
 
 appConfig:

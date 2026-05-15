@@ -34,10 +34,10 @@ requires:
 #    merges/flips `disabled` (the pluginConfig — mountPoints — lives there).
 plugins:
   # Azure DevOps frontend — pipeline + PR cards on entity pages (pluginConfig in dynamic-plugins.default.yaml).
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-azure-devops-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops
     disabled: false
   # Azure DevOps backend (serves the frontend above).
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-azure-devops-backend-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend
     disabled: false
 
 appConfig:

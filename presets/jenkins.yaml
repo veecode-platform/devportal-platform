@@ -23,9 +23,9 @@ requires:
 #  - Both wrappers are pre-baked into the image (./dynamic-plugins/dist/).
 #    The pluginConfig (mountPoints) lives in dynamic-plugins.default.yaml.
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-jenkins
+  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins
     disabled: false
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-jenkins-backend-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend
     disabled: false
 
 appConfig:

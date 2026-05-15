@@ -33,7 +33,7 @@ requires:
 #    appConfig is a later step — the ADR-009 → presets consolidation.
 plugins:
   # GitHub Actions UI — CI tab on entity pages (pluginConfig in dynamic-plugins.default.yaml).
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-github-actions-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
     disabled: false
 
   # GitHub Workflows (VeeCode) — workflow trigger card + its backend. COMMENTED OUT:
