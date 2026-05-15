@@ -31,11 +31,11 @@
 #   ./scripts/dev-run.sh stop     # stop & remove the container
 #
 #   VEECODE_PRESETS=recommended,github ./scripts/dev-run.sh run
-#   DEVPORTAL_IMAGE=veecode/devportal:1.3.5 ./scripts/dev-run.sh run
+#   DEVPORTAL_IMAGE=veecode/devportal-platform:1.3.5 ./scripts/dev-run.sh run
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="${DEVPORTAL_IMAGE:-veecode/devportal:latest}"
+IMAGE="${DEVPORTAL_IMAGE:-veecode/devportal-platform:latest}"
 NAME="${DEVPORTAL_CONTAINER:-devportal-dev}"
 PORT="${PORT:-7007}"
 MEM="${DEVPORTAL_MEM:-2g}"

@@ -155,7 +155,7 @@ internal path.
 
 - **Phase 1.** Extract the theme plugin into a versioned package under
   `@veecode-platform/` so it is reusable across `veecode/devportal` and
-  (after the ADR-010 migration) `veecode/devportal-base`, and versioned
+  (after the ADR-010 migration) `veecode/devportal-platform`, and versioned
   independently. Allow new *VeeCode-internal* screens (admin pages, the
   dynamic-plugins-info plugin, a custom landing) to be authored against
   BUI components opportunistically — per-surface, not as a program. Keep
@@ -265,7 +265,7 @@ changes the cost calculus.
 ## Validation criteria
 
 POC results (branch `feat/veecode-theme-dynamic-plugin`, against the
-`veecode/devportal:latest` image via `scripts/dev-run.sh`, Backstage 1.50):
+`veecode/devportal-platform:latest` image via `scripts/dev-run.sh`, Backstage 1.50):
 
 1. **PASS.** The wrapper is `veecode-platform-plugin-veecode-theme`;
    `rhdh-cli plugin export` (the `tsc`→`export-dynamic` path — `backstage-cli

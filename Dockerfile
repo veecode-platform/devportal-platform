@@ -6,7 +6,7 @@
 # + dynamic-plugin export, then assembles the runtime layer.
 #
 # Local build (WSL — keep memory bounded):
-#   docker build . -t veecode/devportal:poc \
+#   docker build . -t veecode/devportal-platform:local \
 #     --memory=4g --memory-swap=6g --build-arg DEVPORTAL_VERSION=poc
 
 # Red Hat publishes UBI on two registries: `registry.redhat.io` (authenticated,

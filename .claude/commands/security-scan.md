@@ -2,14 +2,14 @@ Scan a Docker image for security vulnerabilities using Trivy:
 
 ## Arguments
 
-- `$ARGUMENTS` - Docker image to scan (e.g., `veecode/devportal-base:1.1.72`). If not provided, defaults to `veecode/devportal-base:latest`.
+- `$ARGUMENTS` - Docker image to scan (e.g., `veecode/devportal-platform:1.1.72`). If not provided, defaults to `veecode/devportal-platform:latest`.
 
 ## Steps
 
 1. **Determine the image to scan**:
 
    - Use `$ARGUMENTS` if provided
-   - Otherwise default to `veecode/devportal-base:latest`
+   - Otherwise default to `veecode/devportal-platform:latest`
 
 2. **Create output directory and run scan**:
 

@@ -33,13 +33,13 @@ The repository is structured for local development with a Node runtime, but it a
 If you just want to see a running container, you can use the following command:
 
 ```sh
-docker run --name devportal -d -p 7007:7007 veecode/devportal-base:latest
+docker run --name devportal -d -p 7007:7007 veecode/devportal-platform:latest
 ```
 
 Or, it you want to run it interactively with pretty logs:
 
 ```sh
-docker run --rm -ti -p 7007:7007 -e NODE_ENV=development veecode/devportal-base:latest
+docker run --rm -ti -p 7007:7007 -e NODE_ENV=development veecode/devportal-platform:latest
 ```
 
 And open `http://localhost:7007` in your browser. It will open a barebones DevPortal instance, with just a sample catalog and a few basic plugins enabled. This image is **not** a full Backstage distro, but a minimal one used as starting point to build a real distro and to validate the core set of DevPortal plugins.
@@ -56,7 +56,7 @@ docker run --name devportal -d -p 7007:7007 \
   --env GITHUB_ORG \
   --env GITHUB_APP_ID \
   --env GITHUB_PRIVATE_KEY \
-  veecode/devportal-base:latest
+  veecode/devportal-platform:latest
 ```
 
 Providing the environment variables above will enable GitHub login and populate the catalog with your GitHub organization. Check our documentation on [GitHub Authentication](https://docs.platform.vee.codes/devportal/integrations/GitHub/github-auth) for more details.
@@ -73,7 +73,7 @@ docker run --name devportal -d -p 7007:7007 \
   --env KEYCLOAK_CLIENT_SECRET \
   --env KEYCLOAK_REALM \
   --env AUTH_SESSION_SECRET \
-  veecode/devportal-base:latest
+  veecode/devportal-platform:latest
 ```
 
 Providing the environment variables above will enable GitHub login and populate the catalog with your GitHub organization. Check our documentation on [Keycloak Authentication](https://docs.platform.vee.codes/devportal/integrations/Keycloak/keycloak-auth) for more details.
@@ -92,7 +92,7 @@ docker run --name devportal -d -p 7007:7007 \
   --env AZURE_PROJECT \
   --env AZURE_TOKEN \
   --env AUTH_SESSION_SECRET \
-  veecode/devportal-base:latest
+  veecode/devportal-platform:latest
 ```
 
 Providing the environment variables above will enable Azure AD login and populate the catalog with your Azure DevOps organization. Check the documentation in `auth-examples/azure/AZURE.md` for more details.
