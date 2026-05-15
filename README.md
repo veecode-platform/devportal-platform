@@ -1,278 +1,327 @@
-# DevPortal POC — unified image + presets
-
-> **Status: experimental POC.** This repo is a proof-of-concept for collapsing
-> [`devportal-base`](https://github.com/veecode-platform/devportal-base) +
-> [`devportal-distro`](https://github.com/veecode-platform/devportal-distro) into
-> a single image with a YAML preset catalog and OCI-loaded dynamic plugins.
-> Production deployments should continue to use `devportal-base` /
-> `devportal` until the POC is promoted.
->
-> Rationale, scope, and validation criteria: [`docs/adr/010-unified-image-and-presets.md`](docs/adr/010-unified-image-and-presets.md).
+# VeeCode DevPortal — unified image + presets
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 ![Backstage](https://img.shields.io/badge/Backstage-1.49.4-9BF0E1?logo=backstage)
 
-VeeCode DevPortal is an open-source [Backstage](https://backstage.io) distribution
-designed to be production-ready from day one.
+VeeCode DevPortal is an open-source [Backstage](https://backstage.io)
+distribution. This repo ships **one image**:
+`docker.io/veecode/devportal-platform`. There is no base/distro split.
 
-This POC repo demonstrates the unified architecture:
+To turn the generic image into a working IDP, the operator selects
+**presets** at runtime (`VEECODE_PRESETS=recommended,github,…`). Each
+preset is a versioned YAML contract that declares which plugins it
+needs, which env vars the operator must provide, and which app-config
+to layer in.
 
-- **Single image** (no base + distro split). One Dockerfile, one CI, one release.
-- **Preset catalog** (`presets/`) — versioned, composable contracts that turn
-  the generic image into a working IDP for a specific situation. Each preset
-  declares the plugins it needs, the env vars the operator must provide, and
-  the app-config those plugins expect.
-- **OCI dynamic plugins** as the default distribution channel. Image stays
-  small; plugin lifecycles decouple from the image lifecycle.
-- **Backstage 1.49.4** baseline (1.50 migration deferred — see ADR-010 § Migration deferral).
+- **Single image.** One Dockerfile, one CI, one release.
+- **Preset catalog** in [`presets/`](presets/) — composable contracts
+  that take the generic image to a specific stack. See
+  [`presets/README.md`](presets/README.md) and
+  [`presets/SCHEMA.md`](presets/SCHEMA.md).
+- **Dynamic plugin loading** via Scalprum + Webpack Module
+  Federation. Pre-installed plugins are baked into the image; extra
+  plugins can be pulled from npm or OCI at boot.
+- **Backstage 1.49.4** baseline. 1.50 migration deferred (see
+  [`docs/adr/011-frontend-design-system.md`](docs/adr/011-frontend-design-system.md)
+  § Phase 2).
 
-The repository is structured for local development with a Node runtime, but it also helps running containerized builds and helps building a definitive and production-ready container image.
+For the full picture, start with
+[`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md).
 
-## Quick Start
+## Quick start
 
-If you just want to see a running container, you can use the following command:
-
-```sh
-docker run --name devportal -d -p 7007:7007 veecode/devportal-platform:latest
-```
-
-Or, it you want to run it interactively with pretty logs:
-
-```sh
-docker run --rm -ti -p 7007:7007 -e NODE_ENV=development veecode/devportal-platform:latest
-```
-
-And open `http://localhost:7007` in your browser. It will open a barebones DevPortal instance, with just a sample catalog and a few basic plugins enabled. This image is **not** a full Backstage distro, but a minimal one used as starting point to build a real distro and to validate the core set of DevPortal plugins.
-
-### Enabling GitHub Login
-
-We have shipped a few auth providers with this image, but the most common is the GitHub auth provider. To enable it, you need to set a few extra environment variables:
+Run the image with no preset to get a barebones DevPortal (guest
+auth, sample catalog, just the core plugins enabled):
 
 ```sh
 docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PROFILE=github \
-  --env GITHUB_CLIENT_ID \
-  --env GITHUB_CLIENT_SECRET \
-  --env GITHUB_ORG \
-  --env GITHUB_APP_ID \
-  --env GITHUB_PRIVATE_KEY \
   veecode/devportal-platform:latest
 ```
 
-Providing the environment variables above will enable GitHub login and populate the catalog with your GitHub organization. Check our documentation on [GitHub Authentication](https://docs.platform.vee.codes/devportal/integrations/GitHub/github-auth) for more details.
+Open `http://localhost:7007`.
 
-### Enabling Keycloak Login
-
-We have also shipped a Keycloak auth provider in the base image. To enable it, you need to set a few extra environment variables:
+For a richer out-of-the-box experience, turn on `recommended` and the
+VeeCode theme:
 
 ```sh
 docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PROFILE=keycloak \
-  --env KEYCLOAK_BASE_URL \
-  --env KEYCLOAK_CLIENT_ID \
-  --env KEYCLOAK_CLIENT_SECRET \
-  --env KEYCLOAK_REALM \
-  --env AUTH_SESSION_SECRET \
+  -e VEECODE_PRESETS=recommended,veecode-theme \
   veecode/devportal-platform:latest
 ```
 
-Providing the environment variables above will enable GitHub login and populate the catalog with your GitHub organization. Check our documentation on [Keycloak Authentication](https://docs.platform.vee.codes/devportal/integrations/Keycloak/keycloak-auth) for more details.
+That adds the marketplace, RBAC UI, tech-radar (with sample data),
+the pending-changes badge, and the VeeCode brand theme.
 
-### Enabling Azure Login
+### Enabling GitHub integration
 
-We have also shipped an Azure AD auth provider in the base image. To enable it, you need to set a few extra environment variables:
+The `github` preset configures the (static) GitHub catalog provider
+and the GitHub integration so the scaffolder can create repos. It
+needs:
 
 ```sh
 docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PROFILE=azure \
-  --env AZURE_CLIENT_ID \
-  --env AZURE_CLIENT_SECRET \
-  --env AZURE_TENANT_ID \
-  --env AZURE_ORGANIZATION \
-  --env AZURE_PROJECT \
-  --env AZURE_TOKEN \
-  --env AUTH_SESSION_SECRET \
+  -e VEECODE_PRESETS=recommended,veecode-theme,github \
+  -e GITHUB_PAT=ghp_…                  \
+  -e GITHUB_ORG=my-org                 \
   veecode/devportal-platform:latest
 ```
 
-Providing the environment variables above will enable Azure AD login and populate the catalog with your Azure DevOps organization. Check the documentation in `auth-examples/azure/AZURE.md` for more details.
+> **Note.** The `github` preset wires the catalog provider, the
+> scaffolder integration, and the GitHub Actions UI — but it does
+> **not** configure the GitHub auth provider (OAuth login). To enable
+> GitHub login, mount an `app-config.local.yaml` that sets
+> `auth.providers.github.production.{clientId,clientSecret}` and
+> `app.baseUrl` / `backend.baseUrl` for your callback URL.
+> [`docs/CONFIGURATION_GUIDE.md`](docs/CONFIGURATION_GUIDE.md) covers
+> the raw-Backstage layering path.
 
-### Understand Start Behavior
+See [`presets/github.yaml`](presets/github.yaml) for the full preset
+definition.
 
-The container start script (CMD) merges the app-config files provided by the image in the following order:
+### Enabling Keycloak login
 
-- app-config.yaml
-- app-config.production.yaml
-- app-config.dynamic-plugins.yaml
+The `keycloak` preset wires the OIDC auth provider end-to-end plus
+the Keycloak user/group catalog sync. It needs:
 
-If provided, VEECODE_PROFILE will be used to load the app-config.{profile}.yaml file (allowed values are "github", "keycloak", "azure" and "local").
+```sh
+docker run --name devportal -d -p 7007:7007 \
+  -e VEECODE_PRESETS=recommended,veecode-theme,keycloak \
+  -e KEYCLOAK_BASE_URL=https://keycloak.example.com/auth \
+  -e KEYCLOAK_REALM=my-realm \
+  -e KEYCLOAK_CLIENT_ID=backstage \
+  -e KEYCLOAK_CLIENT_SECRET=… \
+  -e AUTH_SESSION_SECRET=$(openssl rand -base64 32) \
+  veecode/devportal-platform:latest
+```
 
-You can use mounts and env vars at will to override configs at your will. The bundled configs and start scripts are just convenient examples and can be changed or discarded.
+See [`presets/keycloak.yaml`](presets/keycloak.yaml).
 
-## Quick Links
+### Other integration presets
 
-There are a few sections for later reading if you want some deeper understanding of this project:
+`azure`, `gitlab`, `ldap`, `jenkins`, `kubernetes`, `sonarqube` are
+all available in [`presets/`](presets/). Each preset's
+`requires.variables` lists the env vars the operator must set, with
+a `docs` URL pointing at the provider's documentation.
 
-- **[Plugin Architecture & Management](docs/PLUGINS.md)** - Understanding and working with plugins
-- **[Docker Development](docs/DOCKER_DEVELOPMENT.md)** - Explains the current container development options
-- **[Local Docker Build Guide](docker/README.md)** - Building container images locally for development
+Presets compose: `VEECODE_PRESETS=recommended,veecode-theme,github,keycloak,sonarqube`
+combines them. The boot fails fast (exit 78) with a clear message if
+any required env var is missing.
+
+The full preset catalog is documented in
+[`docs/CONFIGURATION_GUIDE.md`](docs/CONFIGURATION_GUIDE.md).
+
+### Boot config precedence
+
+[`entrypoint.sh`](entrypoint.sh) assembles the Backstage backend's
+`--config` flags in this order (later overrides earlier):
+
+1. `app-config.yaml` — base defaults.
+2. `app-config.production.yaml` — container/production overrides.
+3. `app-config.distro.yaml` — distro escape hatch.
+4. `app-config.preset-<name>.yaml` — one per selected preset, in
+   `VEECODE_PRESETS` order.
+5. `app-config.local.yaml` — operator overrides (volume mount or
+   `VEECODE_APP_CONFIG` base64-decoded).
+6. `dynamic-plugins-root/app-config.dynamic-plugins.yaml` — generated
+   at boot from each plugin's `pluginConfig:`.
+7. `app-config.saas.yaml` — SaaS-time overrides.
+
+`app-config.local.yaml` always wins over preset config — operators
+can override anything without forking the preset.
+
+## Quick links
+
+- [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md) — what this
+  image is, two paths of use, what's _not_ here.
+- [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — local
+  dev: `yarn dev-local` vs `scripts/dev-run.sh`.
+- [`docs/DOCKER_DEVELOPMENT.md`](docs/DOCKER_DEVELOPMENT.md) —
+  building and running the image; the `cbme` stopgap.
+- [`docs/CONFIGURATION_GUIDE.md`](docs/CONFIGURATION_GUIDE.md) —
+  preset catalog, layering, raw Backstage path.
+- [`docs/PLUGINS.md`](docs/PLUGINS.md) — static, internal, and
+  dynamic plugin inventory.
+- [`docs/DYNAMIC_PLUGINS_ARCHITECTURE.md`](docs/DYNAMIC_PLUGINS_ARCHITECTURE.md)
+  — Scalprum + Module Federation runtime; authoring gotchas.
+- [`docs/UPGRADING.md`](docs/UPGRADING.md) — Backstage, UBI, and
+  `EXTENSIONS_TAG` upgrade tracks.
+- [`docs/RBAC.md`](docs/RBAC.md) — shipped policy and per-deploy
+  overrides.
 
 ## Local development
 
-### Understanding app-config files
+### Prerequisites
 
-The main config file for DevPortal is `app-config.yaml`. It contains the default configuration for the application with minimal settings.
+- Node.js 20 or 22.
+- Yarn 4.12.0 (enabled via Corepack:
+  `corepack enable && corepack prepare yarn@4.12.0 --activate`).
+- Docker (only for the image-overlay dev loop and image builds).
+- Python 3.12 + venv (only if you want TechDocs to render locally).
 
-Several other app-config examples are provided in this repo, so you can merge them as you see fit by using an extra `--config` flag for each one.
-
-- `app-config.yaml`: minimal default config, guest auth enabled as admin user
-- `app-config.dynamic-plugins.yaml`: dynamic plugins default configs (required for header/home plugins)
-- `app-config.local.yaml`: local development config (gitignored, so you can use secrets inline)
-- `app-config.github.yaml`: github auth config (relies on env vars)
-- `app-config.keycloak.yaml`: keycloak auth config (relies on env vars)
-- `app-config.production.yaml`: "production" (in-container) config and paths
-
-### Build and run
-
-**Step 1: Build preinstalled plugins** (see [PLUGINS.md](docs/PLUGINS.md) for details):
-
-This step isnt exactly a build itself, but it prepares pre-built plugins for dynamic loading under DevPortal. It deals with native dynamic plugins and with wrappers around older plugins, exporting them as ready-to-load dynamic plugins under a `dynamic-plugins-root` directory:
+### First-time setup
 
 ```sh
-cd dynamic-plugins/
-yarn install
-yarn build
-yarn export-dynamic
-yarn copy-dynamic-plugins $(pwd)/../dynamic-plugins-root
+make full
+# or, equivalent:
+yarn init-local
 ```
 
-You can read [Plugin Architecture & Management](docs/PLUGINS.md) for more details.
+`make full` installs both Yarn workspaces (root + `dynamic-plugins/`
+— see [`docs/MONOREPO_STRUCTURE.md`](docs/MONOREPO_STRUCTURE.md)),
+builds the dynamic plugin wrappers, and exports them to
+`dynamic-plugins/dist/`.
 
-**Step 2: Build and start the application**:
+### Run
 
 ```sh
-yarn install
-yarn build
-# change log level at will
-LOG_LEVEL=debug yarn dev-local
+yarn dev-local        # frontend on :3000, backend on :7007
 ```
 
-**Default ports:**
+The script reads three configs: `app-config.yaml`,
+`app-config.local.yaml` (gitignored — start from
+[`app-config.local.template.yaml`](app-config.local.template.yaml)),
+and `app-config.dynamic-plugins.yaml`.
 
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:7007`
+For changes to presets / the entrypoint / dynamic plugins, the Node
+dev loop won't see them — use the image overlay loop:
 
-## Development Tips
+```sh
+./scripts/dev-run.sh run     # bind-mounts your repo over the image
+./scripts/dev-run.sh reload  # docker restart after editing a mounted file
+./scripts/dev-run.sh logs
+./scripts/dev-run.sh stop
+```
 
-### Relaxing Security for Local Development
+Full details in
+[`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md).
 
-For local development, you can simplify authentication by:
+### Configs that ship with the repo
 
-- Using a fixed backend token
-- Enabling the guest auth provider with an assumed identity
+- [`app-config.yaml`](app-config.yaml) — base defaults; guest auth
+  enabled, in-memory SQLite, sample catalog locations.
+- [`app-config.production.yaml`](app-config.production.yaml) —
+  container-only overrides (production paths, refresh tokens,
+  catalog locations under `/app/examples/`).
+- [`app-config.distro.yaml`](app-config.distro.yaml) — ~10-line
+  distro defaults (adds `extensions` to
+  `permission.rbac.pluginsWithPermission`).
+- [`app-config.local.template.yaml`](app-config.local.template.yaml)
+  — template for your local override. Copy to
+  `app-config.local.yaml` (gitignored).
 
-⚠️ **Warning:** Only use this configuration in local development environments.
+The integration auth configs (`app-config.github.yaml`,
+`app-config.keycloak.yaml`, …) from `devportal-base` are **not**
+present here — that information lives in the preset YAMLs under
+[`presets/`](presets/).
 
-Create or edit `app-config.local.yaml` with:
+## Development tips
+
+### Relaxing security for local development
+
+Guest auth is already enabled in `app-config.yaml` with
+`userEntityRef: user:default/admin` and
+`dangerouslyAllowOutsideDevelopment: true` — every guest session
+lands as the admin user, so there's nothing extra to configure.
+
+For a hand-rolled backend service token (rarely needed today; mainly
+for hitting authenticated APIs from scripts), add to
+`app-config.local.yaml`:
 
 ```yaml
-# Backstage override configuration for your local development environment
 backend:
   auth:
-    secret: mysecret
-    #dangerouslyDisableDefaultAuthPolicy: true
-
-auth:
-  # see https://backstage.io/docs/auth/ to learn about auth providers
-  providers:
-    # See https://backstage.io/docs/auth/guest/provider
-    guest:
-      userEntityRef: user:default/admin
-      ownershipEntityRefs: [group:default/admins]
-      dangerouslyAllowOutsideDevelopment: true
+    externalAccess:
+      - type: static
+        options:
+          token: my-test-token
+          subject: test-subject
 ```
 
-### Accessing Backend Endpoints
+> **⚠️ Don't ship this configuration.** Static tokens are for local
+> development only.
 
-Backend API endpoints require authentication. The examples below show how to obtain and use a token (requires the relaxed security configuration above):
+### Hitting the backend
 
 ```sh
-# get a Backstage user token via the guest provider
+# Get a guest token
 USER_TOKEN="$(curl -s -X POST http://localhost:7007/api/auth/guest/refresh \
   -H 'Content-Type: application/json' -d '{}' | jq -r '.backstageIdentity.token')"
 
-# list loaded dynamic plugins
+# Inspect loaded dynamic plugins
 curl -H "Authorization: Bearer $USER_TOKEN" \
   http://localhost:7007/api/dynamic-plugins-info/loaded-plugins
 
-# list catalog components
+# List catalog entities
 curl -H "Authorization: Bearer $USER_TOKEN" \
-  http://localhost:7007/api/catalog/entities\?filter\=kind\=Component
+  'http://localhost:7007/api/catalog/entities?filter=kind=Component'
 
-# list all scaffolder actions
+# Scaffolder actions
 curl -H "Authorization: Bearer $USER_TOKEN" \
   http://localhost:7007/api/scaffolder/v2/actions
 
-# healthcheck (no auth)
-curl -vvv http://localhost:7007/healthcheck
-
-# version (no auth)
-curl -vvv http://localhost:7007/version
-
-# send notification
-# token defined by "backend.auth.externalAccess[0].options.token"
-NOTIFY_TOKEN="test-token"
-curl -X POST http://localhost:7007/api/notifications/notifications \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $NOTIFY_TOKEN" \
-  -d '{
-        "recipients": {
-          "type": "broadcast"
-        },
-        "payload": {
-          "title": "Title of broadcast message",
-          "description": "The description of the message.",
-          "link": "http://example.com/link",
-          "severity": "high",
-          "topic": "general"
-        }
-      }'
+# Health + version (no auth)
+curl http://localhost:7007/healthcheck
+curl http://localhost:7007/api/version
 ```
 
-### Tech Docs Tips
-
-If you want to test Tech Docs processing with `mkdocs` locally:
+### TechDocs locally
 
 ```sh
-python3 -m venv $(pwd)/venv
+python3 -m venv ./venv
 source venv/bin/activate
 pip install -r python/requirements.txt
 ```
 
-Make sure to have the virtual environment activated when running DevPortal so it the TechDocs plugin can work properly. The PATH variable is ajusted by `activate` to use `mkdocs` from the virtual environment.
+Keep the venv activated when running `yarn dev-local`; the backend
+shells out to `mkdocs` on `PATH`. Verify with `which mkdocs` — if
+it's not the venv copy, run `hash -r` and re-check.
 
-There are some conditions after `activate` that will trick your shell into not using `mkdocs` from the virtual environment. You can check if it is using the correct `mkdocs` version by running:
-
-```sh
-which mkdocs
-```
-
-If it is not using the correct version from the virtual environment, you can try to fix it by running:
+## Building the image
 
 ```sh
-hash -r
-# should now show the correct path
-which mkdocs
+docker build . \
+  -t veecode/devportal-platform:local \
+  --memory=4g --memory-swap=6g \
+  --build-arg DEVPORTAL_VERSION=local
 ```
 
-## Additional Notes
+The memory flags are required on WSL — the frontend build needs ~6
+GB of V8 heap. There's a wrapper script with sensible defaults:
 
-### Relationship to RHDH
+```sh
+./scripts/build-local-image.sh
+```
 
-Many code patterns and mechanics in this project are inspired by [Red Hat Developer Hub (RHDH)](https://github.com/redhat-developer/rhdh). Some files have been copied or adapted from RHDH, both manually and with AI assistance, in accordance with its open-source license. We include attribution notices in files derived from RHDH where required. If you find any missing attributions, please let us know so we can correct them.
+Full build-arg reference and the `cbme` stopgap are in
+[`docs/DOCKER_DEVELOPMENT.md`](docs/DOCKER_DEVELOPMENT.md).
 
-**Important:** VeeCode DevPortal is **not** a fork of RHDH. It is an independent open-source project that leverages proven patterns and code from RHDH to deliver a production-ready Backstage distribution.
+## Releases
+
+Image publish is **manual-dispatch only**
+([`.github/workflows/publish.yml`](.github/workflows/publish.yml)).
+
+```sh
+gh workflow run publish.yml -f version=0.2.0
+```
+
+The workflow validates the input matches `package.json` `version`,
+builds `linux/amd64` and `linux/arm64`, and stitches both into a
+multi-arch manifest under `<version>` and `latest`. See
+[`docs/RELEASE_CYCLE.md`](docs/RELEASE_CYCLE.md).
+
+## Relationship to RHDH
+
+Many code patterns and mechanics — especially the dynamic-plugin
+shell in `packages/app/src/components/DynamicRoot/` — are inspired
+by [Red Hat Developer Hub (RHDH)](https://github.com/redhat-developer/rhdh).
+Some files are adapted from RHDH (manually and with AI assistance) in
+accordance with its open-source license; attribution notices are
+included where required. If you find a missing attribution, please
+let us know so we can correct it.
+
+**VeeCode DevPortal is not a fork of RHDH.** It's an independent
+project that leverages proven RHDH patterns where they save us time.
 
 ## License
 
-Check the [LICENSE](LICENSE) file for details. Yes, we are full open source and we welcome contributions.
+[Apache 2.0](LICENSE). We welcome contributions.
