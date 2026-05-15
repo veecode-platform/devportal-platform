@@ -134,12 +134,12 @@ Subdirectories:
 A wrapper's `export-dynamic` script is one of two tools:
 
 - **`rhdh-cli plugin export`** — newer, preferred path. Used by
-  `veecode-platform-plugin-veecode-theme`, `backstage-plugin-kubernetes`,
-  `backstage-community-plugin-tech-radar` (front+back),
-  `backstage-community-plugin-azure-devops` (frontend wrapper).
+  `veecode-platform-plugin-veecode-theme` (the only remaining local
+  frontend wrapper; upstream plugin wrappers for kubernetes, tech-radar,
+  and azure-devops are now sourced via OCI).
 - **`janus-cli package export-dynamic-plugin --in-place`** — older
   path; still used by most backend wrappers and the marketplace,
-  jenkins, sonarqube, rbac wrappers.
+  pending-changes wrappers.
 
 Both tools produce a `dist-scalprum/` (frontend) or `dist-dynamic/`
 (backend) directory with a Module-Federation remote entry + manifest
