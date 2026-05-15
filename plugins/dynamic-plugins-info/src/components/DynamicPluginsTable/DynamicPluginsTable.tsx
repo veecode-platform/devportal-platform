@@ -65,7 +65,7 @@ export const DynamicPluginsTable = () => {
       // for now sorting/searching/pagination is handled client-side
       const enabledPlugins = (await dynamicPluginInfo.listLoadedPlugins()).map(
         plugin => {
-          if (plugin.name in InternalPluginsMap) {
+          if (InternalPluginsMap.has(plugin.name)) {
             return {
               ...plugin,
               internal: true,
