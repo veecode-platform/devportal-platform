@@ -36,27 +36,6 @@ Alternatives if this becomes a pain point: rewrite the preset
 resolver to write a new file (e.g. `dynamic-plugins.runtime.yaml`)
 and pass that to the install script, so the source file is read-only.
 
-### Two CLI tools for dynamic-plugin export
-
-The wrapper set splits between `rhdh-cli plugin export` (newer,
-frontend with CSS) and `janus-cli package export-dynamic-plugin`
-(older, most backend wrappers). The tools produce compatible output;
-having both is a transition state, not a desired end state.
-
-Picking one direction (`rhdh-cli` likely, since it handles the
-`sideEffects: ["**/*.css"]` case) is a multi-wrapper migration. Not
-blocked on anything; just hasn't been a priority.
-
-### Double-`dynamic` suffix on the marketplace backend
-
-`dynamic-plugins/wrappers/devportal-marketplace-backend-dynamic/`
-exports as `devportal-marketplace-backend-dynamic-dynamic` because
-janus-cli appends `-dynamic` to the directory name. This is real and
-documented in
-[`presets/SCHEMA.md`](../presets/SCHEMA.md) § "Composition",
-but the duplication looks like a typo. Renaming the wrapper to
-`devportal-marketplace-backend/` would clean this up.
-
 ### `customResolveDynamicPackage` error path
 
 [`packages/backend/src/index.ts:71-103`](../packages/backend/src/index.ts)

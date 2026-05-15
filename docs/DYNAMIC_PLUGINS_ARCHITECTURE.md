@@ -73,32 +73,27 @@ the master list of plugins the install script can act on. Each entry:
           # routes, mount points, menu items, translations, etc.
 ```
 
-Three kinds of `package:` references:
+Two kinds of `package:` references:
 
-- `./dynamic-plugins/dist/<name>` — local path, valid for plugins
-  built into the image (the wrappers).
 - `<scope>/<package>@<version>` — NPM, downloaded at boot via
-  `npm pack`.
+  `npm pack`. Used for a handful of `@veecode-platform/*-dynamic`
+  packages still on npm.
 - `oci://<registry>/<image>:<tag>!<sub-package>` — OCI artifact,
-  pulled via skopeo. `${BACKSTAGE_VERSION}` in the tag is substituted
-  at boot ([`entrypoint.sh:176-196`](../entrypoint.sh)).
+  pulled via skopeo. `${PLUGIN_REGISTRY}` (default `quay.io/veecode`)
+  and `${BACKSTAGE_VERSION}` (from `backstage.json`) in the URL are
+  substituted at boot ([`entrypoint.sh:176-196`](../entrypoint.sh)).
+  The bulk of the inventory uses this form — bundles are published by
+  [`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays)
+  on a per-Backstage-version basis.
 
-For the entries that ship pre-installed in the image
-(`preInstalled: true`), the Dockerfile already copied the bundle from
-`dynamic-plugins/dist/<name>/` into
-`/app/dynamic-plugins-root/<name>/` at build time
-([`Dockerfile:203-221`](../Dockerfile)). The install script then
-**skips fetching** and only merges the `pluginConfig:` into the
-generated `app-config.dynamic-plugins.yaml`.
-
-A preset that wants to _enable_ a preinstalled plugin re-emits its
+A preset that wants to _enable_ a default-disabled plugin re-emits its
 `package:` entry with `disabled: false`. The install script merges
 shallow per `package:` key — last-write-wins on the whole entry. So:
 
 ```yaml
 # presets/recommended.yaml
 plugins:
-  - package: backstage-community-plugin-rbac
+  - package: oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac
     disabled: false
 ```
 
@@ -107,108 +102,51 @@ plugins:
 ### The `package:` exact-match contract
 
 The `package:` field must match the entry already present in
-`dynamic-plugins.default.yaml` **exactly** — including any trailing
-`-dynamic` suffix that the build tool appends.
-[`presets/SCHEMA.md`](../presets/SCHEMA.md) calls this out: e.g. the
-marketplace backend is `devportal-marketplace-backend-dynamic-dynamic`
-(the wrapper is named `…-backend-dynamic` and `janus-cli` appends
-`-dynamic` again on export). A mismatch installs the plugin twice
-under two different names and the backend crashes on the duplicate
-registration.
+`dynamic-plugins.default.yaml` **exactly** — including the
+`oci://…!<selector>` form and any trailing `-dynamic` suffix on the
+selector. A mismatch installs the plugin twice under two different
+names and the backend crashes on the duplicate registration.
 
-## Pre-installed plugins (baked into the image)
+## How OCI bundles are extracted
 
-The Dockerfile pre-installs these into `/app/dynamic-plugins-root/`
-([`Dockerfile:203-221`](../Dockerfile)):
+Each OCI bundle published by
+[`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays)
+carries one or more **selectors** — distinct dynamic plugins packaged
+in the same image. The `!<selector>` suffix on the URL tells
+`install-dynamic-plugins.py` which directory inside the bundle to copy
+into `/app/dynamic-plugins-root/<name>/`. For example,
+`oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}` carries
+three selectors (`devportal-marketplace-frontend-dynamic`,
+`devportal-marketplace-backend`, `devportal-pending-changes-dynamic`),
+each of which the install script extracts independently if listed in
+`dynamic-plugins.default.yaml`.
 
-```
-veecode-platform-plugin-veecode-global-header-dynamic
-veecode-platform-plugin-veecode-homepage-dynamic
-veecode-platform-plugin-veecode-theme-dynamic
-veecode-platform-backstage-plugin-about-backend-dynamic
-veecode-platform-backstage-plugin-about-dynamic
-devportal-marketplace-backend-dynamic-dynamic
-devportal-pending-changes-dynamic
-devportal-marketplace-frontend-dynamic
-```
+The Dockerfile leaves `/app/dynamic-plugins-root/` empty at build
+time — only `mkdir -p` is run. The directory is fully populated by
+the install script on every container start.
 
-Plus the `red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions`
-pulled from `quay.io/veecode/extensions:bs_${EXTENSIONS_TAG}` via
-skopeo ([`Dockerfile:223-270`](../Dockerfile)).
-
-These are present in `dynamic-plugins-root/` from boot zero; the
-preset only needs to flip `disabled: false` (and supply
-`appConfig:` for the wiring).
-
-## The build pipeline: wrappers and `dynamic-plugins/`
-
-[`dynamic-plugins/`](../dynamic-plugins/) is a separate Yarn workspace
-(see [`MONOREPO_STRUCTURE.md`](MONOREPO_STRUCTURE.md)). It builds the
-Module-Federation bundles consumed at runtime.
-
-```bash
-cd dynamic-plugins
-yarn install                          # installs the workspace
-yarn build                            # tsc each wrapper
-yarn export-dynamic                   # MF export per wrapper
-yarn copy-dynamic-plugins ../dynamic-plugins-root  # publish for image
-```
-
-Each wrapper under `dynamic-plugins/wrappers/<name>/` is a small
-package:
-
-```json
-{
-  "name": "veecode-platform-plugin-veecode-theme",
-  "main": "src/index.ts",
-  "backstage": {
-    "role": "frontend-plugin",
-    "pluginId": "veecode-theme"
-  },
-  "sideEffects": ["**/*.css"],
-  "scripts": {
-    "build": "backstage-cli package build",
-    "export-dynamic": "rhdh-cli plugin export"
-  },
-  "scalprum": {
-    "name": "veecode-platform.plugin-veecode-theme",
-    "exposedModules": { "PluginRoot": "./src/index.ts" }
-  }
-}
-```
-
-Two CLI tools are in use across the workspace; the choice is
-per-wrapper:
-
-| Tool                                                 | Used by                                                                                                                                                                              | When to pick                                                                                                                                                                  |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rhdh-cli plugin export`                             | `veecode-platform-plugin-veecode-theme` (the only remaining local frontend wrapper — upstream plugin wrappers for kubernetes, tech-radar, azure-devops are now sourced via OCI) | Frontend wrappers that need `sideEffects: ["**/*.css"]` for module-federated CSS. `backstage-cli package build` currently breaks on the CSS import (ADR-011 § validation #1). |
-| `janus-cli package export-dynamic-plugin --in-place` | RBAC, jenkins, sonarqube, marketplace front+back, pending-changes, azure-devops backend, sonarqube-backend, jenkins-backend, scaffolder-backend-module-sonarqube                     | The older path. Stable; produces a `dist-dynamic/` that the install script understands. Most backend wrappers use this.                                                       |
-
-Both produce module-federation artifacts the runtime can load — the
-shape of the output (`dist-scalprum/` for frontend MF,
-`dist-dynamic/` for backend Node modules) is the contract, not the
-tool.
+The one exception is the `cbme` stopgap:
+`red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions`
+is pulled at *build time* from `quay.io/veecode/extensions:bs_${EXTENSIONS_TAG}`
+via skopeo and patched in place — see the [`Dockerfile`](../Dockerfile)
+"cbme stopgap" comment block.
 
 ## Authoring gotchas
 
-Captured from ADR-011 § "Lições críticas" and the wrappers we have
-working today. These recur often enough that they belong in this doc,
-not just an ADR:
+These recur often enough that they belong here, not just in an ADR.
+Most apply to the upstream plugin author (in
+`devportal-plugin-export-overlays` or wherever the plugin source
+lives), since this repo no longer builds plugin bundles itself:
 
-- **`sideEffects: ["**/\*.css"]` is required\*\* for any frontend plugin
+- **`sideEffects: ["**/*.css"]` is required** for any frontend plugin
   whose runtime depends on CSS being bundled. Without it, webpack
   tree-shakes the CSS imports out of the MF bundle and the plugin
   renders unstyled. Backstage's plugin generator does not set this by
-  default — add it manually.
+  default — author the upstream package with it set.
 - **Peer-deps must include React/React-DOM** at the same major the
   host expects (`^18` here). The MF host provides one copy of React
   shared across plugins; a plugin that resolves its own React copy
   produces two React contexts and hooks crash.
-- **Use `rhdh-cli plugin export`, not `backstage-cli package build`**,
-  for frontend wrappers with CSS. The Backstage CLI's
-  `package build` runs Rollup, which doesn't handle the CSS
-  side-effect declaration the way the wrapper needs.
 - **Theme `id` collisions.** When the theme plugin registers
   `id: light` and `id: dark`, the static
   `@red-hat-developer-hub/backstage-plugin-theme` entries of the same
@@ -217,20 +155,12 @@ not just an ADR:
   the picker and resolve by config-merge order. Hence the design:
   one theme plugin per deployment — to override the VeeCode theme,
   swap `veecode-theme` out of `VEECODE_PRESETS`, don't stack on top.
-- **The exported artifact name is the wrapper directory + `-dynamic`**.
-  `dynamic-plugins/wrappers/veecode-platform-plugin-veecode-theme/`
-  exports to
-  `dynamic-plugins/dist/veecode-platform-plugin-veecode-theme-dynamic/`,
-  and the `dynamic-plugins.default.yaml` entry uses that suffix
-  literally. The marketplace-backend wrapper directory is
-  `devportal-marketplace-backend-dynamic` and exports to
-  `devportal-marketplace-backend-dynamic-dynamic` (double suffix —
-  see "exact-match contract" above).
-- **Scalprum's `name` must match the config key.** In
-  `package.json`'s `scalprum.name` field and in
-  `dynamic-plugins.default.yaml`'s `pluginConfig.dynamicPlugins.frontend.<key>`,
-  the strings must match. Mismatch → DynamicRoot loads the manifest
-  but never finds the config and skips the plugin silently.
+- **Scalprum's `name` must match the config key.** In the published
+  plugin's `package.json` `scalprum.name` field and in
+  `dynamic-plugins.default.yaml`'s
+  `pluginConfig.dynamicPlugins.frontend.<key>`, the strings must
+  match. Mismatch → DynamicRoot loads the manifest but never finds
+  the config and skips the plugin silently.
 
 ## Backend dynamic plugin loading
 
@@ -258,11 +188,11 @@ backend.add(
 );
 ```
 
-The custom resolver is what makes wrapper packages work. A wrapper
-like `dynamic-plugins/wrappers/devportal-marketplace-frontend-dynamic/`
-depends on `devportal-marketplace-frontend workspace:^`; the resolver
-walks the wrapper's own `node_modules/` to find the wrapped package,
-not the runtime app's `node_modules/`.
+`customResolveDynamicPackage` is still required after the OCI swap:
+the OCI bundle's `dist-dynamic/package.json` wraps the underlying
+plugin via the same `dependencies` pattern the deleted local wrappers
+used, so the resolver walks the bundle's `node_modules/` to find the
+wrapped package — not the runtime app's `node_modules/`.
 
 ## Frontend dynamic plugin loading
 

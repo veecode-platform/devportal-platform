@@ -19,7 +19,7 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
 ## Understanding the codebase
 
 - docs/PROJECT_CONTEXT.md - What this image is, two paths of use, how it differs from devportal-base/distro
-- docs/MONOREPO_STRUCTURE.md - Yarn 4 root workspace + the separate `dynamic-plugins/` Yarn project
+- docs/MONOREPO_STRUCTURE.md - Yarn 4 root workspace; dynamic plugins now consumed as OCI bundles
 - docs/DEVELOPMENT_GUIDE.md - Local dev: `yarn dev-local` (Node loop) vs `scripts/dev-run.sh` (image overlay)
 - docs/DOCKER_DEVELOPMENT.md - Unified image build, build-args, the `cbme` stopgap
 - docs/BACKSTAGE_ARCHITECTURE.md - Pinned versions (1.49.4) + how the static + dynamic backend wire together
@@ -113,22 +113,18 @@ plugins/         # Internal plugins (workspace packages)
   dynamic-plugins-info-backend/  # Backend API for plugin info
   scalprum-backend/              # Backend support for dynamic frontend loading
 
-dynamic-plugins/                 # Build workspace for preinstalled plugins
-  wrappers/      # Compatibility wrappers for legacy static plugins
-  downloads/     # Native dynamic plugins (defined in plugins.json)
-  _utils/        # Build utilities
-
-dynamic-plugins-root/            # Runtime directory for loaded dynamic plugins
+# At runtime inside the image:
+# /app/dynamic-plugins-root/  - populated at boot from OCI by install-dynamic-plugins.py
 ```
 
 ### Plugin Types
 
 1. **Static Plugins**: Compiled into the application bundle (backend: auth providers, catalog, scaffolder, permissions, RBAC; frontend: minimal core)
 
-2. **Dynamic Plugins**: Loaded at runtime from `dynamic-plugins-root/` directory
-
-   - **Preinstalled**: Baked into image, optionally enabled via config
-   - **Downloaded**: Fetched from registries at startup
+2. **Dynamic Plugins**: Fetched at boot from OCI bundles (or npm for the
+   handful of always-on chrome plugins) into `/app/dynamic-plugins-root/`.
+   Toggled per-deployment via `dynamic-plugins.default.yaml` + preset
+   overrides.
 
 3. **Internal Plugins** (`@internal/*`): Workspace packages in `plugins/` directory
 

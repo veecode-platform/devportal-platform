@@ -92,11 +92,12 @@ plugins:
 
 **Package reference formats:**
 
-- `oci://<registry>/<image>:<tag>!<plugin-name>` — recommended for new
-  presets; pulls at runtime, decoupled from image release
-- `./dynamic-plugins/dist/<plugin>` — local path, valid only for
-  plugins built into the unified image
-- `<scope>/<package>@<version>` — npm reference, downloaded at boot
+- `oci://<registry>/<image>:<tag>!<plugin-name>` — preferred and the
+  dominant form; the install script pulls the bundle via skopeo and
+  extracts the named selector
+- `<scope>/<package>@<version>` — npm reference, downloaded at boot.
+  Used for the handful of always-on `@veecode-platform/*-dynamic`
+  chrome plugins
 
 **`disabled: false` is the preset's intent.** A preset that enables a
 plugin must set this. If a preset wants a plugin available-but-off,
@@ -148,12 +149,11 @@ When the entrypoint loads multiple presets (`VEECODE_PRESETS=a,b,c`):
    installation governed by the later preset's `pluginConfig`.
 
    **Critical contract**: the `package:` field MUST match the entry already
-   present in `dynamic-plugins.default.yaml` exactly (down to any trailing
-   `-dynamic` suffix that janus-cli appends automatically — e.g.
-   `devportal-marketplace-backend-dynamic-dynamic` is the real wrapper output
-   name). A mismatch installs the plugin a second time under a different name
-   and the backend crashes on the duplicate registration. See the comments at
-   the top of `recommended.yaml` for examples.
+   present in `dynamic-plugins.default.yaml` exactly (the full `oci://…!<selector>`
+   form, including any `-dynamic` suffix on the selector). A mismatch installs
+   the plugin a second time under a different name and the backend crashes on
+   the duplicate registration. See the comments at the top of `recommended.yaml`
+   for examples.
 
 3. **`appConfig`** — each preset's `appConfig:` block is written to its own
    `app-config.preset-<name>.yaml` and added to the backend's `--config` list

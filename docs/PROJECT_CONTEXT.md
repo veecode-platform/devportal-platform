@@ -107,11 +107,12 @@ The New Frontend System migration is deferred (ADR-011 § "Phase 2").
   catalog, scaffolder, RBAC, search, techdocs, kubernetes, …) are
   compiled in; dynamic plugins are loaded at boot from
   `/app/dynamic-plugins-root/`.
-- Dynamic plugins ([`dynamic-plugins/`](../dynamic-plugins/)) — a
-  separate Yarn workspace (its own `yarn.lock`) containing **wrapper**
-  packages that re-export upstream plugins as Module-Federation bundles,
-  plus a few first-party plugins (`packages/`) and downloaded plugins
-  (`downloads/plugins.json`).
+- Dynamic plugins — fetched at boot as OCI bundles
+  (`oci://${PLUGIN_REGISTRY}/<workspace>:bs_${BACKSTAGE_VERSION}!<selector>`),
+  published by
+  [`veecode-platform/devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays).
+  The complete inventory lives in
+  [`dynamic-plugins.default.yaml`](../dynamic-plugins.default.yaml).
 - Internal plugins ([`plugins/`](../plugins/)) — workspace packages
   under `@internal/*` (dynamic-plugins-info, scalprum-backend).
 - Presets ([`presets/`](../presets/)) — versioned YAML preset catalog.

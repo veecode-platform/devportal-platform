@@ -35,20 +35,16 @@ the image, but not in the host workspace). For the image build,
 ## First-time setup
 
 ```bash
-# 1. Install workspace deps + build dynamic plugin wrappers + copy to dist
-make full
-# Equivalent: yarn install && cd dynamic-plugins && yarn install && \
-#             yarn clean && yarn tsc && yarn export-dynamic && \
-#             yarn copy-dynamic-plugins dist && cd .. && yarn check-dynamic-plugins
-#
-# Or use the shortcut:
-yarn init-local
+yarn install
 ```
 
-`make full` does double-duty: it installs both the root and the
-`dynamic-plugins/` workspaces (they each have their own `yarn.lock` —
-[`MONOREPO_STRUCTURE.md`](MONOREPO_STRUCTURE.md)) and exports the
-dynamic-plugin bundles to `dynamic-plugins/dist/`.
+That's the whole install step. There is no separate dynamic-plugins
+workspace anymore — dynamic plugins are fetched as OCI bundles at boot
+inside the image (see
+[`MONOREPO_STRUCTURE.md`](MONOREPO_STRUCTURE.md) § "Dynamic plugins —
+OCI bundles"). For the Node dev loop (`yarn dev-local`), dynamic
+plugins are not loaded at all; the frontend uses only the static
+plugins wired in `packages/app/src/App.tsx`.
 
 For TechDocs locally:
 
@@ -174,13 +170,12 @@ the in-image uid which the container's `default` user can't write
 through), and then `dev-run.sh run` bind-mounts that directory over
 `/app/dynamic-plugins-root/`. You can:
 
-- Drop in a freshly exported plugin dir (e.g. from `dynamic-plugins/dist/`
-  after `cd dynamic-plugins && yarn build && yarn export-dynamic`).
-- Edit a wrapper's `dist-scalprum/` bundle in-place to test a small
-  change without a full export.
-- Run `cd dynamic-plugins && yarn build && yarn export-dynamic && yarn
-copy-dynamic-plugins "$REPO/.devrun-cache/dynamic-plugins-root"` to
-  refresh the overlay.
+- Drop in a freshly extracted plugin dir from another image, or build
+  one upstream in `devportal-plugin-export-overlays` and `skopeo copy`
+  the OCI bundle locally.
+- Edit a plugin's `dist-scalprum/` (frontend) or `dist-dynamic/`
+  (backend) bundle in place to test a small change without a full
+  republish.
 
 Then `./scripts/dev-run.sh reload` to pick it up.
 

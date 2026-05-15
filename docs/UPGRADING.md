@@ -3,7 +3,11 @@
 `devportal-platform` has three independent upgrade tracks:
 
 1. **Backstage** (`backstage.json`, root resolutions, every `@backstage/*`
-   dependency in `packages/{app,backend}` and `dynamic-plugins/`).
+   dependency in `packages/{app,backend}`). Dynamic plugin OCI tags
+   that pin to a Backstage version (e.g. `bs_${BACKSTAGE_VERSION}`)
+   resolve automatically from `backstage.json`; the literal `bs_1.49.4`
+   pins in `dynamic-plugins.default.yaml` are updated explicitly when
+   a new OCI tag is published upstream.
 2. **UBI base image** (`NODE_BASE` build-arg, currently
    `registry.access.redhat.com/ubi10/nodejs-22:10.1-…`).
 3. **`EXTENSIONS_TAG`** — the OCI tag of `quay.io/veecode/extensions`,
@@ -39,20 +43,19 @@ when a Backstage major lands that breaks the cbme module (see
 ### Run the bump
 
 ```bash
-# Root workspace
 yarn update-backstage      # backstage-cli versions:bump --pattern
                             #   '@{backstage,roadiehq,backstage-community,veecode-platform}/*'
-
-# dynamic-plugins workspace (separate Yarn project)
-cd dynamic-plugins
-yarn update-backstage      # rm -rf wrappers/*/dist-dynamic wrappers/*/dist-scalprum then versions:bump
-cd ..
 ```
 
 Then update [`backstage.json`](../backstage.json) if `versions:bump`
 didn't (it should). The file holds a single `{"version": "1.X.Y"}`
 that `entrypoint.sh` reads for `BACKSTAGE_VERSION` env-var
-substitution in OCI plugin refs.
+substitution in OCI plugin refs. Any literal `bs_<X>.<Y>.<Z>` tags
+in `dynamic-plugins.default.yaml` need to be updated by hand once the
+matching tag is published by
+[`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays);
+entries that use `bs_${BACKSTAGE_VERSION}` pick up the new version
+automatically.
 
 ### Validate
 
@@ -62,7 +65,6 @@ yarn tsc                   # type-check everything
 yarn lint:check
 yarn test
 yarn dev-local             # smoke-test the UI
-make full                  # rebuild dynamic-plugin bundles
 ./scripts/build-local-image.sh  # rebuild the image (optional)
 ```
 
@@ -74,22 +76,22 @@ make full                  # rebuild dynamic-plugin bundles
 - Backend plugin re-registration: a new `@backstage/plugin-X-backend`
   module that's now required to be wired explicitly will surface at
   `yarn dev-local` boot as an error.
-- The dynamic-plugin wrappers' `supported-versions` field is _just
-  metadata_ — it doesn't gate loading. The real compatibility check
-  is whether the upstream plugin still imports from the same
-  Backstage subpath at the new version.
+- The OCI bundles' `supported-versions` field is _just metadata_ —
+  it doesn't gate loading. The real compatibility check is whether
+  the upstream plugin still imports from the same Backstage subpath
+  at the new version, so wait for
+  `devportal-plugin-export-overlays` to publish bundles built against
+  the new Backstage version before bumping the matching `bs_X.Y.Z`
+  tags in `dynamic-plugins.default.yaml`.
 
 ### What to expect on a major bump
 
-- `dynamic-plugin/wrappers/*/dist-dynamic` and `dist-scalprum` are
-  removed by `yarn update-backstage` in that workspace; rebuild from
-  scratch.
 - The cbme stopgap may need updating (see Track 3).
 - The frontend `DynamicRoot/` shell mirrors RHDH's; if RHDH's app
   skeleton changed in the bump (e.g. moved files, renamed
   hooks), our copy needs the equivalent change.
-- Run **all** validation, including `make full` and a container
-  smoke test (`./scripts/dev-run.sh run` with a real preset).
+- Run **all** validation, including a container smoke test
+  (`./scripts/dev-run.sh run` with a real preset).
 
 ## Track 2: UBI base image
 
@@ -207,34 +209,13 @@ This is the cleanup case described in
 4. Verify by rebuilding and confirming the marketplace catalog still
    loads.
 
-## Track 4: Dynamic plugin wrappers
-
-Not strictly an upgrade track, but a frequent companion.
-
-```bash
-cd dynamic-plugins
-yarn install
-yarn build
-yarn export-dynamic
-yarn copy-dynamic-plugins ../dynamic-plugins-root
-```
-
-When you bump a wrapper's dep:
-
-```bash
-yarn workspace <wrapper-name> up <pkg>@<version>
-```
-
-(Inside `dynamic-plugins/`.) Then export and copy.
-
 ## Post-upgrade checklist
 
 ```bash
-yarn install                 # both workspaces
+yarn install
 yarn tsc
 yarn lint:check
 yarn test
-make full                    # rebuilds dynamic-plugin bundles
 ./scripts/build-local-image.sh   # rebuild image
 ```
 
@@ -258,10 +239,11 @@ Pin via `resolutions:` in the root `package.json`. Stay within
 patch/minor on `@backstage/*` resolutions — major resolutions
 override every consumer and break wrappers silently.
 
-**Wrapper builds fail with "module not found"** — a deep import the
-wrapper used has been moved upstream. Check the wrapped plugin's
-changelog. For frontend wrappers, `rhdh-cli plugin export` is
-stricter than `janus-cli` about missing peer deps.
+**OCI plugin fails to load with "module not found"** — the published
+bundle was built against a different Backstage version than the one
+in `backstage.json`. Either bump `backstage.json` or pin the offending
+entry's `bs_X.Y.Z` tag to a known-good version that
+`devportal-plugin-export-overlays` has published.
 
 **Image build OOMs at `yarn install` in stage 1** — bump
 `--memory=4g --memory-swap=6g` (the floor for a clean build on WSL),
