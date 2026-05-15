@@ -153,27 +153,16 @@ backend/frontend, not loaded dynamically.
 
 ## Dynamic plugins — wrappers
 
-15 wrapper packages under
+4 wrapper packages under
 [`dynamic-plugins/wrappers/`](../dynamic-plugins/wrappers/), each
 re-exporting an upstream plugin as a Module-Federation bundle:
 
-| Wrapper directory                                                        | Wraps                                                 | Tier / preset   |
-| ------------------------------------------------------------------------ | ----------------------------------------------------- | --------------- |
-| `backstage-community-plugin-rbac`                                        | `@backstage-community/plugin-rbac`                    | recommended     |
-| `backstage-community-plugin-tech-radar`                                  | `@backstage-community/plugin-tech-radar`              | recommended     |
-| `backstage-community-plugin-tech-radar-backend-dynamic`                  | `@backstage-community/plugin-tech-radar-backend`      | recommended     |
-| `backstage-community-plugin-azure-devops`                                | `@backstage-community/plugin-azure-devops` (frontend) | `azure`         |
-| `backstage-community-plugin-azure-devops-backend-dynamic`                | `@backstage-community/plugin-azure-devops-backend`    | `azure`         |
-| `backstage-community-plugin-jenkins`                                     | `@backstage-community/plugin-jenkins` (frontend)      | `jenkins`       |
-| `backstage-community-plugin-jenkins-backend-dynamic`                     | `@backstage-community/plugin-jenkins-backend`         | `jenkins`       |
-| `backstage-community-plugin-sonarqube`                                   | `@backstage-community/plugin-sonarqube` (frontend)    | `sonarqube`     |
-| `backstage-community-plugin-sonarqube-backend-dynamic`                   | `@backstage-community/plugin-sonarqube-backend`       | `sonarqube`     |
-| `backstage-community-plugin-scaffolder-backend-module-sonarqube-dynamic` | sonarqube scaffolder backend module                   | `sonarqube`     |
-| `backstage-plugin-kubernetes`                                            | `@backstage/plugin-kubernetes` (frontend)             | `kubernetes`    |
-| `devportal-marketplace-frontend-dynamic`                                 | local `packages/devportal-marketplace-frontend`       | recommended     |
-| `devportal-marketplace-backend-dynamic`                                  | local `packages/devportal-marketplace-backend`        | recommended     |
-| `devportal-pending-changes-dynamic`                                      | local `packages/devportal-pending-changes`            | recommended     |
-| `veecode-platform-plugin-veecode-theme`                                  | first-party theme provider                            | `veecode-theme` |
+| Wrapper directory                        | Wraps                                           | Tier / preset   |
+| ---------------------------------------- | ----------------------------------------------- | --------------- |
+| `devportal-marketplace-frontend-dynamic` | local `packages/devportal-marketplace-frontend` | recommended     |
+| `devportal-marketplace-backend-dynamic`  | local `packages/devportal-marketplace-backend`  | recommended     |
+| `devportal-pending-changes-dynamic`      | local `packages/devportal-pending-changes`      | recommended     |
+| `veecode-platform-plugin-veecode-theme`  | first-party theme provider                      | `veecode-theme` |
 
 The wrappers exist for one reason: turning a static-plugin import
 chain into an MF-loadable bundle. Most don't add any code beyond a
@@ -182,6 +171,26 @@ tiny `src/index.ts` re-export.
 Built artifacts land in `dynamic-plugins/dist/<name>-dynamic/` and
 get copied (preinstalled) into `/app/dynamic-plugins-root/` at image
 build time.
+
+## Dynamic plugins — OCI-sourced upstream plugins
+
+The following upstream plugins are no longer wrapped locally. They are
+fetched at boot from OCI images via `oci://${PLUGIN_REGISTRY}/<workspace>:<tag>!<plugin-path>`.
+`PLUGIN_REGISTRY` defaults to `quay.io/veecode` and is substituted by `entrypoint.sh`.
+
+| OCI reference                                                                                      | Tier / preset |
+| -------------------------------------------------------------------------------------------------- | ------------- |
+| `oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac`                         | recommended   |
+| `oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar`             | recommended   |
+| `oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend`     | recommended   |
+| `oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes`                        | `kubernetes`  |
+| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops`         | `azure`       |
+| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend` | `azure`       |
+| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins`                   | `jenkins`     |
+| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend`           | `jenkins`     |
+| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube`               | `sonarqube`   |
+| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube-backend`       | `sonarqube`   |
+| `oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.48.4!backstage-community-plugin-scaffolder-backend-module-sonarqube` | `sonarqube` |
 
 ## Dynamic plugins — first-party (`dynamic-plugins/packages/`)
 

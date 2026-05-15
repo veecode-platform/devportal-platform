@@ -262,8 +262,8 @@ backend.add(
 ```
 
 The custom resolver is what makes wrapper packages work. A wrapper
-like `dynamic-plugins/wrappers/backstage-community-plugin-rbac/`
-depends on `@backstage-community/plugin-rbac@^1.52.0`; the resolver
+like `dynamic-plugins/wrappers/devportal-marketplace-frontend-dynamic/`
+depends on `devportal-marketplace-frontend workspace:^`; the resolver
 walks the wrapper's own `node_modules/` to find the wrapped package,
 not the runtime app's `node_modules/`.
 
