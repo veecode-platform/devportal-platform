@@ -28,9 +28,8 @@ requires:
 #    are STATIC in the unified devportal backend (compiled in via `backend.add(import(...))`,
 #    see packages/backend/src/index.ts). They are NOT dynamic plugins / not OCI artifacts.
 #    This preset only *configures* them — the `appConfig:` block below.
-#  - The `plugins:` list is just the dynamic UI add-ons. A `./dynamic-plugins/dist/X` entry
-#    references a wrapper baked from the dynamic-plugins/ workspace; its `package:` must match
-#    the (disabled) entry in dynamic-plugins.default.yaml so install-dynamic-plugins.py
+#  - The `plugins:` list is just the dynamic UI add-ons. Each `package:` must match the
+#    (disabled) entry in dynamic-plugins.default.yaml so install-dynamic-plugins.py
 #    merges/flips `disabled` (the pluginConfig — mountPoints — lives there).
 plugins:
   # Azure DevOps frontend — pipeline + PR cards on entity pages (pluginConfig in dynamic-plugins.default.yaml).

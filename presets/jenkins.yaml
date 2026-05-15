@@ -20,8 +20,8 @@ requires:
 # What this preset does:
 #  - Enables the Jenkins frontend plugin (CI tab on entity pages).
 #  - Enables the Jenkins backend plugin (proxies build/status API calls).
-#  - Both wrappers are pre-baked into the image (./dynamic-plugins/dist/).
-#    The pluginConfig (mountPoints) lives in dynamic-plugins.default.yaml.
+#  - Both plugins are fetched as OCI bundles at boot. The pluginConfig
+#    (mountPoints) lives in dynamic-plugins.default.yaml.
 plugins:
   - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins
     disabled: false

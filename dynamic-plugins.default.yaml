@@ -177,31 +177,6 @@ plugins:
                     allOf:
                       - isGithubActionsAvailable
 
-  - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-backend-dynamic
-    disabled: true
-
-  - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-dynamic
-    disabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          veecode-platform.backstage-plugin-github-workflows:
-            mountPoints:
-              - mountPoint: entity.page.overview/cards
-                importName: EntityGithubWorkflowsCard
-                config:
-                  layout:
-                    gridRowStart:
-                      lg: "4"
-                    gridColumnStart:
-                      lg: "1"
-                    gridColumnEnd:
-                      lg: "span 6"
-                  if:
-                    anyOf:
-                      - hasAnnotation: "github.com/workflows"
-                      - hasAnnotation: "vee.codes/has-github-workflows"
-
   - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops
     disabled: true
     pluginConfig:
@@ -424,8 +399,7 @@ plugins:
   # — the theme is its own preset so a downstream brand can swap it by
   # name without stacking. See ADR-011 § "theme as a dynamic plugin and a
   # preset".)
-  - package: veecode-platform-plugin-veecode-theme-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/veecode-theme:bs_${BACKSTAGE_VERSION}!veecode-platform-plugin-veecode-theme
     disabled: true   # theme-tier (gated by presets/veecode-theme.yaml)
     pluginConfig:
       dynamicPlugins:
@@ -515,8 +489,7 @@ plugins:
     preInstalled: true
     disabled: true
   # DevPortal marketplace frontend (fork of RHDH extensions frontend)
-  - package: devportal-marketplace-frontend-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
@@ -541,12 +514,10 @@ plugins:
   - package: oci://quay.io/veecode/extensions:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-extensions-backend
     disabled: true
   # DevPortal custom marketplace backend
-  - package: devportal-marketplace-backend-dynamic-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-backend
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
   # Pending changes indicator (header badge next to notifications bell)
-  - package: devportal-pending-changes-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-pending-changes-dynamic
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:

@@ -23,9 +23,8 @@ requires:
 #    devportal-plugin-export-overlays `backstage` workspace explicitly excludes them
 #    ("static in devportal-base"). This preset only *configures* them — the `appConfig:`
 #    block below.
-#  - The `plugins:` list is therefore just the dynamic UI add-ons. A `./dynamic-plugins/dist/X`
-#    entry references a wrapper baked into the image from the dynamic-plugins/ workspace;
-#    its `package:` must match the (disabled) entry in dynamic-plugins.default.yaml so
+#  - The `plugins:` list is therefore just the dynamic UI add-ons. Each `package:` must
+#    match the (disabled) entry in dynamic-plugins.default.yaml so
 #    install-dynamic-plugins.py merges/flips `disabled` (the pluginConfig — mountPoints —
 #    lives there).
 #  - The GitHub auth provider config still lives in app-config.github.yaml (the ADR-009
@@ -35,15 +34,6 @@ plugins:
   # GitHub Actions UI — CI tab on entity pages (pluginConfig in dynamic-plugins.default.yaml).
   - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
     disabled: false
-
-  # GitHub Workflows (VeeCode) — workflow trigger card + its backend. COMMENTED OUT:
-  # referenced by dynamic-plugins.default.yaml (disabled) but the dynamic-plugins/ workspace
-  # doesn't currently produce these wrappers, so enabling them fails at install. Re-enable
-  # once the wrapper is built/published. Tracked in the migration follow-up debt task.
-  # - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-dynamic
-  #   disabled: false
-  # - package: ./dynamic-plugins/dist/veecode-platform-backstage-plugin-github-workflows-backend-dynamic
-  #   disabled: false
 
 appConfig:
   integrations:
