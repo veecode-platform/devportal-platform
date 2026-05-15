@@ -3,21 +3,8 @@
 #
 plugins:
 # Group: Kubernetes
-  # currently the BE plugin is static, so this is commented out
-  # - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-  #   disabled: true
-  #   pluginConfig:
-  #     kubernetes:
-  #       serviceLocatorMethod:
-  #         type: 'multiTenant'
-  #       clusterLocatorMethods:
-  #         - type: 'config'
-  #           clusters:
-  #             - name: ${K8S_CLUSTER_NAME}
-  #               url: ${K8S_CLUSTER_URL}
-  #               authProvider: 'serviceAccount'
-  #               skipTLSVerify: true
-  #               serviceAccountToken: ${K8S_CLUSTER_TOKEN}
+  # The kubernetes BE plugin is static (registered in packages/backend/src/index.ts);
+  # the FE plugin is fetched as a dynamic OCI bundle below.
   - package: oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes
     disabled: true
     pluginConfig:
