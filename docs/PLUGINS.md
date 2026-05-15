@@ -151,76 +151,54 @@ plugins.
 These live in the root workspace; they are imported by the static
 backend/frontend, not loaded dynamically.
 
-## Dynamic plugins — wrappers
+## Dynamic plugins — OCI bundles
 
-4 wrapper packages under
-[`dynamic-plugins/wrappers/`](../dynamic-plugins/wrappers/), each
-re-exporting an upstream plugin as a Module-Federation bundle:
+All dynamic plugins are fetched at boot from OCI images. The reference
+shape is `oci://${PLUGIN_REGISTRY}/<workspace>:<tag>!<selector>`;
+`${PLUGIN_REGISTRY}` defaults to `quay.io/veecode` and
+`${BACKSTAGE_VERSION}` resolves from `backstage.json`. Both are
+substituted by `entrypoint.sh`. Bundles are published by
+[`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays);
+each bundle can carry several selectors that get pulled independently.
 
-| Wrapper directory                        | Wraps                                           | Tier / preset   |
-| ---------------------------------------- | ----------------------------------------------- | --------------- |
-| `devportal-marketplace-frontend-dynamic` | local `packages/devportal-marketplace-frontend` | recommended     |
-| `devportal-marketplace-backend-dynamic`  | local `packages/devportal-marketplace-backend`  | recommended     |
-| `devportal-pending-changes-dynamic`      | local `packages/devportal-pending-changes`      | recommended     |
-| `veecode-platform-plugin-veecode-theme`  | first-party theme provider                      | `veecode-theme` |
+| OCI reference                                                                                                                            | Tier / preset    |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic`                                    | recommended      |
+| `oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-backend`                                             | recommended      |
+| `oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-pending-changes-dynamic`                                         | recommended      |
+| `oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac`                                                                | recommended      |
+| `oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar`                                                    | recommended      |
+| `oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend`                                            | recommended      |
+| `oci://${PLUGIN_REGISTRY}/veecode-theme:bs_${BACKSTAGE_VERSION}!veecode-platform-plugin-veecode-theme`                                   | `veecode-theme`  |
+| `oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes`                                                               | `kubernetes`     |
+| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops`                                                | `azure`          |
+| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend`                                        | `azure`          |
+| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins`                                                          | `jenkins`        |
+| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend`                                                  | `jenkins`        |
+| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube`                                                      | `sonarqube`      |
+| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube-backend`                                              | `sonarqube`      |
+| `oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.48.4!backstage-community-plugin-scaffolder-backend-module-sonarqube`  | `sonarqube`      |
 
-The wrappers exist for one reason: turning a static-plugin import
-chain into an MF-loadable bundle. Most don't add any code beyond a
-tiny `src/index.ts` re-export.
+The marketplace bundle replaces the previous local `dynamic-plugins/`
+workspace pieces: `devportal-marketplace-frontend` (VeeCode's fork of
+the RHDH Extensions Marketplace UI), `devportal-marketplace-backend`
+(its backend pair — shares `pluginId: "extensions"` with the RHDH
+backend, so the two can't run simultaneously), and
+`devportal-pending-changes` (small header badge).
 
-Built artifacts land in `dynamic-plugins/dist/<name>-dynamic/` and
-get copied (preinstalled) into `/app/dynamic-plugins-root/` at image
-build time.
+## Dynamic plugins — NPM (Core / always-on)
 
-## Dynamic plugins — OCI-sourced upstream plugins
+A handful of `@veecode-platform/*-dynamic` packages are still
+distributed via npm and fetched at boot via `npm pack`. They are
+declared with `preInstalled: true` in
+[`dynamic-plugins.default.yaml`](../dynamic-plugins.default.yaml) and
+ship `disabled: false` — they form the always-on chrome (global
+header, homepage, About) that makes the image useful at zero config:
 
-The following upstream plugins are no longer wrapped locally. They are
-fetched at boot from OCI images via `oci://${PLUGIN_REGISTRY}/<workspace>:<tag>!<plugin-path>`.
-`PLUGIN_REGISTRY` defaults to `quay.io/veecode` and is substituted by `entrypoint.sh`.
-
-| OCI reference                                                                                      | Tier / preset |
-| -------------------------------------------------------------------------------------------------- | ------------- |
-| `oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac`                         | recommended   |
-| `oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar`             | recommended   |
-| `oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend`     | recommended   |
-| `oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes`                        | `kubernetes`  |
-| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops`         | `azure`       |
-| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend` | `azure`       |
-| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins`                   | `jenkins`     |
-| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend`           | `jenkins`     |
-| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube`               | `sonarqube`   |
-| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube-backend`       | `sonarqube`   |
-| `oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.48.4!backstage-community-plugin-scaffolder-backend-module-sonarqube` | `sonarqube` |
-
-## Dynamic plugins — first-party (`dynamic-plugins/packages/`)
-
-- **`devportal-marketplace-frontend`** — VeeCode's fork of the RHDH
-  Extensions Marketplace UI. Replaces the disabled
-  `red-hat-developer-hub-backstage-plugin-extensions` frontend.
-- **`devportal-marketplace-backend`** — backend pair of the above.
-  **Critical**: shares `pluginId: "extensions"` with the RHDH backend,
-  so the two can't run simultaneously. The
-  `dynamic-plugins.default.yaml` keeps the RHDH backend
-  `disabled: true` and ours `disabled: true` (recommended-tier — the
-  `recommended` preset flips ours on).
-- **`devportal-pending-changes`** — small header badge component
-  pulled in by the global header.
-
-## Dynamic plugins — downloads
-
-[`dynamic-plugins/downloads/plugins.json`](../dynamic-plugins/downloads/plugins.json)
-lists NPM-published `@veecode-platform/*` plugins fetched during the
-wrapper build:
-
-- `@veecode-platform/plugin-veecode-homepage-dynamic`
-- `@veecode-platform/plugin-veecode-global-header-dynamic`
-- `@veecode-platform/backstage-plugin-about-dynamic`
-- `@veecode-platform/backstage-plugin-about-backend-dynamic`
-
-These are pre-installed and **Core** (`disabled: false` from the
-start) — they ship the global header, homepage, About page. The
-image is never useful without them, so they are not gated by a
-preset.
+- `veecode-platform-plugin-veecode-homepage-dynamic`
+- `veecode-platform-plugin-veecode-global-header-dynamic`
+- `veecode-platform-backstage-plugin-about-dynamic`
+- `veecode-platform-backstage-plugin-about-backend-dynamic`
 
 ## Dynamic plugins — OCI (preset-only)
 
@@ -276,37 +254,30 @@ With **`VEECODE_PRESETS=recommended,veecode-theme,<integration>`**:
 
 ## Authoring a new plugin
 
-There are three different scaffolds depending on what you want:
+There are two scaffolds depending on what you want:
 
-### A wrapper for an existing upstream plugin
+### A dynamic plugin (loaded at runtime)
 
-```bash
-cd dynamic-plugins
-yarn new-wrapper           # interactive; creates wrappers/<name>/
-```
-
-The script ([`dynamic-plugins/scripts/new-wrapper.mjs`](../dynamic-plugins/scripts/new-wrapper.mjs))
-scaffolds a wrapper with the right `package.json` (`backstage.role`,
-`scalprum.name`, `sideEffects`, `export-dynamic` script). Pick
-`rhdh-cli plugin export` if it's a frontend wrapper with CSS;
-otherwise `janus-cli` is the safe default
-([`DYNAMIC_PLUGINS_ARCHITECTURE.md`](DYNAMIC_PLUGINS_ARCHITECTURE.md)
-§ "Authoring gotchas").
-
-Then:
+Author the plugin upstream — either in
+[`veecode-platform/devportal-plugins`](https://github.com/veecode-platform/devportal-plugins)
+(if it's first-party) or in its own repo (for community / wrapper
+plugins) — and arrange for it to be exported by
+[`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays)
+as a layer inside an OCI bundle. Then:
 
 1. Add an entry in `dynamic-plugins.default.yaml` with
-   `package: <wrapper-name>-dynamic`, `disabled: true`,
-   `preInstalled: true` (if you intend to bake it in) and the right
-   `pluginConfig` for routes/mount-points.
-2. Add the wrapper name to the pre-install loop in
-   [`Dockerfile:203-221`](../Dockerfile).
-3. Build: `cd dynamic-plugins && yarn install && yarn build && yarn
-export-dynamic`.
-4. Either create a preset that flips it on (preferred for stack-specific
-   features) or include it in `recommended` (only if it works with
-   zero configuration and reads as out-of-the-box VeeCode —
-   `presets/README.md` § Tiers).
+   `package: oci://${PLUGIN_REGISTRY}/<workspace>:bs_${BACKSTAGE_VERSION}!<selector>`,
+   `disabled: true`, and the right `pluginConfig` for routes/mount
+   points.
+2. Either create a preset that flips it on (preferred for
+   stack-specific features) or include it in `recommended` (only if
+   it works with zero configuration and reads as out-of-the-box
+   VeeCode — see [`presets/README.md`](../presets/README.md) §
+   Tiers).
+
+The `@veecode-platform/*-dynamic` npm packages used for the always-on
+chrome follow the same flow but reference `preInstalled: true` and
+the `<scope>/<package>` form rather than `oci://`.
 
 ### An internal plugin (lives in this repo)
 
@@ -315,18 +286,11 @@ yarn new --select plugin
 ```
 
 (That's `backstage-cli new`, aliased from the root.) Scaffolds into
-`plugins/<name>/`, picks up the workspaces glob automatically. For a
-_static_ internal plugin, import it from `packages/app/src/App.tsx`
-or `packages/backend/src/index.ts`. For a _dynamic_ internal plugin,
-mirror the wrapper pattern: build it under `dynamic-plugins/packages/`,
-not `plugins/`, so it shares the dynamic-plugin packaging pipeline.
-
-### A first-party plugin (published, not in this repo)
-
-Author it in [`veecode-platform/devportal-plugins`](https://github.com/veecode-platform/devportal-plugins),
-publish under `@veecode-platform/*-dynamic`, then add to
-[`dynamic-plugins/downloads/plugins.json`](../dynamic-plugins/downloads/plugins.json)
-and reference it as a `package:` in `dynamic-plugins.default.yaml`.
+`plugins/<name>/`, picks up the workspaces glob automatically. Import
+it from `packages/app/src/App.tsx` or `packages/backend/src/index.ts`
+for a static internal plugin. There is no longer a path to publish an
+internal plugin dynamically from this repo — for that, author it
+upstream and follow the OCI flow above.
 
 ## Reading list
 

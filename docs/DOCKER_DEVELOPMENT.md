@@ -52,17 +52,17 @@ optional `--quick` mode for iterating.
 ## What the image contains
 
 [`Dockerfile`](../Dockerfile) has two stages. Stage 1 (builder) runs
-`yarn install` for both Yarn workspaces (root + `dynamic-plugins/`),
-builds the backend and the dynamic-plugin wrappers, and exports a
-`dynamic-plugins-store/` directory of Module-Federation bundles.
+`yarn install` for the root workspace and builds the Backstage backend
+bundle. There is no longer a sibling dynamic-plugins workspace —
+dynamic plugins are fetched as OCI bundles at boot from
+[`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays).
 Stage 2 (runtime) is built from the same UBI base and assembles
 `/app/`:
 
 ```text
 /app/
 ├── packages/backend/                        # Backend bundle
-├── dynamic-plugins/dist/                    # All exported wrapper bundles
-├── dynamic-plugins-root/                    # Pre-installed plugins (cp'd from dist)
+├── dynamic-plugins-root/                    # Empty at build time; populated at boot from OCI
 ├── presets/                                 # Preset catalog
 ├── catalog-entities/extensions/             # Marketplace catalog YAMLs (baked-in fallback)
 ├── app-config.yaml

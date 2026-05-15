@@ -69,10 +69,12 @@ System now.
 
 ### 1. The theme is a dynamic frontend plugin
 
-Create `veecode-platform-plugin-veecode-theme-dynamic` in the
-`dynamic-plugins/` workspace. It exports a theme provider — the same shape
-RHDH's `@red-hat-developer-hub/backstage-plugin-theme` provides, but
-shipped as a Module-Federation dynamic plugin. RHDH documents the
+Publish `veecode-platform-plugin-veecode-theme` as an OCI bundle via
+`devportal-plugin-export-overlays` (originally authored in the now-deleted
+`dynamic-plugins/` workspace; migrated upstream as part of Phase 2 of the
+OCI swap). It exports a theme provider — the same shape RHDH's
+`@red-hat-developer-hub/backstage-plugin-theme` provides, but shipped as
+a Module-Federation dynamic plugin. RHDH documents the
 dynamic-theme contract — an entry in a frontend plugin's `themes` config
 array (`id` / `title` / `variant` / `icon` / `importName`) pointing at an
 exported theme provider; see `redhat-developer/rhdh`
@@ -153,12 +155,13 @@ internal path.
 
 ### 3. Phase the rest
 
-- **Phase 1.** Extract the theme plugin into a versioned package under
-  `@veecode-platform/` so it is reusable across `veecode/devportal` and
-  (after the ADR-010 migration) `veecode/devportal-platform`, and versioned
-  independently. Allow new *VeeCode-internal* screens (admin pages, the
-  dynamic-plugins-info plugin, a custom landing) to be authored against
-  BUI components opportunistically — per-surface, not as a program. Keep
+- **Phase 1.** *Completed.* The theme plugin is now published as an OCI
+  bundle by `devportal-plugin-export-overlays`
+  (`oci://${PLUGIN_REGISTRY}/veecode-theme:bs_${BACKSTAGE_VERSION}!veecode-platform-plugin-veecode-theme`),
+  versioned alongside the rest of the dynamic plugin set. Allow new
+  *VeeCode-internal* screens (admin pages, the dynamic-plugins-info
+  plugin, a custom landing) to be authored against BUI components
+  opportunistically — per-surface, not as a program. Keep
   `@backstage/plugin-mui-to-bui` (MUI-theme → BUI-CSS converter, in
   development) on the radar.
 - **Phase 2 (gated).** Plan the New Frontend System migration as its own

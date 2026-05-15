@@ -81,16 +81,6 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
     cp .yarnrc.yml $HOME/.yarnrc.yml && \
     yarn install --immutable
 
-# Dynamic-plugins workspace — a separate Yarn project, own yarn.lock
-# (workspaces: _utils, downloads, packages/*, wrappers/*). Inherits the registry +
-# nodeLinker config via $HOME/.yarnrc.yml set above.
-COPY --parents --chown=default:default \
-    dynamic-plugins/package.json dynamic-plugins/yarn.lock dynamic-plugins/backstage.json \
-    dynamic-plugins/_utils/package.json dynamic-plugins/downloads/package.json \
-    dynamic-plugins/packages/*/package.json dynamic-plugins/wrappers/*/package.json \
-    /build/
-RUN cd dynamic-plugins && yarn install --immutable
-
 # --- Source + builds ------------------------------------------------------------
 # Now the full tree. node_modules/ (created above) survives — COPY only adds/overwrites,
 # and host node_modules is .dockerignore'd so it can't clobber the installed one.
@@ -99,13 +89,10 @@ COPY --chown=default:default . /build/
 # Root workspace build
 RUN yarn tsc && yarn build:backend
 
-# Dynamic-plugins workspace — wrappers + proprietary packages exported as
-# Module Federation bundles consumable by the runtime install script.
-RUN cd dynamic-plugins && \
-    yarn build && \
-    yarn export-dynamic && \
-    mkdir -p /build/dynamic-plugins-store && \
-    yarn copy-dynamic-plugins /build/dynamic-plugins-store
+# Pre-fetch the small set of npm-published plugins still baked into the image
+# (homepage, global-header, about, about-backend). Everything else loads via
+# oci:// references at boot. Output dir is consumed in Stage 2.
+RUN /build/docker/download-baked-plugins.sh /build/dynamic-plugins-store
 
 # ============================================================================
 # Stage 2 — runtime
@@ -191,31 +178,15 @@ RUN cat /tmp/rbac-policy-extensions.csv >> /app/rbac-policy.csv && rm /tmp/rbac-
 
 COPY --chown=default:default --from=builder /build/app-config.yaml /build/app-config.production.yaml /build/app-config.distro.yaml ./
 
-# Dynamic plugins: built artifacts + pre-installation
-COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dynamic-plugins/dist
+# Bake the small set of npm-published plugins fetched in Stage 1 into the
+# image at the path install-dynamic-plugins.py expects (preInstalled:true
+# entries in dynamic-plugins.default.yaml). Everything else loads via OCI
+# references at boot.
+COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dynamic-plugins-root
 
-# Pre-install local plugins (best-effort; missing artifacts skipped silently
-# so the image still builds when a plugin is dropped from the workspace).
-# The mkdir is required: without it, `cp -a <plugin> dynamic-plugins-root/`
-# on the first iteration would copy the plugin's *contents* as the directory
-# itself (since the destination doesn't exist yet), leaving the plugin
-# unscannable and polluting startup logs with ENOENT errors for dist/, src/, …
-RUN set -e; \
-    mkdir -p /app/dynamic-plugins-root; \
-    for plugin in \
-      veecode-platform-plugin-veecode-global-header-dynamic \
-      veecode-platform-plugin-veecode-homepage-dynamic \
-      veecode-platform-plugin-veecode-theme-dynamic \
-      veecode-platform-backstage-plugin-about-backend-dynamic \
-      veecode-platform-backstage-plugin-about-dynamic \
-      devportal-marketplace-backend-dynamic-dynamic \
-      devportal-pending-changes-dynamic \
-      devportal-marketplace-frontend-dynamic \
-    ; do \
-      if [ -d "/app/dynamic-plugins/dist/$plugin" ]; then \
-        cp -a "/app/dynamic-plugins/dist/$plugin" /app/dynamic-plugins-root/; \
-      fi; \
-    done
+# Defensive: install-dynamic-plugins.py writes into this dir at boot, so it
+# must exist even if the baked set above is ever emptied.
+RUN mkdir -p /app/dynamic-plugins-root
 
 # Pull the marketplace's catalog-backend-module-extensions from the RHDH extensions OCI.
 # That module registers the extensions.backstage.io/v1alpha1 Plugin/Package/Collection

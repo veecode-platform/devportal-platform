@@ -8,14 +8,13 @@ version: 1.0.0
 requires:
   variables: {}
 
-# These plugins are pre-installed in the unified image (built from the
-# dynamic-plugins workspace / extracted in the Dockerfile) but ship DISABLED
-# in dynamic-plugins.default.yaml — this preset is what turns them on. Their
-# pluginConfig (dynamicRoutes, mountPoints, RBAC scope) stays in
-# dynamic-plugins.default.yaml; install-dynamic-plugins.py merges shallow per
-# key, so an entry here only has to flip `disabled` (the package name MUST
-# match the one in dynamic-plugins.default.yaml or the merge won't happen and
-# a second copy gets installed under a different name → backend crash).
+# These plugins ship DISABLED in dynamic-plugins.default.yaml — this preset is
+# what turns them on. Their pluginConfig (dynamicRoutes, mountPoints, RBAC
+# scope) stays in dynamic-plugins.default.yaml; install-dynamic-plugins.py
+# merges shallow per key, so an entry here only has to flip `disabled` (the
+# package name MUST match the one in dynamic-plugins.default.yaml or the merge
+# won't happen and a second copy gets installed under a different name →
+# backend crash).
 #
 # Core chrome (global header, homepage, About, dynamic-plugins-info) is NOT
 # here — it's always-on (disabled: false in dynamic-plugins.default.yaml) and
@@ -27,14 +26,11 @@ plugins:
     disabled: false
   - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend
     disabled: false
-  - package: devportal-marketplace-frontend-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic
     disabled: false
-  - package: devportal-marketplace-backend-dynamic-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-backend
     disabled: false
-  - package: devportal-pending-changes-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-pending-changes-dynamic
     disabled: false
   # Catalog backend module — ingests the bundled plugin catalog so the
   # marketplace "Catalog" tab is populated.

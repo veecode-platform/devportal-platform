@@ -67,7 +67,11 @@ backend.add(
       new CommonJSModuleLoader({
         logger,
         // Customize dynamic plugin packager resolution to support the case
-        // of dynamic plugin wrapper packages.
+        // of dynamic plugin wrapper packages. Still needed for OCI-bundled
+        // plugins: their dist-dynamic/package.json wraps the underlying
+        // plugin via the same `dependencies` pattern as the old local
+        // wrappers, so the resolver walks the bundle's node_modules to
+        // find the wrapped package.
         customResolveDynamicPackage(
           _,
           searchedPackageName,

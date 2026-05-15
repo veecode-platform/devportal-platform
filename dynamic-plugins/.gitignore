@@ -1,6 +1,0 @@
-.yarn/*
-!.yarn/releases
-node_modules/
-/wrappers/**/ */dist**
-/wrappers/**/dist-scalprum**
-/wrappers/**/ */dist-dynamic**

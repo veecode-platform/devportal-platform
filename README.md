@@ -19,8 +19,9 @@ to layer in.
   [`presets/README.md`](presets/README.md) and
   [`presets/SCHEMA.md`](presets/SCHEMA.md).
 - **Dynamic plugin loading** via Scalprum + Webpack Module
-  Federation. Pre-installed plugins are baked into the image; extra
-  plugins can be pulled from npm or OCI at boot.
+  Federation. Plugins are fetched as OCI bundles at boot from
+  [`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays);
+  a few always-on chrome plugins are pulled from npm.
 - **Backstage 1.49.4** baseline. 1.50 migration deferred (see
   [`docs/adr/011-frontend-design-system.md`](docs/adr/011-frontend-design-system.md)
   § Phase 2).
@@ -161,15 +162,12 @@ can override anything without forking the preset.
 ### First-time setup
 
 ```sh
-make full
-# or, equivalent:
-yarn init-local
+yarn install
 ```
 
-`make full` installs both Yarn workspaces (root + `dynamic-plugins/`
-— see [`docs/MONOREPO_STRUCTURE.md`](docs/MONOREPO_STRUCTURE.md)),
-builds the dynamic plugin wrappers, and exports them to
-`dynamic-plugins/dist/`.
+That's it for the host workspace. Dynamic plugins are fetched as OCI
+bundles at boot inside the image (see
+[`docs/MONOREPO_STRUCTURE.md`](docs/MONOREPO_STRUCTURE.md) for layout).
 
 ### Run
 
