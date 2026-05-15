@@ -10,6 +10,7 @@ Orchestrator prompts for agent-driven work on devportal-platform.
 | `automated-update-ci.md` | CI version — creates branch, commits, opens PR via GitHub Actions |
 | `security-scan.md` | Security vulnerability scanning (separate workflow) |
 | `docs-refresh.md` | **One-shot** — handoff for a fresh-context agent to author `docs/`. Not CI-driven; invoke when ready. |
+| `oci-default-migration.md` | **One-shot** — handoff for a fresh-context agent to migrate the image to 100% OCI dynamic plugins (delete the `dynamic-plugins/wrappers/` workspace at the end). Not CI-driven. |
 
 ## Running a dry-run locally
 
