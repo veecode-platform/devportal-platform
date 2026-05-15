@@ -92,12 +92,25 @@ COPY --parents --chown=default:default \
 RUN cd dynamic-plugins && yarn install --immutable
 
 # --- Source + builds ------------------------------------------------------------
-# Now the full tree. node_modules/ (created above) survives — COPY only adds/overwrites,
-# and host node_modules is .dockerignore'd so it can't clobber the installed one.
-COPY --chown=default:default . /build/
-
-# Root workspace build
-RUN yarn tsc && yarn build:backend
+# Order matters here for the Docker layer cache. The wrapper build below
+# (`yarn build` + `yarn export-dynamic` for ~15 wrappers — webpack Module
+# Federation export) is by far the single largest step in the image: ~11
+# minutes on a hosted GHA ubuntu runner. The previous layout (`COPY . /build/`
+# first, then both root and wrapper builds) invalidated the wrapper build on
+# ANY source change in `packages/` or `plugins/`, even though wrappers don't
+# depend on root sources. We split the source COPY so the wrapper build sits
+# in a layer keyed only to `dynamic-plugins/`:
+#
+#   1. COPY `dynamic-plugins/` only → wrapper build → cacheable layer.
+#   2. COPY the full tree (overlay; merges with the existing /build, so the
+#      already-installed node_modules and the just-built wrapper outputs
+#      survive — none of those generated paths are in the build context,
+#      so COPY has no source files to clobber them with).
+#   3. Root workspace build (tsc + backend bundle).
+#
+# A typical PR that only touches `packages/app/` or `plugins/` now reuses the
+# cached wrapper build instead of re-exporting all 15 wrappers from scratch.
+COPY --chown=default:default dynamic-plugins/ /build/dynamic-plugins/
 
 # Dynamic-plugins workspace — wrappers + proprietary packages exported as
 # Module Federation bundles consumable by the runtime install script.
@@ -106,6 +119,16 @@ RUN cd dynamic-plugins && \
     yarn export-dynamic && \
     mkdir -p /build/dynamic-plugins-store && \
     yarn copy-dynamic-plugins /build/dynamic-plugins-store
+
+# Full tree on top. Overlays /build without removing what's already there —
+# `node_modules/`, `dist-dynamic/`, `dist-scalprum/`, `dynamic-plugins-store/`
+# all survive because none of those paths exist in the build context
+# (.dockerignore excludes them, and `dynamic-plugins-store/` is generated
+# only inside the container).
+COPY --chown=default:default . /build/
+
+# Root workspace build (tsc across all workspaces, then the backend bundle).
+RUN yarn tsc && yarn build:backend
 
 # ============================================================================
 # Stage 2 — runtime
