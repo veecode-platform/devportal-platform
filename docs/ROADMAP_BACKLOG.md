@@ -1,0 +1,168 @@
+# Roadmap — Backlog
+
+Known technical debt, deferred items, and gotchas to clean up when
+the time is right. This is the project's "we know about it but it
+isn't blocking" list. The feature direction lives in
+[`ROADMAP_FEATURES.md`](ROADMAP_FEATURES.md).
+
+## In code
+
+### The `cbme` stopgap
+
+[`Dockerfile:217-270`](../Dockerfile) pulls
+`catalog-backend-module-extensions` from
+`quay.io/veecode/extensions:bs_1.49.4` and applies a `sed` patch to
+`dist/module.cjs.js` so the `@backstage/plugin-catalog-node/alpha`
+import falls back to the main export. The same patch lives in
+[`scripts/dev-run.sh:56-69`](../scripts/dev-run.sh) for the overlay
+loop.
+
+**Cleanup path** ([`UPGRADING.md`](UPGRADING.md) § Track 3):
+when `devportal-plugin-export-overlays` publishes a build whose
+catalog-backend-module-extensions doesn't have the `/alpha` import,
+bump `EXTENSIONS_TAG` and delete the patch.
+
+### `dynamic-plugins.yaml` is rewritten in place
+
+`entrypoint.sh` uses `yq -i` to edit `dynamic-plugins.yaml`'s
+`includes:` array at boot. This works fine for the image, but it
+means the file **cannot be bind-mounted** — `yq -i` can't atomically
+replace a single-file bind mount, so the preset fragments never get
+included.
+[`scripts/dev-run.sh:71-79`](../scripts/dev-run.sh) deliberately
+omits it from the overlay set.
+
+Alternatives if this becomes a pain point: rewrite the preset
+resolver to write a new file (e.g. `dynamic-plugins.runtime.yaml`)
+and pass that to the install script, so the source file is read-only.
+
+### Two CLI tools for dynamic-plugin export
+
+The wrapper set splits between `rhdh-cli plugin export` (newer,
+frontend with CSS) and `janus-cli package export-dynamic-plugin`
+(older, most backend wrappers). The tools produce compatible output;
+having both is a transition state, not a desired end state.
+
+Picking one direction (`rhdh-cli` likely, since it handles the
+`sideEffects: ["**/*.css"]` case) is a multi-wrapper migration. Not
+blocked on anything; just hasn't been a priority.
+
+### Double-`dynamic` suffix on the marketplace backend
+
+`dynamic-plugins/wrappers/devportal-marketplace-backend-dynamic/`
+exports as `devportal-marketplace-backend-dynamic-dynamic` because
+janus-cli appends `-dynamic` to the directory name. This is real and
+documented in
+[`presets/SCHEMA.md`](../presets/SCHEMA.md) § "Composition",
+but the duplication looks like a typo. Renaming the wrapper to
+`devportal-marketplace-backend/` would clean this up.
+
+### `customResolveDynamicPackage` error path
+
+[`packages/backend/src/index.ts:71-103`](../packages/backend/src/index.ts)
+implements wrapper-deps resolution. The catch branch on line 93 calls
+`this.logger.error(…)`, but the surrounding object literal isn't a
+class — `this` likely isn't bound where it's expected. The path fires
+only when resolving a wrapper's wrapped package fails, so it isn't
+exercised in normal startup, but it's worth a closer look (probably
+should be the outer `logger` parameter).
+
+### Authentication module override flag
+
+`ENABLE_AUTH_PROVIDER_MODULE_OVERRIDE` ([`packages/backend/src/index.ts:220`](../packages/backend/src/index.ts))
+is a poorly-documented escape hatch. A customer who needs a custom
+auth-provider module sets this to skip our `authProvidersModule` and
+load their own. Should be documented in
+[`CONFIGURATION_GUIDE.md`](CONFIGURATION_GUIDE.md) or removed in
+favour of a cleaner extension point.
+
+### GitHub org transformers disabled
+
+[`packages/backend/src/index.ts:146-152`](../packages/backend/src/index.ts)
+documents that a custom GitHub org transformer was wired and then
+disabled because the GitHub API doesn't return email for GitHub
+Apps. Either remove the import altogether or wire it in a way that
+no-ops gracefully when the field is missing.
+
+## In CI
+
+### PR check doesn't build the image
+
+[`.github/workflows/pr-check.yml`](../.github/workflows/pr-check.yml)
+runs tsc / lint / test on `main`-targeted PRs. It does **not** run
+`docker build .`. Dockerfile-only breakage surfaces at publish time.
+
+The previous `build-check.yml` workflow was dropped in commit
+47aa652 as part of this docs-refresh cycle (separate decision; the
+build was too expensive to run on every PR). A lighter image-smoke
+job (e.g. a `docker build . --build-arg DEVPORTAL_VERSION=ci-smoke`
+without push, just on Dockerfile/scripts/presets path changes) would
+catch most regressions.
+
+### Manual-dispatch publishing
+
+The `publish.yml` workflow is `workflow_dispatch`-only by design
+([`RELEASE_CYCLE.md`](RELEASE_CYCLE.md) § "Switching to tag-driven").
+This is fine for the current cadence. Tag-driven publishing should
+land before the project starts shipping to external consumers.
+
+### Security scan referenced workflow doesn't exist
+
+[`.github/workflows/security-scan.yml:13`](../.github/workflows/security-scan.yml)
+triggers on `workflow_run` from the `build-backend-image` workflow,
+which **does not exist** in this repo. The trigger is dead code; the
+scheduled cron and manual dispatch paths work.
+
+Either rename the trigger to `Publish` (the actual workflow name) or
+remove the `workflow_run` block.
+
+### No GitHub Release object on publish
+
+`publish.yml` pushes the image but doesn't create a GitHub Release
+or upload `CHANGELOG.md`. Manual step today. The
+[`scripts/generate-release-notes.sh`](../scripts/generate-release-notes.sh)
+helper produces release notes but isn't wired in.
+
+## In documentation
+
+### ADRs 001–010 not drafted in this repo
+
+The decisions are observable in the code (Scalprum, static/dynamic
+plugin split, the unified image + preset catalog) and are referenced
+in [`adr/011-frontend-design-system.md`](adr/011-frontend-design-system.md)'s
+"Related decisions" section. Drafting the missing ADR-010 in
+particular would put a name on the foundational shift from
+base/distro to a unified image.
+
+### Notion docs not mirrored
+
+A running design backlog lives in Notion. The docs in this folder
+should not duplicate it — but a one-line pointer here ("see the
+Notion DevPortal Platform board for in-flight design") would help an
+outsider find the rest of the story.
+
+## In testing
+
+### Coverage is low
+
+[`CLAUDE.md`](../CLAUDE.md) § "Testing Strategy" says "test as you
+go, don't backfill". That's the stance, but it means several
+high-value test surfaces are bare:
+
+- The preset resolver in `entrypoint.sh` (shell — would need bats or
+  a docker-driven test harness).
+- The custom `customResolveDynamicPackage` wrapper-deps walk in
+  `packages/backend/src/index.ts`.
+- `install-dynamic-plugins.py` — installs / merges / re-emits config
+  and the integration is observable but the script itself is
+  untested in this repo.
+
+Adding a small `tests/preset-resolver.bats` (or similar) for the
+boot-time invariants (missing required var → exit 78; preset chain
+appended to includes; etc.) would harden the most fragile path.
+
+## Skipped tests / xfails
+
+None tracked in this repo as `.skip` / `xfail` markers today. If
+this list starts growing, the right place to capture them is here
+with a removal condition.

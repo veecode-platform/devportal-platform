@@ -18,33 +18,26 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
 
 ## Understanding the codebase
 
-- docs/adr/ - Architecture Decision Records (ADRs) explaining why decisions were made:
-  - ADR-001: Scalprum dynamic plugins
-  - ADR-002: Base vs distro image
-  - ADR-003: UBI10 Node.js base image
-  - ADR-004: Static vs dynamic plugins
-  - ADR-005: Testing strategy
-  - ADR-006: Yarn 4 workspaces
-  - ADR-007: Jest watch false
-  - ADR-008: Trunk-based development
-  - ADR-009: Configuration profiles
-  - ADR-010: Unified image, preset catalog, OCI dynamic plugins
+- docs/PROJECT_CONTEXT.md - What this image is, two paths of use, how it differs from devportal-base/distro
+- docs/MONOREPO_STRUCTURE.md - Yarn 4 root workspace + the separate `dynamic-plugins/` Yarn project
+- docs/DEVELOPMENT_GUIDE.md - Local dev: `yarn dev-local` (Node loop) vs `scripts/dev-run.sh` (image overlay)
+- docs/DOCKER_DEVELOPMENT.md - Unified image build, build-args, the `cbme` stopgap
+- docs/BACKSTAGE_ARCHITECTURE.md - Pinned versions (1.49.4) + how the static + dynamic backend wire together
+- docs/DYNAMIC_PLUGINS_ARCHITECTURE.md - Scalprum + MF runtime; rhdh-cli vs janus-cli; authoring gotchas
+- docs/PLUGINS.md - Static + internal + dynamic plugin inventory; what each preset enables
+- docs/CONFIGURATION_GUIDE.md - Preset path + raw Backstage path; app-config layering at boot
+- docs/DYNAMIC_PLUGIN_TRANSLATIONS.md - i18n in dynamic plugins; en + pt locales today
+- docs/RBAC.md - Shipped admin/developer/viewer policy; per-deploy overrides via RBAC_POLICY_PATH
+- docs/UPGRADING.md - Three independent tracks: Backstage / UBI / EXTENSIONS_TAG
+- docs/RELEASE_CYCLE.md - Manual-dispatch publish workflow; multi-arch manifest
+- docs/SECURITY_SCAN_AND_FIX.md - Trivy + Claude Code agent CI; manual scan path
+- docs/MUI_MIGRATION_STATUS.md - On MUI v5 from day one; small @mui/styles makeStyles residue
+- docs/ROADMAP_FEATURES.md - What's planned (more presets, MCP preset, 1.50 bump, NFS)
+- docs/ROADMAP_BACKLOG.md - Known tech debt and gotchas to clean up
+- docs/adr/ - Architecture Decision Records:
   - ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset
   - ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)
-- docs/UPGRADING.md - How to upgrade Backstage, Node.js base image, and dependencies
-- docs/ROADMAP_FEATURES.md - Planned features and product evolution
-- docs/ROADMAP_BACKLOG.md - Technical debt, skipped tests, and outdated documentation
-- docs/BACKSTAGE_ARCHITECTURE.md - Core Backstage architecture, frontend/backend components, and plugin system
-- docs/CONFIGURATION_GUIDE.md - YAML-based configuration hierarchy and core settings (outdated)
-- docs/DEVELOPMENT_GUIDE.md - Getting started, prerequisites, and development workflow (outdated)
-- docs/DOCKER_DEVELOPMENT.md - Docker setup for local development and production builds (outdated)
-- docs/DYNAMIC_PLUGINS_ARCHITECTURE.md - Scalprum-based dynamic plugin system (outdated)
-- docs/DYNAMIC_PLUGIN_TRANSLATIONS.md - Internationalization for dynamic plugin menu items
-- docs/MONOREPO_STRUCTURE.md - Yarn workspaces, package management, and repository organization (outdated)
-- docs/MUI_MIGRATION_STATUS.md - Material-UI v4 to v5 migration progress and compatibility layer (outdated)
-- docs/PLUGINS.md - Static vs dynamic plugins, core plugin list, and plugin architecture
-- docs/PROJECT_CONTEXT.md - Technology stack, architecture overview, and AI assistant guidance (outdated)
-- docs/RBAC.md - Role-based access control configuration and policies
+- presets/README.md + presets/SCHEMA.md - The preset model itself (tiers, requires.variables, composition)
 
 ## Known Issues
 
@@ -102,10 +95,15 @@ yarn workspace @internal/plugin-dynamic-plugins-info test
 ### Dynamic Plugins
 
 ```bash
+make full                                 # install + tsc + export + copy to dist (both workspaces)
+
+# Manual equivalent:
 cd dynamic-plugins/
 yarn install && yarn build && yarn export-dynamic
-yarn copy-dynamic-plugins $(pwd)/../dynamic-plugins-root
+yarn copy-dynamic-plugins $(pwd)/dist
 ```
+
+At image build time, the Dockerfile copies the built bundles from `dynamic-plugins/dist/` into `/app/dynamic-plugins-root/`. There is no host-side `dynamic-plugins-root/` directory; for local development use `./scripts/dev-run.sh dp-extract` to copy the image's set into `.devrun-cache/dynamic-plugins-root/` for editing — see [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) § "Image overlay loop".
 
 ## Architecture
 
@@ -167,30 +165,28 @@ The backend (`packages/backend/src/index.ts`) initializes:
 - `app-config.dynamic-plugins.yaml` - Dynamic plugin configurations
 - `app-config.local.yaml` - Local developer overrides (gitignored)
 
-### Configuration Profiles
+### Configuration Presets
 
-Profiles provide pre-packaged authentication and integration setups activated via a single environment variable. The startup script (`scripts/start-base.sh`) merges profile-specific config files on top of the base configuration. See [ADR-009](docs/adr/009-configuration-profiles.md) for details.
+This repo uses **presets**, not profiles. There is no `VEECODE_PROFILE` system. Presets are versioned, composable YAML files in [`presets/`](presets/) selected at runtime via `VEECODE_PRESETS=a,b,c`. They declare required env vars, the plugins they enable, and the app-config they layer in. See [`presets/README.md`](presets/README.md) and [`presets/SCHEMA.md`](presets/SCHEMA.md).
 
-**Available profiles** (set via `VEECODE_PROFILE` env var):
+**Available presets** (set via `VEECODE_PRESETS`, comma-separated):
 
-| Profile    | Config File                | Auth Provider             |
-| ---------- | -------------------------- | ------------------------- |
-| `github`   | `app-config.github.yaml`   | GitHub OAuth + GitHub App |
-| `keycloak` | `app-config.keycloak.yaml` | OIDC/Keycloak             |
-| `azure`    | `app-config.azure.yaml`    | Microsoft/Azure AD        |
-| `ldap`     | `app-config.ldap.yaml`     | LDAP                      |
-| `gitlab`   | `app-config.gitlab.yaml`   | GitLab OAuth              |
-| `local`    | `app-config.local.yaml`    | Developer overrides       |
+| Preset          | Purpose                                                           |
+| --------------- | ----------------------------------------------------------------- |
+| `recommended`   | Curated baseline (marketplace, RBAC, tech-radar, pending-changes) |
+| `veecode-theme` | VeeCode brand theme (palette + logos)                             |
+| `github`        | GitHub OAuth + catalog provider + integration                     |
+| `gitlab`        | GitLab OAuth + catalog provider                                   |
+| `azure`         | Azure DevOps catalog + scaffolder + pipelines UI                  |
+| `keycloak`      | Keycloak/OIDC auth + user-group sync                              |
+| `ldap`          | LDAP auth + user-group sync                                       |
+| `jenkins`       | Jenkins CI tab                                                    |
+| `kubernetes`    | Kubernetes workloads tab                                          |
+| `sonarqube`     | SonarQube code-quality tab + scaffolder action                    |
 
-Each profile configures auth providers, sign-in resolvers, SCM integrations, and catalog providers for that identity source. Secrets are passed via environment variables (e.g., `GITHUB_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`).
+Presets compose. Typical usage: `VEECODE_PRESETS=recommended,veecode-theme,github` plus the env vars each declares as `required: true` (e.g. `GITHUB_PAT`, `GITHUB_ORG`). Required env vars are validated at boot; missing ones fail fast with exit 78. See [`docs/CONFIGURATION_GUIDE.md`](docs/CONFIGURATION_GUIDE.md) for the full layering.
 
-**Adding a new profile checklist:**
-
-1. Create `app-config.<profile>.yaml` configuration file
-2. Add case to `scripts/start-base.sh`
-3. Add environment variables to `turbo.json` `globalEnv` array (required for local dev)
-4. Add config file to `turbo.json` `globalDependencies` array
-5. Update ADR-009 and this table
+**Adding a new preset:** see [`presets/README.md`](presets/README.md) § "Adding a new preset" and the schema in [`presets/SCHEMA.md`](presets/SCHEMA.md).
 
 ## Tech Docs Setup
 
