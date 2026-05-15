@@ -1,0 +1,20 @@
+{
+  "plugins": [
+    {
+      "name": "@veecode-platform/plugin-veecode-homepage-dynamic",
+      "version": "1.1.0"
+    },
+    {
+      "name": "@veecode-platform/plugin-veecode-global-header-dynamic",
+      "version": "1.1.0"
+    },
+    {
+      "name": "@veecode-platform/backstage-plugin-about-dynamic",
+      "version": "1.1.0"
+    },
+    {
+      "name": "@veecode-platform/backstage-plugin-about-backend-dynamic",
+      "version": "1.1.0"
+    }
+  ]
+}

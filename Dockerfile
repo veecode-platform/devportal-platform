@@ -89,6 +89,11 @@ COPY --chown=default:default . /build/
 # Root workspace build
 RUN yarn tsc && yarn build:backend
 
+# Pre-fetch the small set of npm-published plugins still baked into the image
+# (homepage, global-header, about, about-backend). Everything else loads via
+# oci:// references at boot. Output dir is consumed in Stage 2.
+RUN /build/docker/download-baked-plugins.sh /build/dynamic-plugins-store
+
 # ============================================================================
 # Stage 2 — runtime
 # ============================================================================
@@ -173,7 +178,14 @@ RUN cat /tmp/rbac-policy-extensions.csv >> /app/rbac-policy.csv && rm /tmp/rbac-
 
 COPY --chown=default:default --from=builder /build/app-config.yaml /build/app-config.production.yaml /build/app-config.distro.yaml ./
 
-# Required by install-dynamic-plugins.py at startup.
+# Bake the small set of npm-published plugins fetched in Stage 1 into the
+# image at the path install-dynamic-plugins.py expects (preInstalled:true
+# entries in dynamic-plugins.default.yaml). Everything else loads via OCI
+# references at boot.
+COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dynamic-plugins-root
+
+# Defensive: install-dynamic-plugins.py writes into this dir at boot, so it
+# must exist even if the baked set above is ever emptied.
 RUN mkdir -p /app/dynamic-plugins-root
 
 # Pull the marketplace's catalog-backend-module-extensions from the RHDH extensions OCI.

@@ -48,7 +48,7 @@ Testing coverage is low due to migration to DevPortal Base repository. See Testi
 ### Initial Setup
 
 ```bash
-make full && yarn check-dynamic-plugins   # Or: yarn init-local
+yarn install
 ```
 
 ### Development
