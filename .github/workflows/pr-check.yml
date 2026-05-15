@@ -65,6 +65,45 @@ jobs:
       - name: Run tests
         run: yarn test
 
+      - name: Install skopeo
+        run: |
+          if ! command -v skopeo >/dev/null; then
+            sudo apt-get update && sudo apt-get install -y skopeo
+          fi
+
+      - name: Validate OCI plugin references exist
+        run: |
+          set -e
+          export BACKSTAGE_VERSION="$(jq -r .version backstage.json)"
+          if [ -z "$BACKSTAGE_VERSION" ] || [ "$BACKSTAGE_VERSION" = "null" ]; then
+            echo "::error::Could not read BACKSTAGE_VERSION from backstage.json"
+            exit 1
+          fi
+          export PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
+          # Strip the !<selector> suffix before dedup — multiple entries can share the same OCI image
+          mapfile -t refs < <(grep -hoE 'oci://[^!"[:space:]]+' dynamic-plugins.default.yaml presets/*.yaml | sort -u)
+          if [ "${#refs[@]}" -eq 0 ]; then
+            echo "No OCI refs found in dynamic-plugins.default.yaml — skipping skopeo check"
+            exit 0
+          fi
+          fail=0
+          for ref in "${refs[@]}"; do
+            resolved="${ref//\$\{BACKSTAGE_VERSION\}/$BACKSTAGE_VERSION}"
+            resolved="${resolved//\$\{PLUGIN_REGISTRY:-quay.io\/veecode\}/$PLUGIN_REGISTRY}"
+            resolved="${resolved//\$\{PLUGIN_REGISTRY\}/$PLUGIN_REGISTRY}"
+            docker_ref="docker://${resolved#oci://}"
+            echo "Checking $docker_ref"
+            if ! skopeo inspect "$docker_ref" >/dev/null 2>&1; then
+              echo "  FAIL: $docker_ref not found"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::One or more OCI refs in dynamic-plugins.default.yaml are unreachable"
+            exit 1
+          fi
+          echo "All OCI refs validated"
+
       - name: Report status
         if: always() && github.event_name == 'repository_dispatch'
         env:

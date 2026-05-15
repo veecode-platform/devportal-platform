@@ -203,9 +203,6 @@ COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dy
 RUN set -e; \
     mkdir -p /app/dynamic-plugins-root; \
     for plugin in \
-      backstage-community-plugin-rbac \
-      backstage-community-plugin-tech-radar-dynamic \
-      backstage-community-plugin-tech-radar-backend-dynamic \
       veecode-platform-plugin-veecode-global-header-dynamic \
       veecode-platform-plugin-veecode-homepage-dynamic \
       veecode-platform-plugin-veecode-theme-dynamic \

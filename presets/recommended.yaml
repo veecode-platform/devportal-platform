@@ -21,14 +21,11 @@ requires:
 # here — it's always-on (disabled: false in dynamic-plugins.default.yaml) and
 # not gated by any preset. See presets/README.md "Tiers".
 plugins:
-  - package: backstage-community-plugin-rbac
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac
     disabled: false
-  - package: backstage-community-plugin-tech-radar-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
     disabled: false
-  - package: backstage-community-plugin-tech-radar-backend-dynamic
-    preInstalled: true
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend
     disabled: false
   - package: devportal-marketplace-frontend-dynamic
     preInstalled: true

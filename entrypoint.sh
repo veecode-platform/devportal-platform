@@ -195,6 +195,18 @@ else
     echo "VEECODE: WARN — could not read Backstage version from /app/backstage.json; \${BACKSTAGE_VERSION} left unresolved"
 fi
 
+# ── Resolve ${PLUGIN_REGISTRY} in plugin OCI refs ───────────────────
+# Allows operators to mirror plugin images to an internal registry
+# (on-premise / air-gapped) without editing YAML — just set
+# PLUGIN_REGISTRY=registry.internal/veecode. Defaults to quay.io/veecode.
+PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
+echo "VEECODE: resolving \${PLUGIN_REGISTRY} → $PLUGIN_REGISTRY in plugin OCI refs"
+for f in /app/dynamic-plugins.yaml /app/dynamic-plugins.default.yaml /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
+    [ -f "$f" ] || continue
+    sed -i "s|\${PLUGIN_REGISTRY}|$PLUGIN_REGISTRY|g" "$f" 2>/dev/null \
+      || echo "VEECODE: note — $f is read-only; \${PLUGIN_REGISTRY} left as-is there (harmless if those refs are disabled)"
+done
+
 # ENTRYPOINT INSTALL PLUGINS
 /app/install-dynamic-plugins.sh /app/dynamic-plugins-root
 

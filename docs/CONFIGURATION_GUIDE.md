@@ -85,7 +85,7 @@ requires:
 plugins:
   - package: oci://ghcr.io/veecode-platform/…!backstage-plugin-catalog-backend-module-github
     disabled: false
-  - package: backstage-community-plugin-tech-radar-dynamic
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
     disabled: false
 
 appConfig:

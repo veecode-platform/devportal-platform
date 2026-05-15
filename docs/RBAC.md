@@ -47,8 +47,9 @@ overrides ([`packages/backend/src/index.ts:206-213`](../packages/backend/src/ind
 so dynamic plugins that expose permissions are discovered alongside
 the static ones.
 
-The frontend RBAC UI (`@backstage-community/plugin-rbac@^1.52.0`) is
-the wrapper at `dynamic-plugins/wrappers/backstage-community-plugin-rbac/`,
+The frontend RBAC UI is fetched at boot from
+`oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac`
+(`PLUGIN_REGISTRY` defaults to `quay.io/veecode`, substituted by `entrypoint.sh`),
 **pre-installed** and **disabled by default**. The
 [`recommended`](../presets/recommended.yaml) preset flips it on.
 

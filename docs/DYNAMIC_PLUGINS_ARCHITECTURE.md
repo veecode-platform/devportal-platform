@@ -122,9 +122,6 @@ The Dockerfile pre-installs these into `/app/dynamic-plugins-root/`
 ([`Dockerfile:203-221`](../Dockerfile)):
 
 ```
-backstage-community-plugin-rbac
-backstage-community-plugin-tech-radar-dynamic
-backstage-community-plugin-tech-radar-backend-dynamic
 veecode-platform-plugin-veecode-global-header-dynamic
 veecode-platform-plugin-veecode-homepage-dynamic
 veecode-platform-plugin-veecode-theme-dynamic
@@ -185,7 +182,7 @@ per-wrapper:
 
 | Tool                                                 | Used by                                                                                                                                                                              | When to pick                                                                                                                                                                  |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rhdh-cli plugin export`                             | newer frontend wrappers (`veecode-platform-plugin-veecode-theme`, `backstage-plugin-kubernetes`, `backstage-community-plugin-tech-radar`, `backstage-community-plugin-azure-devops`) | Frontend wrappers that need `sideEffects: ["**/*.css"]` for module-federated CSS. `backstage-cli package build` currently breaks on the CSS import (ADR-011 § validation #1). |
+| `rhdh-cli plugin export`                             | `veecode-platform-plugin-veecode-theme` (the only remaining local frontend wrapper — upstream plugin wrappers for kubernetes, tech-radar, azure-devops are now sourced via OCI) | Frontend wrappers that need `sideEffects: ["**/*.css"]` for module-federated CSS. `backstage-cli package build` currently breaks on the CSS import (ADR-011 § validation #1). |
 | `janus-cli package export-dynamic-plugin --in-place` | RBAC, jenkins, sonarqube, marketplace front+back, pending-changes, azure-devops backend, sonarqube-backend, jenkins-backend, scaffolder-backend-module-sonarqube                     | The older path. Stable; produces a `dist-dynamic/` that the install script understands. Most backend wrappers use this.                                                       |
 
 Both produce module-federation artifacts the runtime can load — the
@@ -262,8 +259,8 @@ backend.add(
 ```
 
 The custom resolver is what makes wrapper packages work. A wrapper
-like `dynamic-plugins/wrappers/backstage-community-plugin-rbac/`
-depends on `@backstage-community/plugin-rbac@^1.52.0`; the resolver
+like `dynamic-plugins/wrappers/devportal-marketplace-frontend-dynamic/`
+depends on `devportal-marketplace-frontend workspace:^`; the resolver
 walks the wrapper's own `node_modules/` to find the wrapped package,
 not the runtime app's `node_modules/`.
 
