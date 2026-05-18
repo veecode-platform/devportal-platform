@@ -4,6 +4,7 @@
 
 ## Topics
 
+- [dynamic-plugins](docs/topics/dynamic-plugins.md): How dynamic plugins are referenced, pulled from OCI, installed, and merged into the running app at boot.
 - [installing](docs/topics/installing.md): Get from "I want to try this" to a running devportal-platform with a preset enabled in under 30 minutes.
 - [presets](docs/topics/presets.md): Composable YAML contracts selected at runtime (VEECODE_PRESETS) that turn the generic image into a working IDP for a specific stack.
 
