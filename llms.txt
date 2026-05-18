@@ -12,6 +12,7 @@ _(none yet)_
 
 ## Reference
 
+- [env-vars](docs/reference/env-vars.md): Every environment variable the devportal-platform image consumes at boot, grouped by purpose.
 - [glossary](docs/reference/glossary.md): Backstage terms used throughout these docs, one-line definitions with upstream links.
 
 ## ADRs
