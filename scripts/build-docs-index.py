@@ -33,6 +33,7 @@ def parse_adr_title(path: Path):
     for line in path.read_text().splitlines():
         if line.startswith("# "):
             return line[2:].strip()
+    print(f"WARN: ADR {path} has no H1 title; using filename stem", file=sys.stderr)
     return path.stem
 
 
@@ -98,10 +99,12 @@ def build_readme_index_sections():
 
 def update_readme(readme_path: Path, sections: dict):
     """Replace content between <!-- BEGIN {marker} --> / <!-- END {marker} --> for each section."""
-    text = readme_path.read_text()
+    original = readme_path.read_text()
+    text = original
     for marker, content in sections.items():
+        safe = re.escape(marker)
         pattern = re.compile(
-            rf"<!-- BEGIN {marker} -->.*?<!-- END {marker} -->",
+            rf"<!-- BEGIN {safe} -->.*?<!-- END {safe} -->",
             re.DOTALL,
         )
         replacement = f"<!-- BEGIN {marker} -->\n\n{content}\n<!-- END {marker} -->"
@@ -109,7 +112,8 @@ def update_readme(readme_path: Path, sections: dict):
             print(f"WARN: marker {marker} not found in {readme_path}", file=sys.stderr)
             continue
         text = pattern.sub(replacement, text)
-    readme_path.write_text(text)
+    if text != original:
+        readme_path.write_text(text)
 
 
 def main():
@@ -131,10 +135,27 @@ def main():
         if readme_path.exists():
             existing_readme = readme_path.read_text()
             sections = build_readme_index_sections()
+            # Verify all required markers are present; missing markers = broken README.
+            missing = []
+            for marker in sections:
+                safe = re.escape(marker)
+                if not re.search(
+                    rf"<!-- BEGIN {safe} -->.*?<!-- END {safe} -->",
+                    existing_readme,
+                    re.DOTALL,
+                ):
+                    missing.append(marker)
+            if missing:
+                print(
+                    f"docs/README.md is missing required marker block(s): {missing}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
             candidate = existing_readme
             for marker, content in sections.items():
+                safe = re.escape(marker)
                 pattern = re.compile(
-                    rf"<!-- BEGIN {marker} -->.*?<!-- END {marker} -->",
+                    rf"<!-- BEGIN {safe} -->.*?<!-- END {safe} -->",
                     re.DOTALL,
                 )
                 if pattern.search(candidate):
