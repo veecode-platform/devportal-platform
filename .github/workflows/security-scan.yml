@@ -10,7 +10,7 @@ on:
         required: false
         default: 'latest'
   workflow_run:
-    workflows: ["build-backend-image"]
+    workflows: ["Publish"]
     types: [completed]
 
 jobs:
