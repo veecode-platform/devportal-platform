@@ -10,7 +10,7 @@
 #
 # Usage:
 #   scripts/smoke-presets.sh                                # all defaults, :latest image
-#   scripts/smoke-presets.sh --image veecode/devportal:1.0  # specific tag
+#   scripts/smoke-presets.sh --image veecode/devportal-platform:0.1.0  # specific tag
 #   scripts/smoke-presets.sh --presets recommended,mcp      # subset (csv of tests)
 #   scripts/smoke-presets.sh --help
 #

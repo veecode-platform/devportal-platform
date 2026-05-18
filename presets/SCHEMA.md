@@ -82,22 +82,28 @@ Array of plugin entries, identical in shape to entries in
 
 ```yaml
 plugins:
-  - package: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-plugin-catalog-backend-module-github:bs_1.49.4__0.13.0!backstage-plugin-catalog-backend-module-github
+  - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic
     disabled: false
     pluginConfig:
       dynamicPlugins:
-        backend:
-          backstage-plugin-catalog-backend-module-github: {}
+        frontend:
+          devportal.marketplace-frontend: {}
 ```
 
 **Package reference formats:**
 
-- `oci://<registry>/<image>:<tag>!<plugin-name>` — preferred and the
+- `oci://<registry>/<workspace>:<tag>!<selector>` — preferred and the
   dominant form; the install script pulls the bundle via skopeo and
-  extracts the named selector
-- `<scope>/<package>@<version>` — npm reference, downloaded at boot.
-  Used for the handful of always-on `@veecode-platform/*-dynamic`
-  chrome plugins
+  extracts the named selector. `${PLUGIN_REGISTRY}` (default
+  `quay.io/veecode`) and `${BACKSTAGE_VERSION}` (default read from
+  `backstage.json`) are substituted by `entrypoint.sh` before the
+  install runs, so a Backstage bump or a registry mirror swap doesn't
+  mean editing every preset.
+- `<bare-name>` (no `oci://` prefix) — used for the always-on chrome
+  plugins that are pre-installed into `/app/dynamic-plugins-root/` at
+  image build time and ship with `preInstalled: true` in
+  `dynamic-plugins.default.yaml`. The install script skips pulling
+  these and only merges their `pluginConfig`.
 
 **`disabled: false` is the preset's intent.** A preset that enables a
 plugin must set this. If a preset wants a plugin available-but-off,

@@ -263,7 +263,7 @@ Boot-validate every preset (and key compositions) against an image:
 
 ```bash
 ./scripts/smoke-presets.sh                              # :latest, full matrix
-./scripts/smoke-presets.sh --image veecode/devportal:1.0
+./scripts/smoke-presets.sh --image veecode/devportal-platform:0.1.0
 ./scripts/smoke-presets.sh --presets "recommended;mcp;recommended,mcp"
 ```
 

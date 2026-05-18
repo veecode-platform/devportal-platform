@@ -89,7 +89,7 @@ requires:
       docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
 
 plugins:
-  - package: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-plugin-catalog-backend-module-github:bs_1.49.4__0.13.0!backstage-plugin-catalog-backend-module-github
+  - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
     disabled: false
 
 appConfig:
