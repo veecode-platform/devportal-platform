@@ -3,7 +3,7 @@ name: dynamic-plugins
 description: How dynamic plugins are referenced, pulled from OCI, installed, and merged into the running app at boot.
 type: topic
 audience: [operator, plugin-author]
-related: [presets]
+related: [presets, plugin-authoring, plugin-packaging, configuration-layering]
 ---
 
 # Dynamic plugins

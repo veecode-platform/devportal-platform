@@ -3,7 +3,7 @@ name: plugin-authoring
 description: Author flow for a new dynamic plugin — the Backstage plugin code, the dynamic export, the conventions that keep it loadable.
 type: topic
 audience: [plugin-author]
-related: [dynamic-plugins, theming, presets]
+related: [dynamic-plugins, plugin-packaging, theming, presets]
 ---
 
 # Plugin Authoring

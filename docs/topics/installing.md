@@ -3,7 +3,7 @@ name: installing
 description: Get from "I want to try this" to a running devportal-platform with a preset enabled in under 30 minutes.
 type: topic
 audience: [operator]
-related: [env-vars]
+related: [presets, configuration-layering, env-vars]
 ---
 
 # Installing devportal-platform

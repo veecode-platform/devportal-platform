@@ -3,7 +3,7 @@ name: presets
 description: Composable YAML contracts selected at runtime (VEECODE_PRESETS) that turn the generic image into a working IDP for a specific stack.
 type: topic
 audience: [operator, plugin-author]
-related: [preset-schema, shipped-presets]
+related: [dynamic-plugins, configuration-layering, preset-schema, shipped-presets]
 ---
 
 # Presets

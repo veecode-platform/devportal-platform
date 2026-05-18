@@ -3,7 +3,7 @@ name: theming
 description: How the VeeCode theme is delivered as a dynamic plugin, and how to ship a customer brand the same way.
 type: topic
 audience: [operator, plugin-author]
-related: [presets, dynamic-plugins]
+related: [presets, dynamic-plugins, plugin-packaging]
 ---
 
 # Theming
