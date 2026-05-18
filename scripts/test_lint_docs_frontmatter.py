@@ -55,26 +55,50 @@ def test_duplicate_slug_is_reported(tmp_path):
     assert any("duplicate slug" in e for e in errors), errors
 
 
-def test_invalid_type_value_is_reported():
-    # Build a fixture inline
-    path = FIXTURES / "topics" / "valid-topic.md"
-    text = path.read_text().replace("type: topic", "type: blog-post")
-    tmp = path.parent / "tmp-invalid-type.md"
-    tmp.write_text(text.replace("name: valid-topic", "name: tmp-invalid-type"))
-    try:
-        errors = linter.validate([tmp])
-        assert any("type" in e and "blog-post" in e for e in errors), errors
-    finally:
-        tmp.unlink()
+def test_invalid_type_value_is_reported(tmp_path):
+    p = tmp_path / "invalid-type.md"
+    p.write_text(
+        "---\nname: invalid-type\ndescription: x\ntype: blog-post\naudience: [operator]\n---\nbody\n"
+    )
+    errors = linter.validate([p])
+    assert any("type" in e and "blog-post" in e for e in errors), errors
 
 
-def test_invalid_audience_value_is_reported():
-    path = FIXTURES / "topics" / "valid-topic.md"
-    text = path.read_text().replace("audience: [operator]", "audience: [marketer]")
-    tmp = path.parent / "tmp-invalid-audience.md"
-    tmp.write_text(text.replace("name: valid-topic", "name: tmp-invalid-audience"))
-    try:
-        errors = linter.validate([tmp])
-        assert any("audience" in e and "marketer" in e for e in errors), errors
-    finally:
-        tmp.unlink()
+def test_invalid_audience_value_is_reported(tmp_path):
+    p = tmp_path / "invalid-audience.md"
+    p.write_text(
+        "---\nname: invalid-audience\ndescription: x\ntype: topic\naudience: [marketer]\n---\nbody\n"
+    )
+    errors = linter.validate([p])
+    assert any("audience" in e and "marketer" in e for e in errors), errors
+
+
+def test_no_frontmatter_block_is_reported(tmp_path):
+    p = tmp_path / "no-fm.md"
+    p.write_text("# Just a heading\n\nNo frontmatter here.\n")
+    errors = linter.validate([p])
+    assert any("missing frontmatter" in e for e in errors), errors
+
+
+def test_malformed_yaml_is_reported(tmp_path):
+    p = tmp_path / "bad-yaml.md"
+    p.write_text("---\nname: [unclosed\n---\nbody\n")
+    errors = linter.validate([p])
+    assert any("invalid YAML frontmatter" in e for e in errors), errors
+
+
+def test_empty_frontmatter_is_reported(tmp_path):
+    p = tmp_path / "empty-fm.md"
+    p.write_text("---\n---\nbody\n")
+    errors = linter.validate([p])
+    # yaml.safe_load("") returns None, which is not a dict
+    assert any("frontmatter must be a YAML mapping" in e for e in errors), errors
+
+
+def test_file_without_trailing_newline_is_parsed(tmp_path):
+    p = tmp_path / "no-trailing-nl.md"
+    # Note: no \n after closing ---
+    p.write_text("---\nname: no-trailing-nl\ndescription: x\ntype: topic\naudience: [operator]\n---")
+    errors = linter.validate([p])
+    # Should validate cleanly — no "missing frontmatter" misdiagnosis
+    assert not any("missing frontmatter" in e for e in errors), errors

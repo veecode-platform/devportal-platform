@@ -15,16 +15,20 @@ SCAN_DIRS = ["topics", "how-to", "reference"]
 
 def parse_frontmatter(path: Path):
     """Return (frontmatter dict, body)
-    Raises ValueError on malformed YAML; returns (None, text) when no frontmatter block.
+    Raises ValueError on malformed YAML or non-mapping frontmatter.
+    Returns (None, text) when no frontmatter block is present.
     """
     text = path.read_text()
-    m = re.match(r"^---\n(.*?)\n---\n(.*)", text, re.DOTALL)
+    m = re.match(r"^---\r?\n(.*?)(\r?\n)?---\r?\n?(.*)", text, re.DOTALL)
     if not m:
         return None, text
     try:
-        return yaml.safe_load(m.group(1)), m.group(2)
+        fm = yaml.safe_load(m.group(1))
     except yaml.YAMLError as e:
         raise ValueError(f"{path}: invalid YAML frontmatter: {e}")
+    if not isinstance(fm, dict):
+        raise ValueError(f"{path}: frontmatter must be a YAML mapping")
+    return fm, m.group(3)
 
 
 def validate(paths):
@@ -40,9 +44,6 @@ def validate(paths):
             continue
         if fm is None:
             errors.append(f"{path}: missing frontmatter")
-            continue
-        if not isinstance(fm, dict):
-            errors.append(f"{path}: frontmatter must be a YAML mapping")
             continue
         parsed.append((path, fm))
         if "name" in fm:
