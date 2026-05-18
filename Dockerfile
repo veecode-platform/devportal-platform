@@ -230,7 +230,7 @@ RUN set -e; \
       if grep -q "plugin-catalog-node/alpha" "$MOD"; then \
         sed -i "s|var alpha = require('@backstage/plugin-catalog-node/alpha');|var alpha = require('@backstage/plugin-catalog-node/alpha'); if (!alpha.catalogProcessingExtensionPoint) alpha = Object.assign({}, alpha, require('@backstage/plugin-catalog-node'));|" "$MOD"; \
         grep -q "Object.assign" "$MOD" || { echo "ERROR: catalogProcessingExtensionPoint /alpha->main patch did not apply to $MOD"; exit 1; }; \
-        echo "patched catalog-backend-module-extensions for Backstage 1.50 (/alpha -> main catalogProcessingExtensionPoint)"; \
+        echo "patched catalog-backend-module-extensions (/alpha -> main catalogProcessingExtensionPoint fallback)"; \
       fi; \
     else \
       echo "WARN: failed to fetch RHDH extensions OCI image $OCI_IMAGE — skipping"; \

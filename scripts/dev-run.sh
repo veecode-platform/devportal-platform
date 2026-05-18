@@ -46,13 +46,14 @@ CACHE_DIR="$REPO/.devrun-cache"
 DP_ROOT_LOCAL="$CACHE_DIR/dynamic-plugins-root"   # if this dir exists, `run` mounts it over /app/dynamic-plugins-root
 CBME_MOD_PATH="red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions/dist/module.cjs.js"
 
-# The bundled catalog-backend-module-extensions (built for Backstage 1.49.4) imports
-# catalogProcessingExtensionPoint from @backstage/plugin-catalog-node/alpha — but 1.50
-# graduated it to the package's main export, so on a 1.50 backend the /alpha lookup is
-# undefined and the catalog plugin crashes (503 storm; marketplace "Catalog" tab dead).
-# Patch: fall back to the main export when /alpha lacks it. Mirrors the sed in the Dockerfile
-# stopgap; here we extract the module from the image, patch it into .devrun-cache/, and mount
-# it over the baked copy — no rebuild. Returns the patched file path on stdout, or non-zero.
+# Stopgap for catalog-backend-module-extensions: it picks up
+# catalogProcessingExtensionPoint from @backstage/plugin-catalog-node/alpha, but that
+# subpath doesn't expose the symbol in every Backstage build — when it's missing the
+# require returns undefined and the catalog plugin crashes (503 storm; marketplace
+# "Catalog" tab dead). Patch: when /alpha lacks the symbol, merge in the main export.
+# Mirrors the sed in the Dockerfile stopgap; here we extract the module from the image,
+# patch it into .devrun-cache/, and mount it over the baked copy — no rebuild. Returns
+# the patched file path on stdout, or non-zero.
 ensure_cbme_patch() {
   mkdir -p "$CACHE_DIR"
   local out="$CACHE_DIR/cbme-module.cjs.js" cid
