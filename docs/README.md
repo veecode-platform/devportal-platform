@@ -30,13 +30,13 @@ Both compose naturally — operator overrides via `app-config.local.yaml` always
 
 ## Topic index
 
-- [configuration-layering](docs/topics/configuration-layering.md): How app-config.*.yaml files merge at boot, including preset configs, mounted overrides, and the SaaS path.
-- [dynamic-plugins](docs/topics/dynamic-plugins.md): How dynamic plugins are referenced, pulled from OCI, installed, and merged into the running app at boot.
-- [installing](docs/topics/installing.md): Get from "I want to try this" to a running devportal-platform with a preset enabled in under 30 minutes.
-- [plugin-authoring](docs/topics/plugin-authoring.md): Author flow for a new dynamic plugin — the Backstage plugin code, the dynamic export, the conventions that keep it loadable.
-- [plugin-packaging](docs/topics/plugin-packaging.md): Package an authored plugin as an OCI bundle, publish it, and reference it from devportal-platform.
-- [presets](docs/topics/presets.md): Composable YAML contracts selected at runtime (VEECODE_PRESETS) that turn the generic image into a working IDP for a specific stack.
-- [theming](docs/topics/theming.md): How the VeeCode theme is delivered as a dynamic plugin, and how to ship a customer brand the same way.
+- [configuration-layering](topics/configuration-layering.md): How app-config.*.yaml files merge at boot, including preset configs, mounted overrides, and the SaaS path.
+- [dynamic-plugins](topics/dynamic-plugins.md): How dynamic plugins are referenced, pulled from OCI, installed, and merged into the running app at boot.
+- [installing](topics/installing.md): Get from "I want to try this" to a running devportal-platform with a preset enabled in under 30 minutes.
+- [plugin-authoring](topics/plugin-authoring.md): Author flow for a new dynamic plugin — the Backstage plugin code, the dynamic export, the conventions that keep it loadable.
+- [plugin-packaging](topics/plugin-packaging.md): Package an authored plugin as an OCI bundle, publish it, and reference it from devportal-platform.
+- [presets](topics/presets.md): Composable YAML contracts selected at runtime (VEECODE_PRESETS) that turn the generic image into a working IDP for a specific stack.
+- [theming](topics/theming.md): How the VeeCode theme is delivered as a dynamic plugin, and how to ship a customer brand the same way.
 
 <!-- END topic-index -->
 
@@ -52,10 +52,10 @@ _(none yet)_
 
 ## Reference
 
-- [env-vars](docs/reference/env-vars.md): Every environment variable the devportal-platform image consumes at boot, grouped by purpose.
-- [glossary](docs/reference/glossary.md): Backstage terms used throughout these docs, one-line definitions with upstream links.
-- [preset-schema](docs/reference/preset-schema.md): Complete YAML schema for preset files, including frontmatter, requires, plugins, appConfig, and composition rules.
-- [shipped-presets](docs/reference/shipped-presets.md): All presets shipped in the image, with their required variables and what they enable.
+- [env-vars](reference/env-vars.md): Every environment variable the devportal-platform image consumes at boot, grouped by purpose.
+- [glossary](reference/glossary.md): Backstage terms used throughout these docs, one-line definitions with upstream links.
+- [preset-schema](reference/preset-schema.md): Complete YAML schema for preset files, including frontmatter, requires, plugins, appConfig, and composition rules.
+- [shipped-presets](reference/shipped-presets.md): All presets shipped in the image, with their required variables and what they enable.
 
 <!-- END reference-index -->
 
@@ -63,8 +63,8 @@ _(none yet)_
 
 ## ADRs
 
-- [ADR-010: Unified image, preset catalog, OCI dynamic plugins](docs/adr/010-unified-image-and-presets.md)
-- [ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset](docs/adr/011-frontend-design-system.md)
-- [ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)](docs/adr/012-anonymous-ubi-mirror.md)
+- [ADR-010: Unified image, preset catalog, OCI dynamic plugins](adr/010-unified-image-and-presets.md)
+- [ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset](adr/011-frontend-design-system.md)
+- [ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)](adr/012-anonymous-ubi-mirror.md)
 
 <!-- END adr-index -->

@@ -37,8 +37,10 @@ def parse_adr_title(path: Path):
     return path.stem
 
 
-def collect_entries(dir_name: str):
+def collect_entries(dir_name: str, base: Path = None):
     """Returns list of (slug, description, relpath) sorted by slug. Skips files with no frontmatter."""
+    if base is None:
+        base = REPO_ROOT
     out = []
     for p in sorted((DOCS_ROOT / dir_name).rglob("*.md")):
         fm = parse_frontmatter(p)
@@ -46,16 +48,18 @@ def collect_entries(dir_name: str):
             continue
         slug = fm["name"]
         desc = fm.get("description", "")
-        relpath = p.relative_to(REPO_ROOT)
+        relpath = p.relative_to(base)
         out.append((slug, desc, str(relpath)))
     return out
 
 
-def collect_adrs():
+def collect_adrs(base: Path = None):
+    if base is None:
+        base = REPO_ROOT
     out = []
     for p in sorted((DOCS_ROOT / "adr").rglob("*.md")):
         title = parse_adr_title(p)
-        relpath = p.relative_to(REPO_ROOT)
+        relpath = p.relative_to(base)
         out.append((title, str(relpath)))
     return out
 
@@ -90,10 +94,10 @@ def build_llms_txt():
 
 def build_readme_index_sections():
     return {
-        "topic-index": format_section("Topic index", collect_entries("topics")),
-        "how-to-index": format_section("How-to recipes", collect_entries("how-to")),
-        "reference-index": format_section("Reference", collect_entries("reference")),
-        "adr-index": format_adr_section(collect_adrs()),
+        "topic-index": format_section("Topic index", collect_entries("topics", base=DOCS_ROOT)),
+        "how-to-index": format_section("How-to recipes", collect_entries("how-to", base=DOCS_ROOT)),
+        "reference-index": format_section("Reference", collect_entries("reference", base=DOCS_ROOT)),
+        "adr-index": format_adr_section(collect_adrs(base=DOCS_ROOT)),
     }
 
 

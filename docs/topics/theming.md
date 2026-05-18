@@ -180,8 +180,8 @@ and produces the duplicate-id problem described above.
 
 ## Authoring a new theme plugin
 
-Build details and the full `rhdh-cli plugin export` pipeline are deferred to the
-future `plugin-packaging` topic. The gotchas below come from ADR-011's validated
+Build details and the full `rhdh-cli plugin export` pipeline are in the
+[`plugin-packaging`](plugin-packaging.md) topic. The gotchas below come from ADR-011's validated
 POC (`feat/veecode-theme-dynamic-plugin`) and are load-bearing.
 
 ### Use `rhdh-cli`, not `janus-cli`
@@ -258,6 +258,6 @@ preset".
 - [dynamic-plugins](dynamic-plugins.md) — how the OCI install script resolves
   bundles, merges `pluginConfig`, and writes the runtime config consumed by
   `DynamicRoot`
-- `plugin-packaging` (forthcoming) — the full `rhdh-cli plugin export` pipeline,
+- [`plugin-packaging`](plugin-packaging.md) — the full `rhdh-cli plugin export` pipeline,
   OCI bundle layout, and how to publish a bundle to a registry the image can pull
   from

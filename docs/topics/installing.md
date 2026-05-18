@@ -8,6 +8,8 @@ related: [presets, configuration-layering, env-vars]
 
 # Installing devportal-platform
 
+## What this is
+
 The image `docker.io/veecode/devportal-platform` is a single Backstage
 distribution. You pass `VEECODE_PRESETS=…` and the env vars each preset
 requires; the entrypoint resolves presets, pulls OCI plugin bundles, and
@@ -225,10 +227,6 @@ viewer roles. To override it per-deployment, mount a custom CSV and point
 
 ## Related topics
 
-- **env-vars** (reference) — complete table of every variable the image
-  reads at boot, with source-file citations.
-- **Presets** — the preset model (tiers, composition, `requires.variables`,
-  authoring a new preset) will be covered in a forthcoming `presets` topic.
-- **Configuration layering** — how `--config` files deep-merge and how to
-  override specific keys without touching the base configs will be covered
-  in a forthcoming `configuration-layering` topic.
+- [`env-vars`](../reference/env-vars.md) — full env var reference
+- [`presets`](presets.md) — what presets are, the tier model, composition rules
+- [`configuration-layering`](configuration-layering.md) — how `app-config.*.yaml` files merge at boot

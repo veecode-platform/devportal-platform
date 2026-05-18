@@ -17,7 +17,7 @@ and the build tool that produces the `dist-scalprum/` artifact.
 
 What it does **not** cover: the OCI packaging, the registry push, the
 `dynamic-plugins.default.yaml` entry, or the preset that enables it. That
-side lives in `plugin-packaging` (the next topic, not yet written). The
+side lives in [`plugin-packaging`](plugin-packaging.md). The
 [`theming`](theming.md) topic is a fully worked example of a frontend dynamic
 plugin going through exactly this flow.
 
@@ -273,6 +273,6 @@ It also does not cover `dynamic-plugins.yaml` changes (the preset resolver
 rewrites that file with `yq -i`, which cannot atomically replace a bind-mounted
 file — the baked copy is always used; see `scripts/dev-run.sh` header).
 
-**What's next:** `plugin-packaging` (not yet written) covers the OCI bundle
+**What's next:** [`plugin-packaging`](plugin-packaging.md) covers the OCI bundle
 build, the registry push, and wiring the published artifact into
 `dynamic-plugins.default.yaml`.

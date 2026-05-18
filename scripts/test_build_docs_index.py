@@ -115,6 +115,21 @@ def test_check_mode_fails_when_llms_txt_stale(monkeypatch, tmp_path):
             llms_path.write_text(original)
 
 
+def test_collect_entries_emits_paths_relative_to_base(monkeypatch):
+    """collect_entries respects the base parameter for relative-path emission."""
+    monkeypatch.setattr(gen, "DOCS_ROOT", FIXTURES)
+    monkeypatch.setattr(gen, "REPO_ROOT", FIXTURES.parent)
+    # Default base (REPO_ROOT) → docs-prefixed paths
+    entries_repo = gen.collect_entries("topics")
+    repo_paths = [e[2] for e in entries_repo]
+    assert any("docs/topics/" in p for p in repo_paths), repo_paths
+    # Explicit DOCS_ROOT base → docs-prefix STRIPPED
+    entries_docs = gen.collect_entries("topics", base=FIXTURES)
+    docs_paths = [e[2] for e in entries_docs]
+    assert not any(p.startswith("docs/") for p in docs_paths), docs_paths
+    assert any(p.startswith("topics/") for p in docs_paths), docs_paths
+
+
 def test_check_mode_fails_when_readme_missing_marker(monkeypatch, tmp_path):
     """When docs/README.md is missing a marker block, --check exits 1."""
     docs = tmp_path / "docs"

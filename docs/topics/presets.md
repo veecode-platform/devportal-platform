@@ -30,8 +30,8 @@ the operator mount their own `app-config.yaml`, `dynamic-plugins.yaml`, and
 any overlays. The two paths layer: an operator-mounted
 `app-config.local.yaml` always wins over preset-generated configs regardless
 of which path initiated the boot. The deep-merge order is covered in the
-forthcoming `configuration-layering` topic; for now the precedence can be
-read from `entrypoint.sh` directly.
+[`configuration-layering`](configuration-layering.md) topic; for now the
+precedence can also be read from `entrypoint.sh` directly.
 
 ## Tiers
 
