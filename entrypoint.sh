@@ -150,7 +150,7 @@ if [ -n "$VEECODE_PRESETS" ]; then
     # toggles, the plugins-info override) is preserved, and so a `docker
     # restart` re-running this script is idempotent.
     if [ -n "$PRESET_INCLUDES" ] && [ -f /app/dynamic-plugins.yaml ]; then
-        INCLUDES_JSON="$(printf '"%s",' dynamic-plugins.default.yaml extensions-install.yaml $PRESET_INCLUDES | sed 's/,$//')"
+        INCLUDES_JSON="$(printf '"%s",' dynamic-plugins.default.resolved.yaml extensions-install.yaml $PRESET_INCLUDES | sed 's/,$//')"
         yq eval -i ".includes = [${INCLUDES_JSON}]" /app/dynamic-plugins.yaml
         echo "VEECODE: dynamic-plugins.yaml includes → $(yq eval -o=json -I=0 '.includes' /app/dynamic-plugins.yaml)"
     fi
@@ -173,6 +173,34 @@ else
     echo "VEECODE_APP_CONFIG variable not found (this is expected in non-SaaS deployments)"
 fi
 
+# ── Shadow dynamic-plugins.default.yaml for substitution ────────────
+# The image's dynamic-plugins.default.yaml is bind-mounted read-only in the
+# dev (`scripts/dev-run.sh`) and k8s paths, so the in-place sed substitutions
+# below fail silently and leave literals like ${PLUGIN_REGISTRY} in the file.
+# Result: a preset's resolved `package:` string (e.g. `oci://quay.io/veecode/rbac:…`)
+# never matches the default's still-templated entry (`oci://${PLUGIN_REGISTRY}/rbac:…`),
+# so install-dynamic-plugins.py treats them as two distinct entries — the preset
+# entry installs without the default's pluginConfig (no dynamicRoutes / menuItems /
+# mountPoints get registered), and the templated default entry is "Skipped"
+# because the literal ${PLUGIN_REGISTRY} isn't a resolvable OCI ref.
+#
+# Fix: copy default to a writable shadow + repoint the include in
+# dynamic-plugins.yaml. The substitution loops below then operate on the shadow,
+# the shadow's resolved package strings match the preset's, the shallow per-key
+# merge wires the pluginConfig back in, and the UI gains the routes/menus.
+DEFAULT_DPD=/app/dynamic-plugins.default.yaml
+DEFAULT_DPD_SHADOW=/app/dynamic-plugins.default.resolved.yaml
+if [ -f "$DEFAULT_DPD" ]; then
+    cp -f "$DEFAULT_DPD" "$DEFAULT_DPD_SHADOW"
+    # Rewrite includes in dynamic-plugins.yaml to use the shadow. The preset
+    # resolver above already builds INCLUDES_JSON with the resolved name when a
+    # preset is selected; this sed handles the no-preset path (baked includes
+    # untouched) and is a no-op when the resolver already wrote the resolved name.
+    if [ -f /app/dynamic-plugins.yaml ]; then
+        sed -i 's|^\(\s*-\s*\)dynamic-plugins\.default\.yaml\s*$|\1dynamic-plugins.default.resolved.yaml|g' /app/dynamic-plugins.yaml
+    fi
+fi
+
 # ── Resolve ${BACKSTAGE_VERSION} in plugin OCI refs ─────────────────
 # Plugin OCI artifacts are tagged by Backstage version — `bs_<bsver>__latest`
 # (the moving tag, re-fetched on restart via pullPolicy: Always) for
@@ -186,7 +214,7 @@ fi
 BACKSTAGE_VERSION="${BACKSTAGE_VERSION:-$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)}"
 if [ -n "$BACKSTAGE_VERSION" ]; then
     echo "VEECODE: resolving \${BACKSTAGE_VERSION} → $BACKSTAGE_VERSION in plugin OCI refs"
-    for f in /app/dynamic-plugins.yaml /app/dynamic-plugins.default.yaml /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
+    for f in /app/dynamic-plugins.yaml "$DEFAULT_DPD_SHADOW" /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
         [ -f "$f" ] || continue
         sed -i "s/\${BACKSTAGE_VERSION}/$BACKSTAGE_VERSION/g" "$f" 2>/dev/null \
           || echo "VEECODE: note — $f is read-only; \${BACKSTAGE_VERSION} left as-is there (harmless if those refs are disabled)"
@@ -201,7 +229,7 @@ fi
 # PLUGIN_REGISTRY=registry.internal/veecode. Defaults to quay.io/veecode.
 PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
 echo "VEECODE: resolving \${PLUGIN_REGISTRY} → $PLUGIN_REGISTRY in plugin OCI refs"
-for f in /app/dynamic-plugins.yaml /app/dynamic-plugins.default.yaml /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
+for f in /app/dynamic-plugins.yaml "$DEFAULT_DPD_SHADOW" /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
     [ -f "$f" ] || continue
     sed -i "s|\${PLUGIN_REGISTRY}|$PLUGIN_REGISTRY|g" "$f" 2>/dev/null \
       || echo "VEECODE: note — $f is read-only; \${PLUGIN_REGISTRY} left as-is there (harmless if those refs are disabled)"
