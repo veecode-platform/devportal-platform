@@ -1,0 +1,21 @@
+# devportal-platform
+
+> Open-source Backstage distribution shipped as one unified container image. Operators select presets at runtime (VEECODE_PRESETS) to turn the generic image into a working IDP.
+
+## Topics
+
+_(none yet)_
+
+## How-to
+
+_(none yet)_
+
+## Reference
+
+_(none yet)_
+
+## ADRs
+
+- [ADR-010: Unified image, preset catalog, OCI dynamic plugins](docs/adr/010-unified-image-and-presets.md)
+- [ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset](docs/adr/011-frontend-design-system.md)
+- [ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)](docs/adr/012-anonymous-ubi-mirror.md)
