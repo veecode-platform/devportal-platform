@@ -1,0 +1,109 @@
+name: mcp-chat
+description: AI Chat in-portal — surfaces the MCP toolset via a chat UI at `/mcp-chat`. Requires LLM provider + API key. Compose with `mcp`.
+version: 1.0.0
+
+# What this preset does:
+#  - Enables `mcp-chat` (frontend) and `mcp-chat-backend`, exposing the chat
+#    page at `/mcp-chat` and wiring it through the in-pod MCP server.
+#  - Wires the LLM provider + model + key into `mcpChat.providers`, the
+#    DevPortal loopback into `mcpChat.mcpServers`, and a default system
+#    prompt + quick prompts.
+#
+# !!! COMPOSE WITH `mcp` !!!
+# `mcp-chat-backend` talks to `mcp-actions-backend` over loopback at
+# `http://localhost:7007/api/mcp-actions/v1`. Without the `mcp` preset, the
+# MCP plugin doesn't mount, that route returns 404, and the chat boots OK
+# but every tool invocation fails. Use:
+#
+#   VEECODE_PRESETS=mcp,mcp-chat
+#   MCP_CHAT_PROVIDER=openai
+#   MCP_CHAT_API_KEY=sk-...
+#   MCP_CHAT_MODEL=gpt-5.4
+#
+# We can't enforce the dependency in YAML — the schema has no `requires.presets` —
+# so the safeguard is this comment and the README composition example.
+#
+# Canonical docs:
+# https://vertigobr.atlassian.net/wiki/spaces/VPI/pages/3461611522/
+#
+# Provider naming: `MCP_CHAT_*` follows the per-preset namespace convention
+# (other presets: `GITHUB_*`, `AZURE_*`, `KEYCLOAK_*`). The variable values
+# accepted for `MCP_CHAT_PROVIDER` mirror what the SaaS card supports today:
+# `openai` (default model `gpt-5.4`) and `claude` (default model
+# `claude-sonnet-4-6-latest`).
+
+requires:
+  variables:
+    MCP_CHAT_PROVIDER:
+      description: LLM provider ID. Currently `openai` or `claude`.
+      required: true
+      example: openai
+    MCP_CHAT_API_KEY:
+      description: API key for the selected provider. Get it from the provider's console (OpenAI Platform or Anthropic Console).
+      required: true
+      docs: https://platform.openai.com/api-keys
+      example: sk-xxxxxxxxxxxxxxxxxxxx
+    MCP_CHAT_MODEL:
+      description: Model name (provider-specific). Recommended `gpt-5.4` for openai, `claude-sonnet-4-6-latest` for claude.
+      required: true
+      example: gpt-5.4
+
+# Package strings MUST match `dynamic-plugins.default.yaml` exactly. The
+# `dynamicRoutes`/`menuItems` pluginConfig on the frontend entry lives in
+# the default and survives the shallow per-key merge — this preset only
+# flips `disabled`.
+plugins:
+  - package: oci://quay.io/veecode/mcp-chat:bs_${BACKSTAGE_VERSION}!backstage-community-plugin-mcp-chat-backend
+    disabled: false
+  - package: oci://quay.io/veecode/mcp-chat:bs_${BACKSTAGE_VERSION}!backstage-community-plugin-mcp-chat
+    disabled: false
+
+appConfig:
+  mcpChat:
+    providers:
+      - id: ${MCP_CHAT_PROVIDER}
+        token: ${MCP_CHAT_API_KEY}
+        model: ${MCP_CHAT_MODEL}
+    # Loopback to the in-pod MCP server. `mcp-actions-backend` and
+    # `mcp-chat-backend` run in the same process — the hostname is intentional;
+    # don't replace it with the public ingress hostname.
+    mcpServers:
+      - id: devportal
+        name: DevPortal MCP
+        url: http://localhost:7007/api/mcp-actions/v1
+        type: streamable-http
+    systemPrompt: |
+      You are an AI assistant integrated with VeeCode DevPortal.
+      You have access to the software catalog, scaffolder templates, and TechDocs via MCP tools.
+      You can query entities, run scaffolder templates end-to-end, inspect task logs, and search documentation.
+      When running a template, always confirm the parameters with the user before executing.
+      For scaffolder execution, always call fetch-template-metadata first for the selected template.
+      Never call execute-template without a values object.
+      Build values using the exact parameter names from the template metadata and include every required parameter.
+      If any required parameter is missing or ambiguous, ask the user before calling execute-template.
+      Preserve parameter formats exactly as described by the template metadata. For example, repoUrl may need the format github.com?owner=<owner>&repo=<repo>.
+    quickPrompts:
+      - title: List Components
+        description: Show all components in the catalog
+        prompt: List all components in the software catalog
+        category: Catalog
+      - title: Query by Owner
+        description: Find entities owned by a specific team
+        prompt: Show all entities owned by the team-platform group
+        category: Catalog
+      - title: Available Templates
+        description: Show available scaffolder templates
+        prompt: What scaffolder templates are available? Show their names and a brief description of each.
+        category: Scaffolder
+      - title: Run a Template
+        description: Execute a scaffolder template via chat
+        prompt: I want to create a new service. Show me the available templates and help me run one.
+        category: Scaffolder
+      - title: Recent Tasks
+        description: Show recent scaffolder task executions
+        prompt: Show the most recent scaffolder tasks and their status
+        category: Scaffolder
+      - title: TechDocs Coverage
+        description: Analyze documentation coverage
+        prompt: Analyze the TechDocs coverage across all entities
+        category: Documentation
