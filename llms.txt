@@ -4,7 +4,7 @@
 
 ## Topics
 
-_(none yet)_
+- [installing](docs/topics/installing.md): Get from "I want to try this" to a running devportal-platform with a preset enabled in under 30 minutes.
 
 ## How-to
 
