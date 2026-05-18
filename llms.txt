@@ -5,6 +5,7 @@
 ## Topics
 
 - [installing](docs/topics/installing.md): Get from "I want to try this" to a running devportal-platform with a preset enabled in under 30 minutes.
+- [presets](docs/topics/presets.md): Composable YAML contracts selected at runtime (VEECODE_PRESETS) that turn the generic image into a working IDP for a specific stack.
 
 ## How-to
 
