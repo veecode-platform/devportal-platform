@@ -12,7 +12,7 @@ _(none yet)_
 
 ## Reference
 
-_(none yet)_
+- [glossary](docs/reference/glossary.md): Backstage terms used throughout these docs, one-line definitions with upstream links.
 
 ## ADRs
 
