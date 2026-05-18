@@ -113,10 +113,18 @@ appConfig:
 | [`jenkins.yaml`](./jenkins.yaml) | Jenkins CI tab on entity pages | `JENKINS_URL`, `JENKINS_USERNAME`, `JENKINS_TOKEN` |
 | [`kubernetes.yaml`](./kubernetes.yaml) | Kubernetes workloads tab on entity pages | `K8S_CLUSTER_NAME`, `K8S_CLUSTER_URL`, `K8S_CLUSTER_TOKEN` |
 | [`sonarqube.yaml`](./sonarqube.yaml) | SonarQube code quality tab + scaffolder action | `SONARQUBE_BASE_URL`, `SONARQUBE_API_KEY` |
+| [`mcp.yaml`](./mcp.yaml) | MCP server for external clients (Claude Code, Codex CLI, Cursor) via OAuth/DCR | none |
+| [`mcp-chat.yaml`](./mcp-chat.yaml) | AI Chat in-portal — surfaces MCP tools via `/mcp-chat`. **Compose with `mcp`.** | `MCP_CHAT_PROVIDER`, `MCP_CHAT_API_KEY`, `MCP_CHAT_MODEL` |
 
 Presets compose. `VEECODE_PRESETS=recommended,github` enables both. A common
 shape: `recommended,veecode-theme,<one or two integrations>` covers the
 out-of-box VeeCode experience plus the customer's SCM/auth.
+
+The MCP pair is the only preset with a documented composition dependency:
+`mcp-chat` talks loopback to `mcp-actions-backend`, so it only works as
+`VEECODE_PRESETS=mcp,mcp-chat`. `VEECODE_PRESETS=mcp` alone exposes the MCP
+server to external CLI clients without enabling the in-portal chat (no LLM
+API key needed).
 
 ## Two primary paths of use
 

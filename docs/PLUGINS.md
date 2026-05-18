@@ -111,8 +111,10 @@ Notable absent: **MCP plugins are not registered statically**.
 explains — registering them here would crash startup with "Plugin
 'mcp-actions' is already registered" the moment a SaaS instance
 turns the feature on. MCP comes in only as dynamic plugins
-([`dynamic-plugins.default.yaml`](../dynamic-plugins.default.yaml), all
-`disabled: true`).
+([`dynamic-plugins.default.yaml`](../dynamic-plugins.default.yaml)),
+gated by the `mcp` / `mcp-chat` presets (see
+[`presets/mcp.yaml`](../presets/mcp.yaml) +
+[`presets/mcp-chat.yaml`](../presets/mcp-chat.yaml)).
 
 ## Static plugins (frontend)
 
@@ -219,8 +221,23 @@ refs.
 
 The MCP stack (`mcp-actions-backend`, `*-mcp-extras`, `mcp-chat`) is
 wired in `dynamic-plugins.default.yaml` with `disabled: true` and is
-**not** currently enabled by any preset — a future preset will
-flip them on once they're stable on the image's Backstage version.
+enabled by two composable presets:
+
+- `mcp` ([`presets/mcp.yaml`](../presets/mcp.yaml)) — flips on
+  `mcp-actions-backend` plus the three `*-mcp-extras` tool providers,
+  exposing `/api/mcp-actions/v1` for external CLI clients (Claude Code,
+  Codex CLI, Cursor) via OAuth/DCR. No required vars; OAuth/DCR config
+  lives in the baseline app-config.
+- `mcp-chat` ([`presets/mcp-chat.yaml`](../presets/mcp-chat.yaml)) —
+  flips on `mcp-chat` + `mcp-chat-backend` (the in-portal AI chat at
+  `/mcp-chat`) and layers in `mcpChat.providers` / `mcpServers` /
+  `systemPrompt`. Requires `MCP_CHAT_PROVIDER`, `MCP_CHAT_API_KEY`,
+  `MCP_CHAT_MODEL`. Must compose with `mcp`
+  (`VEECODE_PRESETS=mcp,mcp-chat`) — chat-backend talks loopback to the
+  MCP server.
+
+The canonical operator docs (token flow, redirect-URI patterns,
+toolset list, SaaS card UX) live in the [Confluence "DevPortal MCP — Configuração para ferramentas externas"](https://vertigobr.atlassian.net/wiki/spaces/VPI/pages/3461611522/) page.
 
 ## What ships enabled by default
 

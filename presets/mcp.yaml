@@ -1,0 +1,62 @@
+name: mcp
+description: MCP server exposing catalog/scaffolder/techdocs tools to external clients (Claude Code, Codex CLI, Cursor) via OAuth 2.1/DCR.
+version: 1.0.0
+
+# What this preset does:
+#  - Enables `mcp-actions-backend` plus the three tool providers
+#    (software-catalog / techdocs / scaffolder mcp-extras), exposing
+#    `/api/mcp-actions/v1` for external MCP clients.
+#  - Does NOT enable AI Chat in-portal. Compose with `mcp-chat` for that:
+#    `VEECODE_PRESETS=mcp,mcp-chat` (separate API-key-bearing preset).
+#
+# Authoring contract: external clients authenticate via OAuth 2.1 / Dynamic
+# Client Registration (DCR). The OAuth/DCR config (`auth.experimentalDynamicClientRegistration`,
+# `auth.experimentalRefreshToken`, `permission.enabled: true`) is already
+# baked into `app-config.yaml` + `app-config.production.yaml` — this preset
+# does not re-declare it. See the canonical docs:
+# https://vertigobr.atlassian.net/wiki/spaces/VPI/pages/3461611522/
+#
+# Environmental prerequisites (NOT validated by the preset):
+#  1. Persistent DB (Postgres). OAuth signing keys + refresh-token state live
+#     in the backend DB; with SQLite (default), every container restart
+#     revokes every existing MCP session. Configure via app-config.production.
+#  2. Reachable backend public URL. External CLI clients (Claude Code / Codex /
+#     Cursor) need to reach `https://<host>/api/mcp-actions/v1` and follow the
+#     OAuth redirect back. `allowedRedirectUriPatterns` ships covering
+#     `http://localhost:*/callback` + `http://127.0.0.1:*/callback` for CLI
+#     loopback; non-CLI clients (browsers, IDEs on a different host) need
+#     additional patterns layered in via `${VEECODE_APP_CONFIG}` overlay.
+#
+# Toolsets exposed (see Confluence § "Toolsets disponíveis"):
+#  - mcp-actions:                explain
+#  - catalog:                    get-catalog-entity, validate-entity
+#  - scaffolder:                 validate-scaffolder
+#  - software-catalog-mcp-extras: query-catalog-entities, register-entity, unregister-entity
+#  - techdocs-mcp-extras:        analyze-techdocs-coverage, fetch-techdocs, retrieve-techdocs-content
+#  - scaffolder-mcp-extras:      execute-template, fetch-template-metadata, list-scaffolder-tasks,
+#                                get-scaffolder-task-logs, list-scaffolder-actions, dry-run-template
+#
+# The exact `pluginSources` list lives in `dynamic-plugins.default.yaml`
+# under the `mcp-actions-backend` entry — this preset only flips `disabled`.
+# (Per the schema's "shallow merge per key" rule, the entry's `pluginConfig`
+# survives the merge intact.)
+
+requires:
+  variables: {}
+
+# Package strings MUST match `dynamic-plugins.default.yaml` exactly, or the
+# merge installs a second copy under a different name and the backend crashes
+# on duplicate registration ("Plugin 'mcp-actions' is already registered").
+plugins:
+  - package: oci://quay.io/veecode/backstage:bs_${BACKSTAGE_VERSION}!backstage-plugin-mcp-actions-backend
+    disabled: false
+  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
+    disabled: false
+  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras
+    disabled: false
+  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+    disabled: false
+
+# No app-config additions — OAuth/DCR + permission.enabled already live in
+# the baseline app-config layers.
+appConfig: {}

@@ -21,12 +21,6 @@ corresponding branch.
 
 ## Mid term
 
-- **MCP preset.** Wire the
-  `mcp-actions-backend` / `*-mcp-extras` / `mcp-chat` stack
-  (currently `disabled: true` in
-  [`dynamic-plugins.default.yaml`](../dynamic-plugins.default.yaml))
-  into a preset, once the OCI artifacts are stable on the image's
-  pinned Backstage version.
 - **Drop the cbme stopgap.** When
   `devportal-plugin-export-overlays` publishes
   `quay.io/veecode/extensions:bs_1.50.0` (or whichever Backstage
