@@ -222,8 +222,7 @@ wheel==0.46.2
     # via -r python/requirements.in
 
 # Doc-tooling tests
-pytest==8.0.2
-    # via python/requirements.in
+pytest>=8.0
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
