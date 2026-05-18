@@ -120,7 +120,7 @@ case "$CMD" in
     # so `GITHUB_PAT=… VEECODE_PRESETS=recommended,github $0 run` works.
     env_args=( -e VEECODE_PRESETS="${VEECODE_PRESETS:-}" )
     fwd=""
-    for v in $(compgen -e 2>/dev/null | grep -E '^(VEECODE_PROFILE$|VEECODE_APP_CONFIG$|BACKSTAGE_VERSION$|AUTH_|GITHUB_|GITLAB_|AZURE_|KEYCLOAK_|LDAP_|KONG_|SONAR|JENKINS_|K8S_)' || true); do
+    for v in $(compgen -e 2>/dev/null | grep -E '^(VEECODE_PROFILE$|VEECODE_APP_CONFIG$|BACKSTAGE_VERSION$|AUTH_|GITHUB_|GITLAB_|AZURE_|KEYCLOAK_|LDAP_|KONG_|SONAR|JENKINS_|K8S_|MCP_CHAT_|PLUGIN_REGISTRY$)' || true); do
       env_args+=( -e "$v" ); fwd="$fwd $v"
     done
     echo "starting $NAME  image=$IMAGE  port=$PORT  mem=$MEM  VEECODE_PRESETS=${VEECODE_PRESETS:-<none>}${fwd:+  +env:$fwd}"
