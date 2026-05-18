@@ -257,6 +257,32 @@ to old code does not block on adding tests. Backend APIs and internal
 plugins are the priority areas; frontend component tests against
 DynamicRoot/Scalprum and full e2e are deliberately deprioritised.
 
+### Preset smoke harness — `scripts/smoke-presets.sh`
+
+Boot-validate every preset (and key compositions) against an image:
+
+```bash
+./scripts/smoke-presets.sh                              # :latest, full matrix
+./scripts/smoke-presets.sh --image veecode/devportal:1.0
+./scripts/smoke-presets.sh --presets "recommended;mcp;recommended,mcp"
+```
+
+For each preset, the harness fills dummy values for the preset's
+`requires.variables` (just non-empty so boot validation passes — they
+won't reach real services), starts the container, waits for the
+healthcheck, and counts the loaded dynamic plugins via
+`/api/dynamic-plugins-info/loaded-plugins`. Exits non-zero if any
+preset fails. The gate is **"preset config valid + backend boots +
+plugins register"**, not end-to-end integration.
+
+The matching [`Smoke Presets` workflow](../.github/workflows/smoke-presets.yml)
+runs the same harness in CI on `workflow_dispatch` — pass the image
+tag to validate after a Publish.
+
+Adding a new preset? Add a row to the `DUMMY` map in the script (or
+leave the preset out if it has no `required: true` vars), and add the
+preset name to the `ALL_TESTS` array.
+
 ## Troubleshooting
 
 **`yarn install` fails complaining about Corepack** — make sure

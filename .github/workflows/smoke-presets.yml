@@ -1,0 +1,49 @@
+name: Smoke Presets
+
+# Boot-validate each preset (and key compositions) against a published image.
+# Drives `scripts/smoke-presets.sh`, which dummy-fills required vars, starts the
+# container per preset, waits for healthcheck, and counts loaded dynamic plugins.
+#
+# Manual-only by design — operators run this after a Publish to verify the new
+# tag actually boots under every preset, before announcing it as available. The
+# workflow doesn't build images itself; it pulls the tag you point it at.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Image ref to validate (e.g. quay.io/veecode/devportal:bs_1.49.4__0.1.0)'
+        required: true
+        default: 'quay.io/veecode/devportal-platform:latest'
+      presets:
+        description: 'Optional semicolon-separated test list (csv composition INSIDE a test). Leave blank for the default matrix.'
+        required: false
+        default: ''
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull image
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: docker pull "$IMAGE"
+
+      - name: Run smoke harness
+        env:
+          IMAGE: ${{ inputs.image }}
+          PRESETS: ${{ inputs.presets }}
+        run: |
+          set -e
+          args=( --image "$IMAGE" )
+          if [ -n "$PRESETS" ]; then
+            args+=( --presets "$PRESETS" )
+          fi
+          bash scripts/smoke-presets.sh "${args[@]}"
+
+      - name: Capture container logs on failure
+        if: failure()
+        run: docker logs devportal-dev 2>&1 | tail -200 || true
