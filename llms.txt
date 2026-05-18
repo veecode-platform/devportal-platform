@@ -14,6 +14,7 @@ _(none yet)_
 
 - [env-vars](docs/reference/env-vars.md): Every environment variable the devportal-platform image consumes at boot, grouped by purpose.
 - [glossary](docs/reference/glossary.md): Backstage terms used throughout these docs, one-line definitions with upstream links.
+- [preset-schema](docs/reference/preset-schema.md): Complete YAML schema for preset files, including frontmatter, requires, plugins, appConfig, and composition rules.
 - [shipped-presets](docs/reference/shipped-presets.md): All presets shipped in the image, with their required variables and what they enable.
 
 ## ADRs
