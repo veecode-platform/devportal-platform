@@ -83,7 +83,7 @@ requires:
       docs: https://docs.github.com/…
 
 plugins:
-  - package: oci://ghcr.io/veecode-platform/…!backstage-plugin-catalog-backend-module-github
+  - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
     disabled: false
   - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
     disabled: false
