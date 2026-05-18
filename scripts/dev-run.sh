@@ -115,12 +115,12 @@ case "$CMD" in
       mounts+=( -v "$cbme_patched:/app/dynamic-plugins-root/$CBME_MOD_PATH:ro" )
       echo "marketplace: mounting patched catalog-backend-module-extensions module"
     fi
-    # Forward VEECODE_PRESETS plus any preset/profile env vars present in the calling
-    # shell (GITHUB_PAT, AZURE_DEVOPS_*, KEYCLOAK_*, …) and VEECODE_PROFILE / VEECODE_APP_CONFIG,
+    # Forward VEECODE_PRESETS plus any preset env vars present in the calling
+    # shell (GITHUB_PAT, AZURE_DEVOPS_*, KEYCLOAK_*, …) and VEECODE_APP_CONFIG,
     # so `GITHUB_PAT=… VEECODE_PRESETS=recommended,github $0 run` works.
     env_args=( -e VEECODE_PRESETS="${VEECODE_PRESETS:-}" )
     fwd=""
-    for v in $(compgen -e 2>/dev/null | grep -E '^(VEECODE_PROFILE$|VEECODE_APP_CONFIG$|BACKSTAGE_VERSION$|AUTH_|GITHUB_|GITLAB_|AZURE_|KEYCLOAK_|LDAP_|KONG_|SONAR|JENKINS_|K8S_|MCP_CHAT_|PLUGIN_REGISTRY$)' || true); do
+    for v in $(compgen -e 2>/dev/null | grep -E '^(VEECODE_APP_CONFIG$|BACKSTAGE_VERSION$|AUTH_|GITHUB_|GITLAB_|AZURE_|KEYCLOAK_|LDAP_|KONG_|SONAR|JENKINS_|K8S_|MCP_CHAT_|PLUGIN_REGISTRY$)' || true); do
       env_args+=( -e "$v" ); fwd="$fwd $v"
     done
     echo "starting $NAME  image=$IMAGE  port=$PORT  mem=$MEM  VEECODE_PRESETS=${VEECODE_PRESETS:-<none>}${fwd:+  +env:$fwd}"

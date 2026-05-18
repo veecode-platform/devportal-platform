@@ -1,5 +1,15 @@
 # Memory MCP Seed Data
 
+> ⚠️ **STALE — DO NOT SEED FROM THIS FILE WITHOUT CURATION.**
+> This file was lifted from `devportal-base` during bootstrap and has not
+> been updated for `devportal-platform`. Most observations below describe
+> the legacy two-image topology, the profile system, and the
+> `dynamic-plugins/` host workspace — none of which apply here. The
+> platform's authoritative facts live in `CLAUDE.md`, `docs/PROJECT_CONTEXT.md`,
+> `docs/adr/`, and `presets/README.md`.
+>
+> Tracked as a follow-up in `docs/ROADMAP_BACKLOG.md` § "In documentation".
+
 This file contains key project facts to store in Memory MCP after restart.
 Use these to populate the knowledge graph with `create_entities`, `create_relations`, and `add_observations`.
 
@@ -9,13 +19,15 @@ Use these to populate the knowledge graph with `create_entities`, `create_relati
 
 ```json
 {
-  "name": "VeeCode DevPortal",
+  "name": "VeeCode DevPortal Platform",
   "entityType": "project",
   "observations": [
-    "Open-source Backstage distribution for production use",
+    "Open-source Backstage distribution shipped as one unified container image",
     "Not a fork of RHDH but inspired by Red Hat Developer Hub patterns",
-    "Provides minimal, extensible foundation with dynamic plugin loading",
-    "Repository: veecode-platform/devportal-base",
+    "Generic runtime + preset catalog — operators select presets at runtime via VEECODE_PRESETS",
+    "Repository: veecode-platform/devportal-platform",
+    "Image: docker.io/veecode/devportal-platform",
+    "Supersedes the legacy veecode-platform/devportal-base + veecode-platform/devportal-distro split (those remain in 1.49 maintenance)",
     "License: Apache-2.0"
   ]
 }

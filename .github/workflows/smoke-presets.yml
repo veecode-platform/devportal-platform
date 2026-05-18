@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: 'Image ref to validate (e.g. quay.io/veecode/devportal:bs_1.49.4__0.1.0)'
+        description: 'Image ref to validate (e.g. docker.io/veecode/devportal-platform:0.1.0)'
         required: true
         default: 'quay.io/veecode/devportal-platform:latest'
       presets:

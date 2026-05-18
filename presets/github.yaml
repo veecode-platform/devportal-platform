@@ -20,16 +20,16 @@ requires:
 #    provider — are STATIC in the unified devportal backend (compiled in via
 #    `backend.add(import('@backstage/plugin-…'))`, see packages/backend/src/index.ts).
 #    They are NOT dynamic plugins and are NOT published as OCI artifacts; the
-#    devportal-plugin-export-overlays `backstage` workspace explicitly excludes them
-#    ("static in devportal-base"). This preset only *configures* them — the `appConfig:`
-#    block below.
+#    devportal-plugin-export-overlays `backstage` workspace explicitly excludes them.
+#    This preset only *configures* them — the `appConfig:` block below.
 #  - The `plugins:` list is therefore just the dynamic UI add-ons. Each `package:` must
 #    match the (disabled) entry in dynamic-plugins.default.yaml so
 #    install-dynamic-plugins.py merges/flips `disabled` (the pluginConfig — mountPoints —
 #    lives there).
-#  - The GitHub auth provider config still lives in app-config.github.yaml (the ADR-009
-#    profile, kept active via VEECODE_PROFILE=github). Folding it into this preset's
-#    appConfig is a later step — the ADR-009 → presets consolidation.
+#  - This preset does NOT wire the GitHub OAuth sign-in provider. Operators who want
+#    GitHub sign-in mount the relevant `auth.providers.github` block via
+#    `app-config.local.yaml` — see docs/UPGRADING_FROM_BASE_DISTRO.md for the carry-over
+#    pattern when migrating from `VEECODE_PROFILE=github`.
 plugins:
   # GitHub Actions UI — CI tab on entity pages (pluginConfig in dynamic-plugins.default.yaml).
   - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions

@@ -28,11 +28,12 @@ import {
 /*
  * Loader is rendered before the Backstage App is instantiated — i.e. before
  * DynamicRoot has loaded the dynamic theme plugins. Per ADR-011 Phase 1, the
- * VeeCode theme is delivered as a dynamic frontend plugin (see
- * dynamic-plugins/wrappers/veecode-platform-plugin-veecode-theme);
- * DynamicRoot registers it as an AppThemeProvider in createApp (see
- * DynamicRoot.tsx lines 533-636) and the runtime theme takes effect at the
- * app-mount boundary.
+ * VeeCode theme is delivered as a dynamic frontend plugin, published as an
+ * OCI bundle by `devportal-plugin-export-overlays` and pulled in at boot
+ * (`oci://${PLUGIN_REGISTRY}/veecode-theme:bs_${BACKSTAGE_VERSION}!veecode-platform-plugin-veecode-theme`,
+ * see dynamic-plugins.default.yaml). DynamicRoot registers it as an
+ * AppThemeProvider in createApp (see DynamicRoot.tsx lines 533-636) and the
+ * runtime theme takes effect at the app-mount boundary.
  *
  * Loader covers a short loading window before that. Previously it consumed
  * `useLoaderTheme()` from the RHDH theme package, which HTTP-fetched

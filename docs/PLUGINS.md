@@ -208,16 +208,25 @@ Some preset-enabled plugins are fetched at boot from OCI registries
 (via skopeo); they are not pre-installed. The reference shape:
 
 ```
-oci://quay.io/veecode/backstage:bs_${BACKSTAGE_VERSION}!backstage-plugin-mcp-actions-backend
-oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!<name>
-oci://quay.io/veecode/mcp-chat:bs_${BACKSTAGE_VERSION}!<name>
-oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/<plugin>:bs_${BACKSTAGE_VERSION}__<rev>!<name>
+oci://${PLUGIN_REGISTRY}/<workspace>:bs_${BACKSTAGE_VERSION}!<selector>
 ```
 
-`${BACKSTAGE_VERSION}` is the variable substituted by `entrypoint.sh`
-at boot ([`entrypoint.sh:176-196`](../entrypoint.sh)); the literal
-substitution lets a Backstage bump avoid editing every preset's OCI
-refs.
+Concrete examples from `dynamic-plugins.default.yaml`:
+
+```
+oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic
+oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac
+oci://quay.io/veecode/backstage:bs_${BACKSTAGE_VERSION}!backstage-plugin-mcp-actions-backend
+oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
+```
+
+`${PLUGIN_REGISTRY}` (default `quay.io/veecode`) and
+`${BACKSTAGE_VERSION}` (default read from `backstage.json`) are
+substituted by [`entrypoint.sh`](../entrypoint.sh) before the install
+script runs — search the script for `PLUGIN_REGISTRY` and
+`BACKSTAGE_VERSION` to find the substitution blocks. The literal
+substitution lets a Backstage bump (or a registry mirror swap) avoid
+editing every preset's OCI refs.
 
 The MCP stack (`mcp-actions-backend`, `*-mcp-extras`, `mcp-chat`) is
 wired in `dynamic-plugins.default.yaml` with `disabled: true` and is
