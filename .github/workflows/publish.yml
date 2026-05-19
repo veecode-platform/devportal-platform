@@ -53,6 +53,7 @@ env:
 jobs:
   validate-tag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
@@ -119,6 +120,7 @@ jobs:
   build-amd64-test:
     needs: validate-tag
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
@@ -134,8 +136,8 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-amd64-test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,scope=amd64,mode=max
 
       - name: Save image to tarball
         run: |
@@ -152,6 +154,7 @@ jobs:
   build-arm64:
     needs: validate-tag
     runs-on: ubuntu-22.04-arm
+    timeout-minutes: 30
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
@@ -172,12 +175,13 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=arm64
+          cache-to: type=gha,scope=arm64,mode=max
 
   smoke:
     needs: [validate-tag, build-amd64-test]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -212,10 +216,12 @@ jobs:
           docker image ls "${IMAGE_NAME}"
 
       - name: Smoke ${{ matrix.preset }}
+        env:
+          PRESET: ${{ matrix.preset }}
         run: |
           bash scripts/smoke-presets.sh \
             --image "${IMAGE_NAME}:${VERSION}-amd64-test" \
-            --presets "${{ matrix.preset }}"
+            --presets "${PRESET}"
 
       - name: Capture container logs on failure
         if: failure()
@@ -225,6 +231,7 @@ jobs:
     needs: [validate-tag, build-amd64-test, smoke]
     if: needs.smoke.result == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
@@ -252,6 +259,7 @@ jobs:
   manifest:
     needs: [validate-tag, push-amd64, build-arm64]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       IS_PRERELEASE: ${{ needs.validate-tag.outputs.is_prerelease }}
