@@ -1,12 +1,15 @@
 name: Smoke Presets
 
-# Boot-validate each preset (and key compositions) against a published image.
+# Ad-hoc preset boot validation against an already-published image.
 # Drives `scripts/smoke-presets.sh`, which dummy-fills required vars, starts the
 # container per preset, waits for healthcheck, and counts loaded dynamic plugins.
 #
-# Manual-only by design — operators run this after a Publish to verify the new
-# tag actually boots under every preset, before announcing it as available. The
-# workflow doesn't build images itself; it pulls the tag you point it at.
+# This workflow is NOT the publish gate. Since publish.yml runs a matrix smoke
+# inside its own pipeline (build → smoke 13 presets in parallel → push only on
+# pass), every released image has already passed boot validation across all
+# presets. This workflow exists for investigation: "did this older tag boot?",
+# "smoke :latest after a manual change to dynamic-plugins.default.yaml", etc.
+# The workflow doesn't build images itself; it pulls the tag you point it at.
 
 on:
   workflow_dispatch:
