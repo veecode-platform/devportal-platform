@@ -15,10 +15,10 @@
 # longer needs a `docker build` either.
 #
 # NOT covered (these still need a build): packages/app/* and packages/backend/* code (use
-# `yarn dev-local` for those), the Dockerfile itself, dynamic-plugins.yaml, or a dependency
-# change. (`dynamic-plugins.yaml` can't be bind-mounted — the preset resolver rewrites its
-# `includes:` via `yq -i`, which can't atomically replace a single-file bind mount, so the
-# preset fragments never get included. The baked copy is used.)
+# `yarn dev-local` for those), the Dockerfile itself, or a dependency change.
+# (`dynamic-plugins.yaml` is bind-mountable as of the shadow-file fix in entrypoint.sh:
+# the entrypoint copies it to /app/dynamic-plugins.resolved.yaml and mutates the shadow,
+# so a read-only mount no longer makes the preset resolver inert.)
 #
 # Runs on :7007 to match the image's baked app.baseUrl/backend.baseUrl (avoids the CORS
 # trap you hit when running on a different port). Memory-capped per the WSL constraints.
