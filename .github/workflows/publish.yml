@@ -1,35 +1,47 @@
 name: Publish
 
-# Multi-arch image publish to DockerHub. Mirrors the pattern used by
-# veecode-platform/devportal-base and devportal-distro: matrix builds for
-# amd64 + arm64, single-arch tags pushed per job, then a `manifest` job
-# stitches them into a multi-arch manifest under both `<version>` and
-# `latest` tags.
+# Multi-arch image publish to DockerHub. Tag-driven: pushing a semver tag
+# triggers build → smoke (gates) → push → multi-arch manifest. Mirrors
+# devportal-base and devportal-distro release CI patterns plus a
+# smoke-before-publish gate that exists in neither predecessor.
 #
-# Currently triggered ONLY via `workflow_dispatch` (manual). To switch to
-# tag-driven publishing once the product is ready for consumers, replace
-# the `on:` block with the commented-out version below.
+# Triggers:
+#   - push tag matching N.N.N (or N.N.N-suffix) → automatic full pipeline
+#   - workflow_dispatch with `version` input → manual fallback for
+#     re-publishing without bumping a new version. Trusts the dispatched
+#     ref; operator's responsibility to dispatch from the right SHA.
 #
-# Secrets required (configure at the org or repo level before first run):
+# Pre-release tags (matching -rc / -alpha / -beta / -preview):
+#   - skip the main-ancestry check (allow pre-release from feature branches)
+#   - get the versioned tag only; :latest is NOT updated
+#
+# Smoke gate (amd64 only):
+#   - amd64 image is built into the local docker daemon (NOT pushed)
+#   - saved as a workflow-scoped tar artifact (~500MB compressed)
+#   - 13 preset boot tests run in parallel as a matrix
+#   - amd64 push only happens if ALL smoke entries pass
+#   - arm64 builds + pushes in parallel without smoke (preset behavior
+#     is config-driven, arch-invariant in practice)
+#   - manifest assembly waits for both per-arch pushes
+#
+# Failed-release recovery: fix code, push a NEW tag at the new SHA.
+# Reusing a failed tag requires force-pushing it; deliberate friction.
+#
+# Secrets required (org or repo level):
 #   - DOCKER_USERNAME / DOCKER_PASSWORD  (DockerHub push)
-# Note: no Red Hat credentials needed — the Dockerfile pulls UBI from
-# the anonymous mirror (registry.access.redhat.com). See ADR-012.
+# No Red Hat credentials needed — Dockerfile pulls UBI from the anonymous
+# mirror (registry.access.redhat.com). See ADR-012.
 
 on:
+  push:
+    tags:
+      - '*.*.*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag to publish (must match package.json version; e.g. 0.1.0)'
+        description: 'Version tag to publish (must match package.json; e.g. 0.1.0)'
         required: true
         type: string
-
-  # When ready to publish on every release tag, comment out workflow_dispatch
-  # above and uncomment the block below. Tag scheme matches base/distro
-  # (e.g. `git tag 0.1.0 && git push --tags`).
-  #
-  # push:
-  #   tags:
-  #     - '*.*.*'
 
 permissions:
   contents: read
@@ -39,103 +51,224 @@ env:
   IMAGE_NAME: docker.io/veecode/devportal-platform
 
 jobs:
-  validate-version:
+  validate-tag:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
+      is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Resolve version (manual input or git tag)
+      - name: Resolve and validate version
         id: resolve
         env:
           INPUT_VERSION: ${{ inputs.version }}
           REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ -n "${INPUT_VERSION}" ]; then
+          set -euo pipefail
+
+          # 1. Source of truth: dispatch input OR tag ref.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             VERSION="${INPUT_VERSION}"
             echo "Manual dispatch — version=${VERSION}"
           else
-            # Tag-driven path (when on: push tags is enabled)
             VERSION="${REF#refs/tags/}"
             echo "Tag-driven — version=${VERSION}"
           fi
-          # Hard shape check before VERSION is interpolated into any shell
-          # context downstream (build-push-action tags, manifest names, etc).
-          # workflow_dispatch inputs are user-controlled; defend in depth.
-          # Accepts semver-ish: 1.2.3 or 1.2.3-prerelease.4 ; rejects anything
-          # with shell metacharacters.
+
+          # 2. Shape check (semver-ish; defends against shell metacharacters).
           if ! echo "${VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
-            echo "ERROR: version (${VERSION}) is not in expected semver shape (e.g. 1.2.3 or 1.2.3-rc.1)." >&2
+            echo "::error::version (${VERSION}) is not in expected semver shape (e.g. 1.2.3 or 1.2.3-rc.1)."
             exit 1
           fi
-          PKG_VERSION=$(grep '"version"' package.json | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+
+          # 3. Pre-release detection.
+          if echo "${VERSION}" | grep -qE '[-](rc|alpha|beta|preview)'; then
+            IS_PRERELEASE=true
+            echo "Pre-release tag detected — will skip main-ancestry check and :latest update."
+          else
+            IS_PRERELEASE=false
+          fi
+
+          # 4. Version must match package.json.
+          PKG_VERSION=$(jq -r .version package.json)
           if [ "${VERSION}" != "${PKG_VERSION}" ]; then
-            echo "ERROR: requested version (${VERSION}) does not match package.json version (${PKG_VERSION})." >&2
+            echo "::error::tag/input version (${VERSION}) does not match package.json version (${PKG_VERSION})."
             exit 1
           fi
+
+          # 5. Main-ancestry check (skipped for pre-release and for dispatch).
+          if [ "${IS_PRERELEASE}" = "false" ] && [ "${EVENT_NAME}" = "push" ]; then
+            git fetch origin main
+            SHA="$(git rev-parse "${VERSION}^{commit}")"
+            if git merge-base --is-ancestor "$SHA" origin/main; then
+              echo "OK: tag commit (${SHA}) is reachable from main."
+            else
+              echo "::error::tag commit (${SHA}) is not reachable from origin/main."
+              exit 1
+            fi
+          fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
 
-  build:
-    needs: validate-version
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux/amd64
-            arch: amd64
-          - os: ubuntu-22.04-arm
-            platform: linux/arm64
-            arch: arm64
-    runs-on: ${{ matrix.os }}
+  build-amd64-test:
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Log in to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build & push per-arch image
+      - name: Build amd64 (load locally, no push)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-amd64-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ needs.validate-version.outputs.version }}-${{ matrix.arch }}
 
-  manifest:
-    needs: [validate-version, build]
-    runs-on: ubuntu-latest
+      - name: Save image to tarball
+        run: |
+          docker save "${IMAGE_NAME}:${VERSION}-amd64-test" | gzip > /tmp/image-amd64.tar.gz
+          ls -lh /tmp/image-amd64.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-amd64-test
+          path: /tmp/image-amd64.tar.gz
+          retention-days: 1
+
+  build-arm64:
+    needs: validate-tag
+    runs-on: ubuntu-22.04-arm
     env:
-      VERSION: ${{ needs.validate-version.outputs.version }}
+      VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
-      - name: Log in to DockerHub
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Create multi-arch manifest (versioned tag)
+      - name: Build and push arm64
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  smoke:
+    needs: [validate-tag, build-amd64-test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset:
+          - recommended
+          - veecode-theme
+          - github
+          - gitlab
+          - azure
+          - keycloak
+          - ldap
+          - jenkins
+          - kubernetes
+          - sonarqube
+          - mcp
+          - recommended,mcp
+          - recommended,mcp,mcp-chat
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-amd64-test
+          path: /tmp
+
+      - name: Load image into docker
+        run: |
+          docker load < /tmp/image-amd64.tar.gz
+          docker image ls "${IMAGE_NAME}"
+
+      - name: Smoke ${{ matrix.preset }}
+        run: |
+          bash scripts/smoke-presets.sh \
+            --image "${IMAGE_NAME}:${VERSION}-amd64-test" \
+            --presets "${{ matrix.preset }}"
+
+      - name: Capture container logs on failure
+        if: failure()
+        run: docker logs devportal-dev 2>&1 | tail -200 || true
+
+  push-amd64:
+    needs: [validate-tag, build-amd64-test, smoke]
+    if: needs.smoke.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-amd64-test
+          path: /tmp
+
+      - name: Load and re-tag image
+        run: |
+          docker load < /tmp/image-amd64.tar.gz
+          docker tag \
+            "${IMAGE_NAME}:${VERSION}-amd64-test" \
+            "${IMAGE_NAME}:${VERSION}-amd64"
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push amd64
+        run: docker push "${IMAGE_NAME}:${VERSION}-amd64"
+
+  manifest:
+    needs: [validate-tag, push-amd64, build-arm64]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      IS_PRERELEASE: ${{ needs.validate-tag.outputs.is_prerelease }}
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Create versioned manifest
         run: |
           docker buildx imagetools create -t "${IMAGE_NAME}:${VERSION}" \
             "${IMAGE_NAME}:${VERSION}-amd64" \
             "${IMAGE_NAME}:${VERSION}-arm64"
 
-      - name: Create multi-arch manifest (latest tag)
+      - name: Create :latest manifest (stable releases only)
+        if: env.IS_PRERELEASE == 'false'
         run: |
           docker buildx imagetools create -t "${IMAGE_NAME}:latest" \
             "${IMAGE_NAME}:${VERSION}-amd64" \
