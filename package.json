@@ -1,6 +1,6 @@
 {
   "name": "devportal-platform",
-  "version": "0.0.0-test3",
+  "version": "0.1.0",
   "private": true,
   "engines": {
     "node": "20 || 22"
