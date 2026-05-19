@@ -58,22 +58,24 @@ plugin sets in the `shipped-presets` reference.
 
 ```sh
 docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PRESETS=recommended,veecode-theme,github \
+  -e VEECODE_PRESETS=recommended,veecode-theme,github,github-auth \
   -e GITHUB_PAT=ghp_xxxxxxxxxxxxxxxxxxxx \
   -e GITHUB_ORG=my-org \
+  -e GITHUB_AUTH_CLIENT_ID=Iv1.xxxxxxxxxxxx \
+  -e GITHUB_AUTH_CLIENT_SECRET=xxxxxxxxxxxx \
   docker.io/veecode/devportal-platform:latest
 ```
 
-The `github` preset wires a GitHub catalog provider reading
-`catalog-info.yaml` from `GITHUB_ORG`, the GitHub SCM integration, and
-the GitHub Actions UI tab on entity pages. It does **not** wire the
-GitHub OAuth sign-in provider — that block is intentionally left for
-operators to mount via `app-config.local.yaml` (see
-[`UPGRADING_FROM_BASE_DISTRO.md`](../UPGRADING_FROM_BASE_DISTRO.md) for
-the carry-over pattern). Other integrations (`gitlab`, `keycloak`,
-`azure`, `ldap`, `kubernetes`, `sonarqube`, `jenkins`) follow the same
-preset+env-vars pattern; the `shipped-presets` reference lists every
-preset's required env vars.
+The `github` preset wires GitHub-as-SCM (catalog provider reading
+`catalog-info.yaml` from `GITHUB_ORG`, the GitHub integration, the
+Actions UI tab). The `github-auth` preset wires GitHub-as-identity
+(OAuth sign-in and org/team user sync). The catalog separates these
+along an SCM/identity axis so you can mix providers — e.g.
+`gitlab,github-auth` puts your code on GitLab and your login on
+GitHub. Other integrations (`gitlab`, `keycloak`, `azure`,
+`azure-auth`, `ldap`, `ldap-ad`, `kubernetes`, `sonarqube`, `jenkins`)
+follow the same preset+env-vars pattern; the `shipped-presets`
+reference lists every preset's required env vars.
 
 ## What to expect at boot
 

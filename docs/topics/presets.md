@@ -71,16 +71,19 @@ worse than an absent one.
 ### Integration presets
 
 Enabled only when selected. Each requires customer-specific configuration
-and carries `requires.variables`. The 11 shipped integration presets are:
+and carries `requires.variables`. The 14 shipped integration presets are:
 
 | Preset | What it adds |
 |---|---|
 | `veecode-theme` | VeeCode brand palette and logos |
-| `github` | GitHub catalog provider, SCM integration, Actions UI tab (does NOT wire OAuth — see `installing.md`) |
+| `github` | GitHub-as-SCM: catalog provider, integration, Actions UI tab |
+| `github-auth` | GitHub-as-identity: OAuth sign-in + org/team user sync. Compose with `github` for the full GitHub stack |
 | `gitlab` | GitLab OAuth, catalog provider |
-| `azure` | Azure DevOps catalog, scaffolder, pipelines UI tab |
+| `azure` | Azure DevOps-as-SCM: catalog, scaffolder, pipelines UI tab |
+| `azure-auth` | Microsoft (Entra ID) OAuth sign-in + msgraphOrg user sync. Compose with `azure` for the full Microsoft stack |
 | `keycloak` | Keycloak/OIDC auth, user-group sync |
-| `ldap` | LDAP auth, user-group sync |
+| `ldap` | LDAP auth, user-group sync (OpenLDAP defaults) |
+| `ldap-ad` | Active Directory overrides for `ldap` (sAMAccountName, AD object classes). Compose with `ldap` |
 | `jenkins` | Jenkins CI tab on entity pages |
 | `kubernetes` | Kubernetes workloads tab on entity pages |
 | `sonarqube` | SonarQube code-quality tab, scaffolder action |

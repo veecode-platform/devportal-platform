@@ -115,6 +115,15 @@ case "$CMD" in
       mounts+=( -v "$cbme_patched:/app/dynamic-plugins-root/$CBME_MOD_PATH:ro" )
       echo "marketplace: mounting patched catalog-backend-module-extensions module"
     fi
+    # Operator override: bind-mount a host dynamic-plugins.yaml over the canonical
+    # path. Smoke uses this to regression-test the V0.X composition fix; operators
+    # use it in real deploys (k8s ConfigMap, host file, etc.). The entrypoint copies
+    # this to a writable shadow before mutating it, so :ro is safe.
+    if [ -n "${DEVPORTAL_DP_OVERRIDE:-}" ]; then
+      [ -f "$DEVPORTAL_DP_OVERRIDE" ] || { echo "DEVPORTAL_DP_OVERRIDE='$DEVPORTAL_DP_OVERRIDE' not found" >&2; exit 1; }
+      mounts+=( -v "$DEVPORTAL_DP_OVERRIDE:/app/dynamic-plugins.yaml:ro" )
+      echo "operator override: mounting $DEVPORTAL_DP_OVERRIDE → /app/dynamic-plugins.yaml:ro"
+    fi
     # Forward VEECODE_PRESETS plus any preset env vars present in the calling
     # shell (GITHUB_PAT, AZURE_DEVOPS_*, KEYCLOAK_*, …) and VEECODE_APP_CONFIG,
     # so `GITHUB_PAT=… VEECODE_PRESETS=recommended,github $0 run` works.

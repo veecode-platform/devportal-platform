@@ -1,0 +1,75 @@
+name: github-auth
+description: GitHub OAuth sign-in + org/team user sync. Compose with `github` for full GitHub stack, or with another SCM preset to use GitHub as identity only.
+version: 1.0.0
+
+requires:
+  variables:
+    GITHUB_PAT:
+      description: GitHub Personal Access Token with `read:org` scope. Used by the githubOrg catalog provider to read members and teams.
+      required: true
+      docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
+      example: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    GITHUB_ORG:
+      description: GitHub organization whose members/teams sync into the catalog as User/Group entities.
+      required: true
+      example: my-org
+    GITHUB_AUTH_CLIENT_ID:
+      description: OAuth App client ID from GitHub Developer Settings → OAuth Apps.
+      required: true
+      docs: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app
+      example: Iv1.abcdef0123456789
+    GITHUB_AUTH_CLIENT_SECRET:
+      description: OAuth App client secret.
+      required: true
+      example: github-oauth-secret
+
+# What this preset does:
+#  - Auth provider (static) — the GitHub OAuth provider lives in the consolidated
+#    `authProvidersModule` compiled into packages/backend/src/index.ts. This preset
+#    only *configures* it.
+#  - Catalog provider (catalog-backend-module-github-org, static) — syncs the org's
+#    members and teams into User/Group entities. Config-only here.
+#  - Frontend sign-in — sets `platform.signInProviders: [github]` and disables the
+#    guest fallback so the login screen presents GitHub OAuth.
+#  - Composition: orthogonal to SCM presets. Compose with `github` for code +
+#    identity from GitHub; compose with `gitlab`/`azure` for code elsewhere +
+#    identity from GitHub.
+plugins: []
+
+appConfig:
+  signInPage: github
+
+  platform:
+    guest:
+      enabled: false
+    signInProviders:
+      - github
+
+  auth:
+    environment: production
+    providers:
+      github:
+        production:
+          clientId: ${GITHUB_AUTH_CLIENT_ID}
+          clientSecret: ${GITHUB_AUTH_CLIENT_SECRET}
+          signIn:
+            resolvers:
+              - resolver: usernameMatchingUserEntityName
+              - resolver: emailMatchingUserEntityProfileEmail
+              - resolver: emailLocalPartMatchingUserEntityName
+
+  integrations:
+    github:
+      - host: github.com
+        token: ${GITHUB_PAT}
+
+  catalog:
+    providers:
+      githubOrg:
+        default:
+          id: production
+          githubUrl: https://github.com
+          orgs: [${GITHUB_ORG}]
+          schedule:
+            frequency: { minutes: 30 }
+            timeout: { minutes: 3 }

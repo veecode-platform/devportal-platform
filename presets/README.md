@@ -105,26 +105,39 @@ appConfig:
 |---|---|---|
 | [`recommended.yaml`](./recommended.yaml) | Curated baseline (marketplace, RBAC, tech-radar, pending-changes) | none |
 | [`veecode-theme.yaml`](./veecode-theme.yaml) | VeeCode brand theme (palette + logos) | none |
-| [`github.yaml`](./github.yaml) | GitHub OAuth + catalog provider + integration | `GITHUB_PAT`, `GITHUB_ORG` |
+| [`github.yaml`](./github.yaml) | GitHub-as-SCM: PAT integration + repo discovery + GitHub Actions UI | `GITHUB_PAT`, `GITHUB_ORG` |
+| [`github-auth.yaml`](./github-auth.yaml) | GitHub-as-identity: OAuth sign-in + org/team user sync. Composable with `github` or other SCM presets. | `GITHUB_PAT`, `GITHUB_ORG`, `GITHUB_AUTH_CLIENT_ID`, `GITHUB_AUTH_CLIENT_SECRET` |
 | [`gitlab.yaml`](./gitlab.yaml) | GitLab OAuth + catalog provider | `GITLAB_HOST`, `GITLAB_AUTH_CLIENT_ID`, `GITLAB_AUTH_CLIENT_SECRET`, `GITLAB_TOKEN`, `GITLAB_GROUP` |
-| [`azure.yaml`](./azure.yaml) | Azure DevOps catalog + scaffolder + pipelines UI | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_HOST`, `AZURE_DEVOPS_ORG`, `AZURE_DEVOPS_PROJECT` |
+| [`azure.yaml`](./azure.yaml) | Azure DevOps-as-SCM: catalog + scaffolder + pipelines UI | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_HOST`, `AZURE_DEVOPS_ORG`, `AZURE_DEVOPS_PROJECT` |
+| [`azure-auth.yaml`](./azure-auth.yaml) | Microsoft (Entra ID) OAuth sign-in + msgraphOrg user sync. Composable with `azure` or other SCM presets. | `AZURE_AUTH_TENANT_ID`, `AZURE_AUTH_CLIENT_ID`, `AZURE_AUTH_CLIENT_SECRET` |
 | [`keycloak.yaml`](./keycloak.yaml) | Keycloak/OIDC auth + user-group sync | `KEYCLOAK_BASE_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`, `AUTH_SESSION_SECRET` |
-| [`ldap.yaml`](./ldap.yaml) | LDAP auth + user-group sync | `LDAP_URL`, `LDAP_DN`, `LDAP_SECRET`, `LDAP_USERS_BASE_DN`, `LDAP_GROUPS_BASE_DN` |
+| [`ldap.yaml`](./ldap.yaml) | LDAP auth + user-group sync (OpenLDAP defaults) | `LDAP_URL`, `LDAP_DN`, `LDAP_SECRET`, `LDAP_USERS_BASE_DN`, `LDAP_GROUPS_BASE_DN` |
+| [`ldap-ad.yaml`](./ldap-ad.yaml) | Active Directory overrides for `ldap` (sAMAccountName, AD object classes). Must compose with `ldap`: `VEECODE_PRESETS=ldap,ldap-ad`. | none (reuses `ldap`'s vars) |
 | [`jenkins.yaml`](./jenkins.yaml) | Jenkins CI tab on entity pages | `JENKINS_URL`, `JENKINS_USERNAME`, `JENKINS_TOKEN` |
 | [`kubernetes.yaml`](./kubernetes.yaml) | Kubernetes workloads tab on entity pages | `K8S_CLUSTER_NAME`, `K8S_CLUSTER_URL`, `K8S_CLUSTER_TOKEN` |
 | [`sonarqube.yaml`](./sonarqube.yaml) | SonarQube code quality tab + scaffolder action | `SONARQUBE_BASE_URL`, `SONARQUBE_API_KEY` |
 | [`mcp.yaml`](./mcp.yaml) | MCP server for external clients (Claude Code, Codex CLI, Cursor) via OAuth/DCR | none |
 | [`mcp-chat.yaml`](./mcp-chat.yaml) | AI Chat in-portal — surfaces MCP tools via `/mcp-chat`. **Compose with `mcp`.** | `MCP_CHAT_PROVIDER`, `MCP_CHAT_API_KEY`, `MCP_CHAT_MODEL` |
 
-Presets compose. `VEECODE_PRESETS=recommended,github` enables both. A common
-shape: `recommended,veecode-theme,<one or two integrations>` covers the
-out-of-box VeeCode experience plus the customer's SCM/auth.
+Presets compose. `VEECODE_PRESETS=recommended,github,github-auth` enables all three.
+A common shape: `recommended,veecode-theme,<your-scm>,<your-auth>` covers the
+out-of-box VeeCode experience plus the customer's SCM and identity.
 
-The MCP pair is the only preset with a documented composition dependency:
-`mcp-chat` talks loopback to `mcp-actions-backend`, so it only works as
-`VEECODE_PRESETS=mcp,mcp-chat`. `VEECODE_PRESETS=mcp` alone exposes the MCP
-server to external CLI clients without enabling the in-portal chat (no LLM
-API key needed).
+**SCM/identity orthogonality.** The catalog separates "SCM" presets (`github`,
+`gitlab`, `azure` — repo discovery + scaffolder + integration UI) from
+"identity" presets (`github-auth`, `keycloak`, `ldap`, `azure-auth` — OAuth
+sign-in + user/group sync). Compose one of each, and they can be the same
+provider (`github,github-auth`) or different (`gitlab,keycloak`). `gitlab` and
+`keycloak` are exceptions that bundle both axes for historical reasons.
+
+**Documented composition dependencies** — pairs where one preset requires another
+(today's convention is documentation-only; if this list grows beyond two pairs,
+ADR-010 calls for adding `requires.presets:` to the schema):
+
+- `mcp-chat` requires `mcp` — chat backend loopbacks to `mcp-actions-backend`.
+  `VEECODE_PRESETS=mcp,mcp-chat`. `mcp` alone exposes MCP to external CLI clients.
+- `ldap-ad` requires `ldap` — AD overrides the OpenLDAP defaults in `ldap`.
+  `VEECODE_PRESETS=ldap,ldap-ad` (in that order; later --config files win).
 
 ## Two primary paths of use
 
