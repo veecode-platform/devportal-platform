@@ -1,0 +1,18 @@
+# Smoke fixture: simulates an operator bind-mounting their own
+# /app/dynamic-plugins.yaml in production (e.g. via k8s ConfigMap).
+#
+# Used by smoke-presets.sh to regression-test the V0.X composition fix:
+# WITH this file mounted read-only AND a preset active, the operator's
+# `plugins:` override AND the preset fragments must both survive.
+#
+# The override enables `security-insights` — a plugin disabled by default
+# and not toggled by any shipped preset, so if it appears in
+# /api/dynamic-plugins-info/loaded-plugins, it can only have come from
+# this override file.
+includes:
+  - dynamic-plugins.default.yaml
+  - extensions-install.yaml
+
+plugins:
+  - package: oci://${PLUGIN_REGISTRY}/roadie-backstage-plugins:bs_1.48.4!roadiehq-backstage-plugin-security-insights
+    disabled: false

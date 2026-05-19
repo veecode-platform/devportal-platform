@@ -43,10 +43,13 @@ done
 # with each preset's `requires.variables` block in presets/<name>.yaml.
 declare -A DUMMY=(
   [github]='GITHUB_PAT=ghp_fakefakefakefakefakefakefakefakefake GITHUB_ORG=test-org'
+  [github-auth]='GITHUB_PAT=ghp_fakefakefakefakefakefakefakefakefake GITHUB_ORG=test-org GITHUB_AUTH_CLIENT_ID=Iv1.fakefakefakefake GITHUB_AUTH_CLIENT_SECRET=fake-oauth-secret'
   [gitlab]='GITLAB_HOST=gitlab.test GITLAB_AUTH_CLIENT_ID=fake GITLAB_AUTH_CLIENT_SECRET=fake GITLAB_TOKEN=glpat-fake GITLAB_GROUP=test-group'
   [azure]='AZURE_DEVOPS_TOKEN=fake AZURE_DEVOPS_HOST=dev.azure.com AZURE_DEVOPS_ORG=test-org AZURE_DEVOPS_PROJECT=test-project'
+  [azure-auth]='AZURE_AUTH_TENANT_ID=00000000-0000-0000-0000-000000000000 AZURE_AUTH_CLIENT_ID=00000000-0000-0000-0000-000000000000 AZURE_AUTH_CLIENT_SECRET=fake-oauth-secret'
   [keycloak]='KEYCLOAK_BASE_URL=https://kc.test/auth KEYCLOAK_REALM=master KEYCLOAK_CLIENT_ID=backstage KEYCLOAK_CLIENT_SECRET=fake AUTH_SESSION_SECRET=fake-secret-32chars-1234567890ab'
   [ldap]='LDAP_URL=ldap://localhost LDAP_DN=cn=admin,dc=test LDAP_SECRET=fake LDAP_USERS_BASE_DN=ou=people,dc=test LDAP_GROUPS_BASE_DN=ou=groups,dc=test'
+  [ldap-ad]=''
   [jenkins]='JENKINS_URL=http://jenkins.test JENKINS_USERNAME=admin JENKINS_TOKEN=fake'
   [kubernetes]='K8S_CLUSTER_NAME=test-cluster K8S_CLUSTER_URL=https://kubernetes.test K8S_CLUSTER_TOKEN=fake'
   [sonarqube]='SONARQUBE_BASE_URL=https://sonar.test SONARQUBE_API_KEY=fake'
@@ -59,17 +62,37 @@ ALL_TESTS=(
   recommended
   veecode-theme
   github
+  github-auth
+  'github,github-auth'
   gitlab
   azure
+  azure-auth
+  'azure,azure-auth'
   keycloak
   ldap
+  'ldap,ldap-ad'
   jenkins
   kubernetes
   sonarqube
   mcp
   'recommended,mcp'
   'recommended,mcp,mcp-chat'
+  # V0.X regression: preset + operator override (bind-mounted dynamic-plugins.yaml).
+  # The `+mount` suffix activates DEVPORTAL_DP_OVERRIDE and adds a post-boot
+  # check that the operator's plugin survived alongside the preset's plugins.
+  # NOTE: dev-run.sh overlays the host's entrypoint.sh + install script over the
+  # image, so locally this gate effectively exercises host code, not baked code.
+  # In CI/publish, host == image source, so the gate is faithful there.
+  'recommended+mount'
 )
+
+# Operator override fixture for the +mount regression case.
+DP_OVERRIDE_FIXTURE="$(pwd)/scripts/smoke/operator-dp-override.yaml"
+# Substring uniquely identifying the plugin enabled ONLY by the override (not
+# by any preset). The loaded-plugins API reports the resolved package name
+# (e.g. `@roadiehq/backstage-plugin-security-insights-dynamic`), so we match on
+# the stable middle segment.
+OPERATOR_ONLY_PLUGIN='backstage-plugin-security-insights'
 
 if [ -n "$PRESETS_FILTER" ]; then
   IFS=';' read -r -a TESTS <<<"$PRESETS_FILTER"
@@ -89,15 +112,25 @@ for combo in "${TESTS[@]}"; do
   echo "=========================================="
   docker rm -f devportal-dev >/dev/null 2>&1 || true
 
-  # Aggregate dummy env for every preset in the composition.
+  # The `+mount` suffix is a modifier, not a preset name. Strip it for the
+  # VEECODE_PRESETS value but use its presence to drive the override mount.
+  mount_override=""
+  presets_value="$combo"
+  if [[ "$combo" == *"+mount" ]]; then
+    presets_value="${combo%+mount}"
+    [ -f "$DP_OVERRIDE_FIXTURE" ] || { echo "FAIL: override fixture missing at $DP_OVERRIDE_FIXTURE"; FAILURES=$((FAILURES+1)); RESULTS[$combo]="FIXTURE_MISSING"; continue; }
+    mount_override="DEVPORTAL_DP_OVERRIDE=$DP_OVERRIDE_FIXTURE"
+  fi
+
+  # Aggregate dummy env for every preset in the (stripped) composition.
   env_line=""
-  for p in ${combo//,/ }; do
+  for p in ${presets_value//,/ }; do
     [ -n "${DUMMY[$p]:-}" ] && env_line="$env_line ${DUMMY[$p]}"
   done
 
   start=$(date +%s)
   # shellcheck disable=SC2086
-  output=$(eval "DEVPORTAL_IMAGE=$IMAGE DEVPORTAL_MEM=$DEVPORTAL_MEM DEVPORTAL_MEMSWAP=$DEVPORTAL_MEMSWAP VEECODE_PRESETS=$combo $env_line ./scripts/dev-run.sh run 2>&1")
+  output=$(eval "DEVPORTAL_IMAGE=$IMAGE DEVPORTAL_MEM=$DEVPORTAL_MEM DEVPORTAL_MEMSWAP=$DEVPORTAL_MEMSWAP VEECODE_PRESETS=$presets_value $mount_override $env_line ./scripts/dev-run.sh run 2>&1")
   elapsed=$(($(date +%s) - start))
   BOOT_TIME[$combo]=$elapsed
 
@@ -129,8 +162,25 @@ for combo in "${TESTS[@]}"; do
     FAILURES=$((FAILURES + 1))
     continue
   fi
-  count=$(curl -s -H "Authorization: Bearer $TOKEN" http://localhost:7007/api/dynamic-plugins-info/loaded-plugins 2>/dev/null | jq -r '.[].name' 2>/dev/null | wc -l)
-  RESULTS[$combo]="PASS (${elapsed}s)"
+  loaded_names=$(curl -s -H "Authorization: Bearer $TOKEN" http://localhost:7007/api/dynamic-plugins-info/loaded-plugins 2>/dev/null | jq -r '.[].name' 2>/dev/null)
+  count=$(echo "$loaded_names" | grep -c .)
+
+  # V0.X gate: for +mount combos, the operator's override plugin must be loaded.
+  # If it's absent, the bind-mounted dynamic-plugins.yaml was silently ignored —
+  # exactly the failure mode the shadow-file fix was supposed to kill.
+  if [[ "$combo" == *"+mount" ]]; then
+    if echo "$loaded_names" | grep -q "$OPERATOR_ONLY_PLUGIN"; then
+      RESULTS[$combo]="PASS (${elapsed}s, override+preset composed)"
+    else
+      RESULTS[$combo]="FAIL_OVERRIDE_LOST (${elapsed}s)"
+      PLUGINS_COUNT[$combo]=$count
+      FAILURES=$((FAILURES + 1))
+      echo "FAIL: operator override plugin '$OPERATOR_ONLY_PLUGIN' missing from loaded plugins"
+      continue
+    fi
+  else
+    RESULTS[$combo]="PASS (${elapsed}s)"
+  fi
   PLUGINS_COUNT[$combo]=$count
   echo "PASS: ${count} plugins loaded in ${elapsed}s"
 done
