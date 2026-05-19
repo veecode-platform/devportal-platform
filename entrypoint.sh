@@ -153,12 +153,10 @@ if [ -n "$VEECODE_PRESETS" ]; then
         fi
 
         # 3. appConfig → --config file
-        # REGRESSION-TEST-ONLY-START — to be reverted after Task 7 smoke run
-        # if [ "$(yq eval '(.appConfig // {}) | length' "$PRESET_FILE")" -gt 0 ]; then
-        #     yq eval '.appConfig' "$PRESET_FILE" > "/app/app-config.preset-${preset}.yaml"
-        #     PRESET_CONFIG_ARGS="$PRESET_CONFIG_ARGS --config /app/app-config.preset-${preset}.yaml"
-        # fi
-        # REGRESSION-TEST-ONLY-END
+        if [ "$(yq eval '(.appConfig // {}) | length' "$PRESET_FILE")" -gt 0 ]; then
+            yq eval '.appConfig' "$PRESET_FILE" > "/app/app-config.preset-${preset}.yaml"
+            PRESET_CONFIG_ARGS="$PRESET_CONFIG_ARGS --config /app/app-config.preset-${preset}.yaml"
+        fi
     done
 
     if [ -n "$MISSING_VARS" ]; then
