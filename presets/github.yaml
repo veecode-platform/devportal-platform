@@ -1,6 +1,6 @@
 name: github
 description: GitHub-integrated stack — catalog/scaffolder providers (static, configured here) + GitHub Actions / Workflows UI.
-version: 1.0.0
+version: 1.0.1
 
 requires:
   variables:
@@ -16,20 +16,17 @@ requires:
 
 # What this preset does:
 #  - The GitHub *backend* plugins — catalog-backend-module-github, -github-org,
-#    scaffolder-backend-module-github, events-backend-module-github, the GitHub auth
-#    provider — are STATIC in the unified devportal backend (compiled in via
-#    `backend.add(import('@backstage/plugin-…'))`, see packages/backend/src/index.ts).
-#    They are NOT dynamic plugins and are NOT published as OCI artifacts; the
-#    devportal-plugin-export-overlays `backstage` workspace explicitly excludes them.
-#    This preset only *configures* them — the `appConfig:` block below.
-#  - The `plugins:` list is therefore just the dynamic UI add-ons. Each `package:` must
-#    match the (disabled) entry in dynamic-plugins.default.yaml so
+#    scaffolder-backend-module-github, the GitHub auth provider — are STATIC in the
+#    unified devportal backend (compiled in via `backend.add(import('@backstage/plugin-…'))`,
+#    see packages/backend/src/index.ts). They are NOT dynamic plugins and are NOT published
+#    as OCI artifacts. This preset only *configures* them — the `appConfig:` block below.
+#  - The `plugins:` list is therefore just the dynamic UI add-ons (GitHub Actions tab).
+#    Each `package:` must match the (disabled) entry in dynamic-plugins.default.yaml so
 #    install-dynamic-plugins.py merges/flips `disabled` (the pluginConfig — mountPoints —
 #    lives there).
-#  - This preset does NOT wire the GitHub OAuth sign-in provider. Operators who want
-#    GitHub sign-in mount the relevant `auth.providers.github` block via
-#    `app-config.local.yaml` — see docs/UPGRADING_FROM_BASE_DISTRO.md for the carry-over
-#    pattern when migrating from `VEECODE_PROFILE=github`.
+#  - Scope: this preset wires GitHub-as-SCM (PAT integration + repo discovery + Actions UI).
+#    For GitHub-as-identity (OAuth sign-in + org/team user sync), compose with the
+#    `github-auth` preset: `VEECODE_PRESETS=recommended,github,github-auth`.
 plugins:
   # GitHub Actions UI — CI tab on entity pages (pluginConfig in dynamic-plugins.default.yaml).
   - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
@@ -50,8 +47,7 @@ appConfig:
           schedule:
             frequency: { minutes: 30 }
             timeout: { minutes: 3 }
-      # NOTE: GitHub org/team discovery (the static catalog-backend-module-github-org)
-      # is intentionally NOT configured here — it needs a `catalog.providers.githubOrg`
-      # block whose schema requires an `id` (and more), and we keep this preset to
-      # repo discovery. Add `catalog.providers.githubOrg: { id: …, githubUrl: …,
-      # schedule: … }` to your deployment's config if you want User/Group ingestion.
+      # NOTE: GitHub org/team user discovery (the static catalog-backend-module-github-org)
+      # is NOT configured here — this preset is scoped to repo discovery. For User/Group
+      # ingestion, compose with the `github-auth` preset which wires `catalog.providers.githubOrg`
+      # alongside OAuth sign-in.

@@ -60,17 +60,17 @@ Two things to know upfront before you reach the detail:
    This is not a tag bump — your image reference changes. The
    platform line restarts at `0.1.0` rather than continuing the
    distro's `1.3.x`.
-2. **Per-integration presets are narrower than legacy profiles.** A
-   legacy profile like `VEECODE_PROFILE=github` carried the whole
-   GitHub story: OAuth login, GitHub App integration, org/team
-   discovery, repo discovery, the GitHub Actions UI. The platform
-   `github` preset carries the **integration** (PAT + repo
-   discovery + the GitHub Actions UI) — but not the OAuth sign-in
-   provider. The rationale is that authentication is often a
-   *different* provider from your SCM (you might host code on GitHub
-   and sign in with Keycloak), so coupling them in one preset leaked.
-   The translation table below names what each preset includes and
-   what you carry over via `app-config.local.yaml`.
+2. **SCM and identity are separate presets you compose.** A legacy
+   profile like `VEECODE_PROFILE=github` carried the whole GitHub
+   story in one switch: OAuth login, org/team discovery, repo
+   discovery, the GitHub Actions UI. The platform splits that along
+   the SCM/identity axis: `github` carries SCM (PAT integration + repo
+   discovery + Actions UI) and `github-auth` carries identity (OAuth
+   sign-in + org/team user sync). Compose `github,github-auth` for
+   the full legacy-equivalent experience, or compose `github` with a
+   different identity preset (e.g. `keycloak`) when code and login
+   live in different providers. The translation table below names the
+   composition for each legacy profile.
 
 ## Pre-flight: keep your current config readable
 
@@ -128,12 +128,12 @@ your legacy `app-config.<profile>.yaml` covered that the preset does
 | Legacy `VEECODE_PROFILE` | New preset (compose with `recommended,veecode-theme`) | Required env vars (per the preset) | Gap — carry over via `app-config.local.yaml` |
 |---|---|---|---|
 | `github-pat` | `github` | `GITHUB_PAT`, `GITHUB_ORG` | Rename your env var `GITHUB_TOKEN` → `GITHUB_PAT`. No app-config carry-over needed; the legacy `github-pat` profile was guest-auth + PAT integration only. |
-| `github` | `github` | `GITHUB_PAT`, `GITHUB_ORG` | The preset does **not** wire the GitHub OAuth sign-in provider, GitHub App-based integration, or the `githubOrg` user/team discovery. Lift the `signInPage`, `auth.providers.github`, `integrations.github[].apps`, and `catalog.providers.githubOrg` blocks from your old `app-config.github.yaml` into `app-config.local.yaml`. |
+| `github` | `github,github-auth` | `GITHUB_PAT`, `GITHUB_ORG`, `GITHUB_AUTH_CLIENT_ID`, `GITHUB_AUTH_CLIENT_SECRET` | None expected for the OAuth + repo discovery + org sync surface — `github-auth` covers it. The only legacy surface not covered is GitHub App-based integration (rare; uses `integrations.github[].apps` rather than a PAT). If you relied on it, lift that block via `app-config.local.yaml`. |
 | `gitlab` | `gitlab` | `GITLAB_HOST`, `GITLAB_AUTH_CLIENT_ID`, `GITLAB_AUTH_CLIENT_SECRET`, `GITLAB_TOKEN`, `GITLAB_GROUP` (plus optional `GITLAB_GROUP_PATTERN`) | None expected — the preset covers OAuth sign-in + integration + catalog org/repo discovery, matching the legacy profile. |
-| `azure` | `azure` | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_HOST`, `AZURE_DEVOPS_ORG`, `AZURE_DEVOPS_PROJECT` | The preset wires Azure **DevOps** integration + catalog + UI, **not** Microsoft / Azure AD sign-in. If you used the legacy `azure` profile for sign-in, lift the `signInPage: microsoft`, `auth.providers.microsoft`, and `catalog.providers.microsoftGraphOrg` blocks from your old `app-config.azure.yaml` into `app-config.local.yaml`. |
+| `azure` | `azure,azure-auth` | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_HOST`, `AZURE_DEVOPS_ORG`, `AZURE_DEVOPS_PROJECT`, `AZURE_AUTH_TENANT_ID`, `AZURE_AUTH_CLIENT_ID`, `AZURE_AUTH_CLIENT_SECRET` | None expected — `azure` wires DevOps integration + catalog + UI; `azure-auth` wires Microsoft (Entra ID) sign-in + msgraphOrg user sync. |
 | `keycloak` | `keycloak` | `KEYCLOAK_BASE_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`, `AUTH_SESSION_SECRET` | None expected — the preset covers OIDC sign-in + `keycloakOrg` user/group sync, matching the legacy profile. |
 | `ldap` | `ldap` | `LDAP_URL`, `LDAP_DN`, `LDAP_SECRET`, `LDAP_USERS_BASE_DN`, `LDAP_GROUPS_BASE_DN` (plus optional `LDAP_USERS_FILTER`, `LDAP_GROUPS_FILTER`) | None expected — the preset's defaults (`usernameAttribute: uid`, OpenLDAP object classes) match the legacy `ldap` profile. |
-| `ldap-ad` | `ldap` | Same as `ldap` | The preset ships **OpenLDAP** defaults (`usernameAttribute: uid`, `filter: (objectClass=groupOfNames)`); the legacy `ldap-ad` profile overrode these for Active Directory (`usernameAttribute: sAMAccountName`, `(objectClass=user)` / `(objectClass=group)` filters, plus a richer `map:` for `name`, `description`, `displayName`, `email`, `memberOf`). Lift the `auth.providers.ldap.production.ldapAuthenticationOptions.usernameAttribute` and `catalog.providers.ldapOrg` blocks from your old `app-config.ldap-ad.yaml` (in [`devportal-distro/profiles/`](https://github.com/veecode-platform/devportal-distro/blob/main/profiles/app-config.ldap-ad.yaml)) into `app-config.local.yaml`. |
+| `ldap-ad` | `ldap,ldap-ad` | Same as `ldap` | None expected — `ldap` provides the bind + schedule + base DNs; `ldap-ad` overrides the user attribute (`sAMAccountName`), the users/groups filters (`(objectClass=user)` / `(objectClass=group)`), and the richer AD `map:` (name, description, displayName, email, memberOf). Order matters: list `ldap` before `ldap-ad`. |
 
 Presets compose. `VEECODE_PRESETS=recommended,veecode-theme,github,sonarqube`
 adds the SonarQube code-quality tab on top of the GitHub stack and
@@ -194,12 +194,17 @@ counterpart. They're not on by default; opt in via
 
 ```sh
 docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PRESETS=recommended,veecode-theme,github \
+  -e VEECODE_PRESETS=recommended,veecode-theme,github,github-auth \
   -e GITHUB_PAT=ghp_… \
   -e GITHUB_ORG=my-org \
-  -v "$(pwd)/app-config.local.yaml:/app/app-config.local.yaml:ro" \
+  -e GITHUB_AUTH_CLIENT_ID=Iv1.… \
+  -e GITHUB_AUTH_CLIENT_SECRET=… \
   veecode/devportal-platform:0.1.0
 ```
+
+For the GitHub stack (above) no `app-config.local.yaml` mount is needed.
+For profiles whose translation row flagged a gap (e.g. `ldap-ad`, `azure`
+sign-in), add the bind-mount described in step 4.
 
 ### Helm / Kubernetes
 

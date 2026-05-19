@@ -1,0 +1,65 @@
+name: azure-auth
+description: Microsoft (Entra ID / Azure AD) OAuth sign-in + Microsoft Graph user/group sync. Compose with `azure` for full Microsoft stack (DevOps + identity), or with another SCM preset to use Entra as identity only.
+version: 1.0.0
+
+requires:
+  variables:
+    AZURE_AUTH_TENANT_ID:
+      description: Entra ID (Azure AD) tenant ID — the directory the OAuth app is registered in.
+      required: true
+      docs: https://learn.microsoft.com/en-us/entra/fundamentals/how-to-find-tenant
+      example: 00000000-0000-0000-0000-000000000000
+    AZURE_AUTH_CLIENT_ID:
+      description: App registration (client) ID from Entra ID → App registrations.
+      required: true
+      docs: https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app
+      example: 00000000-0000-0000-0000-000000000000
+    AZURE_AUTH_CLIENT_SECRET:
+      description: Client secret from the app registration's Certificates & secrets blade.
+      required: true
+      example: azure-oauth-secret
+
+# What this preset does:
+#  - Auth provider (static) — the Microsoft OAuth provider lives in the consolidated
+#    `authProvidersModule` compiled into packages/backend/src/index.ts. Config-only here.
+#  - Catalog provider (catalog-backend-module-msgraph, static) — syncs Entra ID users
+#    and groups into User/Group entities via Microsoft Graph. Config-only here.
+#  - Frontend sign-in — sets `platform.signInProviders: [microsoft]` and disables the
+#    guest fallback so the login screen presents Microsoft OAuth.
+#  - Composition: orthogonal to SCM presets. Compose with `azure` for DevOps repos +
+#    Entra identity (the legacy `VEECODE_PROFILE=azure` shape); compose with
+#    `github`/`gitlab` for code elsewhere + Entra identity.
+plugins: []
+
+appConfig:
+  signInPage: microsoft
+
+  platform:
+    guest:
+      enabled: false
+    signInProviders:
+      - microsoft
+
+  auth:
+    environment: production
+    providers:
+      microsoft:
+        production:
+          clientId: ${AZURE_AUTH_CLIENT_ID}
+          clientSecret: ${AZURE_AUTH_CLIENT_SECRET}
+          tenantId: ${AZURE_AUTH_TENANT_ID}
+          signIn:
+            resolvers:
+              - resolver: emailMatchingUserEntityProfileEmail
+              - resolver: emailLocalPartMatchingUserEntityName
+
+  catalog:
+    providers:
+      microsoftGraphOrg:
+        default:
+          tenantId: ${AZURE_AUTH_TENANT_ID}
+          clientId: ${AZURE_AUTH_CLIENT_ID}
+          clientSecret: ${AZURE_AUTH_CLIENT_SECRET}
+          schedule:
+            frequency: { hours: 1 }
+            timeout: { minutes: 5 }

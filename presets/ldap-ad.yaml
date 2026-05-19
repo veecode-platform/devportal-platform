@@ -1,0 +1,53 @@
+name: ldap-ad
+description: Active Directory overrides for the `ldap` preset — switches the user attribute to `sAMAccountName` and remaps users/groups to AD's object classes. MUST compose with `ldap` (e.g. `VEECODE_PRESETS=ldap,ldap-ad`).
+version: 1.0.0
+
+# What this preset does:
+#  - This preset is an OVERRIDE-ONLY layer on top of `ldap`. It re-declares the
+#    `auth.providers.ldap.production.ldapAuthenticationOptions.usernameAttribute`
+#    and the `catalog.providers.ldapOrg.default.users` / `.groups` blocks with
+#    AD-flavored defaults (sAMAccountName, objectClass=user/group, richer `map:`).
+#  - Composition order matters: list `ldap` BEFORE `ldap-ad` so the AD overrides
+#    win (Backstage config loader: scalars + objects deep-merge, arrays replace —
+#    later --config files win).
+#  - Reuses every env var declared by `ldap` (LDAP_URL, LDAP_DN, LDAP_SECRET,
+#    LDAP_USERS_BASE_DN, LDAP_GROUPS_BASE_DN, optional LDAP_USERS_FILTER /
+#    LDAP_GROUPS_FILTER). No new required vars.
+plugins: []
+
+appConfig:
+  auth:
+    providers:
+      ldap:
+        production:
+          ldapAuthenticationOptions:
+            usernameAttribute: sAMAccountName
+
+  catalog:
+    providers:
+      ldapOrg:
+        default:
+          users:
+            - dn: ${LDAP_USERS_BASE_DN}
+              options:
+                filter: ${LDAP_USERS_FILTER:-(&(objectClass=user)(!(objectClass=computer)))}
+              map:
+                rdn: cn
+                name: sAMAccountName
+                description: description
+                displayName: displayName
+                email: mail
+                memberOf: memberOf
+                picture: thumbnailPhoto
+          groups:
+            - dn: ${LDAP_GROUPS_BASE_DN}
+              options:
+                filter: ${LDAP_GROUPS_FILTER:-(objectClass=group)}
+              map:
+                rdn: cn
+                name: cn
+                description: description
+                displayName: displayName
+                email: mail
+                memberOf: memberOf
+                members: member
