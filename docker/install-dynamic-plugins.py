@@ -543,7 +543,12 @@ def main():
 
     skipIntegrityCheck = os.environ.get("SKIP_INTEGRITY_CHECK", "").lower() == "true"
 
-    dynamicPluginsFile = 'dynamic-plugins.yaml'
+    # Allow the entrypoint to point us at a resolved/shadow file when the canonical
+    # /app/dynamic-plugins.yaml is bind-mounted read-only (k8s ConfigMap or single-file
+    # `docker run -v`). The shadow has the preset fragments wired into `includes:` and
+    # the ${PLUGIN_REGISTRY}/${BACKSTAGE_VERSION} placeholders expanded; the canonical
+    # file would be left half-resolved otherwise.
+    dynamicPluginsFile = os.environ.get('DYNAMIC_PLUGINS_FILE', 'dynamic-plugins.yaml')
     dynamicPluginsGlobalConfigFile = os.path.join(dynamicPluginsRoot, 'app-config.dynamic-plugins.yaml')
 
     # test if file dynamic-plugins.yaml exists

@@ -80,13 +80,34 @@ if [ ! -f "$EXTENSIONS_INSTALL" ]; then
     echo 'plugins: []' > "$EXTENSIONS_INSTALL" 2>/dev/null || (echo 'plugins: []' > /tmp/extensions-install.yaml && cp /tmp/extensions-install.yaml "$EXTENSIONS_INSTALL")
 fi
 
+# ── Shadow /app/dynamic-plugins.yaml so we can mutate it ────────────
+# The operator may bind-mount /app/dynamic-plugins.yaml (k8s ConfigMap, or
+# `docker run -v host.yaml:/app/dynamic-plugins.yaml`). Single-file bind mounts
+# are atomic-rename-hostile: `yq -i` / `sed -i` create a temp file in the same
+# dir and rename it onto the target, which fails when the target is a bind-mount
+# inode (you can't replace the mount). Result before this fix: the preset
+# resolver's `yq -i ".includes = [...]" /app/dynamic-plugins.yaml` silently
+# failed, so preset fragments existed on disk but were never wired into the
+# includes chain — preset went inert AND operator's `plugins:` override
+# evaporated with it. Same pattern as the `dynamic-plugins.default.resolved.yaml`
+# shadow below.
+#
+# Fix: always copy /app/dynamic-plugins.yaml → /app/dynamic-plugins.resolved.yaml
+# and have the entrypoint + install script operate on the shadow. The operator's
+# `plugins:` list is preserved (cp copies it); the shadow is fully writable.
+DP_YAML=/app/dynamic-plugins.yaml
+DP_YAML_SHADOW=/app/dynamic-plugins.resolved.yaml
+if [ -f "$DP_YAML" ]; then
+    cp -f "$DP_YAML" "$DP_YAML_SHADOW"
+fi
+
 # ── PRESET RESOLVER ──────────────────────────────────────────────────
 # VEECODE_PRESETS is a comma-separated list of preset names. For each
 # /app/presets/<name>.yaml the resolver:
 #   1. fails the boot (exit 78) if any `requires.variables` entry with
 #      `required: true` is unset/empty in the environment;
 #   2. extracts the preset's `plugins:` into /app/preset-<name>-plugins.yaml
-#      and appends it to the `includes:` of /app/dynamic-plugins.yaml so
+#      and appends it to the `includes:` of the dynamic-plugins shadow so
 #      install-dynamic-plugins.sh picks the plugins up;
 #   3. extracts the preset's `appConfig:` into /app/app-config.preset-<name>.yaml
 #      and appends it to the backend --config list (Backstage deep-merges
@@ -145,14 +166,16 @@ if [ -n "$VEECODE_PRESETS" ]; then
         exit 78
     fi
 
-    # Rebuild the includes list: image defaults first, then preset fragments.
-    # Edited in place so dynamic-plugins.yaml's own `plugins:` section (MCP
-    # toggles, the plugins-info override) is preserved, and so a `docker
-    # restart` re-running this script is idempotent.
-    if [ -n "$PRESET_INCLUDES" ] && [ -f /app/dynamic-plugins.yaml ]; then
+    # Rebuild the includes list on the shadow: image defaults first, then preset
+    # fragments. The shadow is always writable (we own it), so this is safe even
+    # when /app/dynamic-plugins.yaml is bind-mounted read-only. The operator's
+    # top-level `plugins:` list from /app/dynamic-plugins.yaml is preserved by
+    # the earlier cp. Idempotent on `docker restart` — cp + reassign produce the
+    # same result.
+    if [ -n "$PRESET_INCLUDES" ] && [ -f "$DP_YAML_SHADOW" ]; then
         INCLUDES_JSON="$(printf '"%s",' dynamic-plugins.default.resolved.yaml extensions-install.yaml $PRESET_INCLUDES | sed 's/,$//')"
-        yq eval -i ".includes = [${INCLUDES_JSON}]" /app/dynamic-plugins.yaml
-        echo "VEECODE: dynamic-plugins.yaml includes → $(yq eval -o=json -I=0 '.includes' /app/dynamic-plugins.yaml)"
+        yq eval -i ".includes = [${INCLUDES_JSON}]" "$DP_YAML_SHADOW"
+        echo "VEECODE: dynamic-plugins shadow includes → $(yq eval -o=json -I=0 '.includes' "$DP_YAML_SHADOW")"
     fi
 else
     echo "VEECODE: no presets selected (VEECODE_PRESETS unset) — booting image defaults only"
@@ -192,12 +215,14 @@ DEFAULT_DPD=/app/dynamic-plugins.default.yaml
 DEFAULT_DPD_SHADOW=/app/dynamic-plugins.default.resolved.yaml
 if [ -f "$DEFAULT_DPD" ]; then
     cp -f "$DEFAULT_DPD" "$DEFAULT_DPD_SHADOW"
-    # Rewrite includes in dynamic-plugins.yaml to use the shadow. The preset
-    # resolver above already builds INCLUDES_JSON with the resolved name when a
-    # preset is selected; this sed handles the no-preset path (baked includes
-    # untouched) and is a no-op when the resolver already wrote the resolved name.
-    if [ -f /app/dynamic-plugins.yaml ]; then
-        sed -i 's|^\(\s*-\s*\)dynamic-plugins\.default\.yaml\s*$|\1dynamic-plugins.default.resolved.yaml|g' /app/dynamic-plugins.yaml
+    # Rewrite includes in the dynamic-plugins shadow to use the default shadow.
+    # The preset resolver above already builds INCLUDES_JSON with the resolved
+    # name when a preset is selected; this sed handles the no-preset path
+    # (baked includes untouched) and is a no-op when the resolver already wrote
+    # the resolved name. We sed the shadow (always writable) — not the canonical
+    # file, which may be a read-only bind mount.
+    if [ -f "$DP_YAML_SHADOW" ]; then
+        sed -i 's|^\(\s*-\s*\)dynamic-plugins\.default\.yaml\s*$|\1dynamic-plugins.default.resolved.yaml|g' "$DP_YAML_SHADOW"
     fi
 fi
 
@@ -214,7 +239,7 @@ fi
 BACKSTAGE_VERSION="${BACKSTAGE_VERSION:-$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)}"
 if [ -n "$BACKSTAGE_VERSION" ]; then
     echo "VEECODE: resolving \${BACKSTAGE_VERSION} → $BACKSTAGE_VERSION in plugin OCI refs"
-    for f in /app/dynamic-plugins.yaml "$DEFAULT_DPD_SHADOW" /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
+    for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
         [ -f "$f" ] || continue
         sed -i "s/\${BACKSTAGE_VERSION}/$BACKSTAGE_VERSION/g" "$f" 2>/dev/null \
           || echo "VEECODE: note — $f is read-only; \${BACKSTAGE_VERSION} left as-is there (harmless if those refs are disabled)"
@@ -229,13 +254,18 @@ fi
 # PLUGIN_REGISTRY=registry.internal/veecode. Defaults to quay.io/veecode.
 PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
 echo "VEECODE: resolving \${PLUGIN_REGISTRY} → $PLUGIN_REGISTRY in plugin OCI refs"
-for f in /app/dynamic-plugins.yaml "$DEFAULT_DPD_SHADOW" /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
+for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" /app/extensions-install.yaml /app/preset-*-plugins.yaml; do
     [ -f "$f" ] || continue
     sed -i "s|\${PLUGIN_REGISTRY}|$PLUGIN_REGISTRY|g" "$f" 2>/dev/null \
       || echo "VEECODE: note — $f is read-only; \${PLUGIN_REGISTRY} left as-is there (harmless if those refs are disabled)"
 done
 
 # ENTRYPOINT INSTALL PLUGINS
+# Point the install script at the resolved shadow — it has the preset fragments
+# wired into `includes:` and ${PLUGIN_REGISTRY}/${BACKSTAGE_VERSION} substituted.
+# The canonical /app/dynamic-plugins.yaml may be a read-only bind mount and
+# would be missing those mutations.
+export DYNAMIC_PLUGINS_FILE="$DP_YAML_SHADOW"
 /app/install-dynamic-plugins.sh /app/dynamic-plugins-root
 
 # Remove RHDH extensions backend AFTER install — it ships in the base image
