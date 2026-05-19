@@ -1,3 +1,5 @@
+> ⚠️ **MOVED.** The content of this file is being absorbed into [`docs/README.md`](README.md) as part of the docs reorganization (see [`superpowers/specs/2026-05-18-docs-concept-first-ia-design.md`](superpowers/specs/2026-05-18-docs-concept-first-ia-design.md)). New material goes in `docs/README.md` and the `docs/topics/` tree. This file will be deleted in Phase 2.
+
 # Project Context
 
 VeeCode DevPortal Platform (`devportal-platform`) is an open-source
