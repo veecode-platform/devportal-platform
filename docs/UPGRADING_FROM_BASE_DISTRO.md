@@ -85,6 +85,19 @@ lines 257–289) puts your mounted `app-config.local.yaml` **after** the
 preset's `appConfig`, so your overrides win without you having to fork
 a preset.
 
+> ⚠ **Build-time frontend config does not honor runtime overrides.**
+> A subset of `app:` keys (notably `app.title`, and any `app.baseUrl`
+> not env-substituted at boot) are read by the React build and baked
+> into the frontend bundle that ships in the image. Changing them via
+> a runtime-mounted `app-config.local.yaml` updates the in-container
+> file but has **no effect in the browser** — the bundle was sealed at
+> image build time. Today the only paths to change a baked value are
+> (a) accept the default, or (b) rebuild the image with your value. If
+> you depended on overriding `app.title` per environment in the legacy
+> setup, plan for this gap before cutover. Backend config and the bulk
+> of frontend config (themes, integrations, feature flags) are
+> unaffected and override correctly at runtime.
+
 If you're on the SaaS-managed VeeCode Platform, the migration is
 operator-side (you don't run `docker run`), and there is **no
 automatic migration tool today** — track the follow-up in
