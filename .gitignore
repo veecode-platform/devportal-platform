@@ -88,5 +88,8 @@ venv/
 !.trivyscan/.gitkeep
 .devrun-cache/
 
+# Working specs/plans (kept local, never pushed)
+docs/superpowers/
+
 # TypeScript incremental build cache
 *.tsbuildinfo
