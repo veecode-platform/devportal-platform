@@ -47,7 +47,23 @@ The Backstage feature that runs software templates to create new repos / project
 
 ## Scalprum
 
-The Module Federation runtime (RHDH-derived) that loads dynamic frontend plugins into the running Backstage app at runtime. See [`packages/app/src/components/DynamicRoot/`](../../packages/app/src/components/DynamicRoot/).
+An independent Module Federation runtime (from the `@scalprum/*` packages) that loads dynamic frontend plugins into the running Backstage app. RHDH popularised it for Backstage but did not author or fork it; this image consumes the same upstream packages directly. The Backstage-side wiring (the `DynamicRoot` shell) is RHDH-derived.
+
+## DynamicRoot
+
+The frontend shell — at [`packages/app/src/components/DynamicRoot/`](../../packages/app/src/components/DynamicRoot/) — that initialises Scalprum, fetches each dynamic plugin's manifest from `/api/scalprum/plugins`, registers their mount points and dynamic routes, and renders the app. Adapted from RHDH.
+
+## Module Federation
+
+The webpack/rspack mechanism that ships chunks separately from the host bundle and resolves shared dependencies at runtime. Scalprum builds on it. Upstream: <https://webpack.js.org/concepts/module-federation/>.
+
+## RHDH
+
+Red Hat Developer Hub — Red Hat's Backstage distribution. devportal-platform draws several architectural patterns from RHDH (the dynamic-plugins frontend wiring, the `DynamicRoot` shell, the marketplace plugin set) but is not a fork. Repo: <https://github.com/redhat-developer/rhdh>.
+
+## BUI / `@backstage/ui`
+
+The first-party Backstage UI component library (post-MUI). devportal-platform's frontend is on MUI v5 + the older `@backstage/core-components`; the BUI is referenced in [`ADR-011`](../adr/011-frontend-design-system.md) as part of the future design-system direction. Upstream: <https://ui.backstage.io>.
 
 ## Scaffolder action
 

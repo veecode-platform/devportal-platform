@@ -64,12 +64,16 @@ docker run --name devportal -d -p 7007:7007 \
   docker.io/veecode/devportal-platform:latest
 ```
 
-The `github` preset wires GitHub OAuth, a catalog provider reading
-`catalog-info.yaml` from `GITHUB_ORG`, and the GitHub integration. Other
-integrations (`gitlab`, `keycloak`, `azure`, `ldap`, `kubernetes`,
-`sonarqube`, `jenkins`) follow the same pattern — pick the preset, supply
-its required vars. The `shipped-presets` reference lists every preset's
-required env vars.
+The `github` preset wires a GitHub catalog provider reading
+`catalog-info.yaml` from `GITHUB_ORG`, the GitHub SCM integration, and
+the GitHub Actions UI tab on entity pages. It does **not** wire the
+GitHub OAuth sign-in provider — that block is intentionally left for
+operators to mount via `app-config.local.yaml` (see
+[`UPGRADING_FROM_BASE_DISTRO.md`](../UPGRADING_FROM_BASE_DISTRO.md) for
+the carry-over pattern). Other integrations (`gitlab`, `keycloak`,
+`azure`, `ldap`, `kubernetes`, `sonarqube`, `jenkins`) follow the same
+preset+env-vars pattern; the `shipped-presets` reference lists every
+preset's required env vars.
 
 ## What to expect at boot
 
@@ -90,13 +94,13 @@ point instead (see "Common boot failures" below).
 
 **2. Plugin installation**
 
-`install-dynamic-plugins.sh` runs next and calls `skopeo` to pull each
-enabled plugin's OCI bundle from `quay.io/veecode` (or your configured
-`PLUGIN_REGISTRY`). You will see lines like:
+`install-dynamic-plugins.py` runs next and calls `skopeo copy` to pull
+each enabled plugin's OCI bundle from `quay.io/veecode` (or your
+configured `PLUGIN_REGISTRY`). You will see lines like:
 
 ```
-INFO: Installing plugin oci://quay.io/veecode/rbac:bs_1.49.4__latest!...
-INFO: Plugin installed successfully
+======= Installing dynamic plugin oci://quay.io/veecode/rbac:bs_1.49.4!backstage-community-plugin-rbac
+        ==> Successfully installed dynamic plugin oci://quay.io/veecode/rbac:bs_1.49.4!backstage-community-plugin-rbac
 ```
 
 The number of lines scales with how many presets you enabled.

@@ -102,11 +102,17 @@ Migration is not forced.
   referenced as `oci://${PLUGIN_REGISTRY}/<workspace>:bs_${BACKSTAGE_VERSION}!<selector>`
   in [`dynamic-plugins.default.yaml`](../../dynamic-plugins.default.yaml).
   [`docker/install-dynamic-plugins.py`](../../docker/install-dynamic-plugins.py)
-  pulls each bundle via `skopeo` at boot. A handful of always-on
-  chrome plugins (homepage, global-header, about, about-backend) are
-  baked into the image as npm-published packages — they live under
-  `preInstalled: true` and `dynamic-plugins-store/` is materialized
-  into `/app/dynamic-plugins-root/` at build time. The image itself
+  pulls each bundle via `skopeo` at boot. Five always-on chrome
+  plugins (homepage, global-header, about, about-backend,
+  dynamic-plugins-info) are baked into the image as npm-published
+  packages — they live under `preInstalled: true` with no `disabled:`
+  field; `dynamic-plugins-store/` is materialized into
+  `/app/dynamic-plugins-root/` at build time. Two more entries
+  (`red-hat-developer-hub-backstage-plugin-extensions` and
+  `red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions`)
+  are also pre-installed but ship `disabled: true`; the former is kept
+  as a reference and never enabled, the latter is the marketplace
+  catalog backend and is flipped on only by the `recommended` preset. The image itself
   stays generic; the plugin set is data, not code.
 
 ### What stays
@@ -135,7 +141,7 @@ Migration is not forced.
 | Image | `docker.io/veecode/devportal-platform:<semver>` (e.g. `0.1.0`, `latest`) |
 | Image tag scheme | Plain semver from `package.json` `version`; multi-arch `linux/amd64` + `linux/arm64` manifest. No `bs_<bsver>__<distver>` compound tags. |
 | Publish | Manual `workflow_dispatch` on [`.github/workflows/publish.yml`](../../.github/workflows/publish.yml). Tag-driven publish exists commented-out; flips on when there's a real consumer. |
-| Plugin inventory | [`dynamic-plugins.default.yaml`](../../dynamic-plugins.default.yaml) ships with all optional plugins `disabled: true`. Core-tier (header, homepage, about, about-backend, dynamic-plugins-info) ships `preInstalled: true` + enabled by default. |
+| Plugin inventory | [`dynamic-plugins.default.yaml`](../../dynamic-plugins.default.yaml) ships with all optional plugins `disabled: true`. Core-tier (homepage, global-header, about, about-backend, dynamic-plugins-info) ships `preInstalled: true` with no `disabled:` field, so default-on. |
 | Preset selector | `VEECODE_PRESETS=<csv>` env var, resolved at boot by [`entrypoint.sh`](../../entrypoint.sh) lines 83–160. Empty/unset → barebones (core only). |
 | Preset format | YAML per [`presets/SCHEMA.md`](../../presets/SCHEMA.md). Flat — no `extends:`; composition is the env-var list. Per-preset `requires.variables` validated at boot, missing vars fail with exit 78. |
 | OCI registry indirection | `${PLUGIN_REGISTRY}` env var (default `quay.io/veecode`) is substituted into every plugin OCI ref by `entrypoint.sh` lines 226–236 — operators with internal mirrors set `PLUGIN_REGISTRY=registry.internal/veecode` and don't touch YAML. |
@@ -471,8 +477,10 @@ Tracked in [`docs/ROADMAP_FEATURES.md`](../ROADMAP_FEATURES.md) §
   preset catalog (tiers, composition, the curation discipline).
 - [`presets/SCHEMA.md`](../../presets/SCHEMA.md) — preset format
   specification.
-- [`docs/PROJECT_CONTEXT.md`](../PROJECT_CONTEXT.md) — what this
-  image is, two paths of use, what's not here.
+- [`docs/README.md`](../README.md) — entry point for the
+  concept-first docs IA (what this image is, two paths of use, where
+  to start by task). Supersedes the deprecated
+  [`docs/PROJECT_CONTEXT.md`](../PROJECT_CONTEXT.md).
 - [`docs/UPGRADING_FROM_BASE_DISTRO.md`](../UPGRADING_FROM_BASE_DISTRO.md)
   — customer migration guide (the operator-facing companion to this
   ADR).

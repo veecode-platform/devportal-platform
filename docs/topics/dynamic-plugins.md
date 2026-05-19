@@ -23,14 +23,19 @@ The standard delivery vehicle for dynamic plugins is an OCI image layer. Most
 optional plugins are built and published by the `devportal-plugin-export-overlays`
 pipeline and stored on `quay.io/veecode/`. At container start,
 `install-dynamic-plugins.py` (invoked via `install-dynamic-plugins.sh`) fetches
-each enabled plugin bundle via `skopeo`, extracts the selected plugin package
-into `/app/dynamic-plugins-root/<package-name>/`, and merges its `pluginConfig:`
-block into the generated `/app/dynamic-plugins-root/app-config.dynamic-plugins.yaml`.
-Six chrome plugins — homepage, global-header, About, About-backend,
-dynamic-plugins-info, and the extensions catalog backend — ship
-**pre-installed**: they are extracted into the image at build time and do not
-require an OCI pull at boot. They carry the bare npm package name in
-`dynamic-plugins.default.yaml` and `preInstalled: true`.
+each enabled plugin bundle via `skopeo copy`, extracts the plugin layer into
+`/app/dynamic-plugins-root/<selector>/` (where `<selector>` is the substring
+after `!` in the OCI ref), and walks its `pluginConfig:` block into the
+generated `/app/dynamic-plugins-root/app-config.dynamic-plugins.yaml`.
+
+Five chrome plugins — `veecode-homepage`, `veecode-global-header`,
+`about-backend`, `about`, and `dynamic-plugins-info` — ship **pre-installed
+and always-on**: they are extracted into the image at build time, carry the
+bare npm package name in `dynamic-plugins.default.yaml`, and have no
+`disabled:` field (default-false). Two more entries are pre-installed but
+ship `disabled: true`: the original RHDH `extensions` frontend (kept as a
+reference, never enabled by any preset), and `catalog-backend-module-extensions`
+(enabled only by the `recommended` preset).
 
 ## The plugin inventory
 
@@ -127,8 +132,11 @@ What happens between `docker start` and Backstage accepting requests:
 5. **`install-dynamic-plugins.sh`** (`entrypoint.sh` line 239): invokes the
    Python install script against `/app/dynamic-plugins-root`. For each enabled
    entry the script calls `skopeo copy` to pull the OCI bundle, extracts the
-   selector package, and deep-merges the entry's `pluginConfig:` into
-   `/app/dynamic-plugins-root/app-config.dynamic-plugins.yaml`. Pre-installed
+   selector package, and merges the entry's `pluginConfig:` into
+   `/app/dynamic-plugins-root/app-config.dynamic-plugins.yaml`. The merge
+   walks nested dicts but is **not** last-write-wins: overlapping leaf keys
+   with different values raise `InstallException` ("Config key 'x' defined
+   differently for 2 dynamic plugins") and abort startup. Pre-installed
    entries skip the pull; only their `pluginConfig:` is merged.
 
 6. **Backend boot**: the Node.js backend starts. Backstage reads
@@ -150,12 +158,16 @@ curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:7007/api/dynamic-plugins-info/loaded-plugins | jq
 ```
 
-The response is a JSON array of objects, each with at minimum:
+The response is a JSON array of objects with `name`, `version`, `platform`,
+and `role`. `role` is `frontend-plugin`, `backend-plugin`, or
+`backend-plugin-module`; `platform` is `web` or `node`.
 
 ```json
 [
-  { "name": "backstage-community-plugin-rbac", "version": "0.6.2", "role": "frontend" },
-  { "name": "devportal-marketplace-frontend-dynamic", "version": "1.2.0", "role": "frontend" }
+  { "name": "backstage-community-plugin-rbac", "version": "0.6.2",
+    "platform": "web", "role": "frontend-plugin" },
+  { "name": "devportal-marketplace-frontend-dynamic", "version": "1.2.0",
+    "platform": "web", "role": "frontend-plugin" }
 ]
 ```
 
@@ -166,10 +178,10 @@ Useful filters:
 curl -sH "Authorization: Bearer $TOKEN" \
   http://localhost:7007/api/dynamic-plugins-info/loaded-plugins | jq 'length'
 
-# List backend-only plugins
+# List backend-only plugins (both backend-plugin and backend-plugin-module)
 curl -sH "Authorization: Bearer $TOKEN" \
   http://localhost:7007/api/dynamic-plugins-info/loaded-plugins \
-  | jq '[.[] | select(.role == "backend")] | map(.name)'
+  | jq '[.[] | select(.role | startswith("backend"))] | map(.name)'
 ```
 
 If a plugin you expected to load is absent, check the container logs for
@@ -190,8 +202,8 @@ misconfiguration, outage).
 Fix: mirror the OCI bundles to an internal registry and set
 `PLUGIN_REGISTRY=registry.internal/veecode`. The entrypoint substitutes that
 value into every `oci://${PLUGIN_REGISTRY}/...` reference before the install
-script runs — no YAML editing needed. See the Mirror distribution mode in
-Section 7.
+script runs — no YAML editing needed. See the **Mirror** entry under
+"Distribution modes" below.
 
 ### Backend crash: "Plugin `<id>` is already registered"
 
@@ -224,8 +236,8 @@ two distinct entries. The preset entry installs the plugin bytes without the
 `pluginConfig:` from the default; the default entry then installs a second copy
 with the config.
 
-The shadow-file mechanism (Section 4, step 2) prevents the most common form of
-this mismatch: before the shadow existed, a preset's resolved
+The shadow-file mechanism (step 2 of the **Boot sequence** above) prevents the
+most common form of this mismatch: before the shadow existed, a preset's resolved
 `oci://quay.io/veecode/rbac:...` never matched the default's still-templated
 `oci://${PLUGIN_REGISTRY}/rbac:...`, so the merge always missed. Since the shadow
 copy is substituted before the install runs, both sides resolve to the same string

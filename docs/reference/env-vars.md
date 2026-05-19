@@ -24,8 +24,14 @@ audience: [operator]
 | `DEBUG_PORT` | `entrypoint.sh:290` | If set, enables Node `--inspect=0.0.0.0:$DEBUG_PORT` | unset |
 | `DEVELOPMENT` | `entrypoint.sh:297` | If `true`, runs under nodemon with config watching | `false` |
 | `NODE_OPTIONS` | runtime | Forwarded to Node; image default `--no-node-snapshot` | image-set |
+| `RBAC_POLICY_PATH` | `app-config.production.yaml:82` | Path inside the container to the RBAC policy CSV the permission backend loads | `/app/rbac-policy.csv` |
 
 ## Theme / branding (legacy chart)
+
+> ⚠️ `THEME_CUSTOM_JSON` with `THEME_MERGE_JSON=false` currently writes to a
+> broken path in `entrypoint.sh:23` (double-`dist`). The merge path
+> (`THEME_MERGE_JSON=true`, default) is unaffected. Tracked as a code bug
+> separate from this reference.
 
 | Variable | Source | Purpose |
 |---|---|---|

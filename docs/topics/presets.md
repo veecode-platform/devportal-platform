@@ -71,12 +71,12 @@ worse than an absent one.
 ### Integration presets
 
 Enabled only when selected. Each requires customer-specific configuration
-and carries `requires.variables`. The 12 shipped integration presets are:
+and carries `requires.variables`. The 11 shipped integration presets are:
 
 | Preset | What it adds |
 |---|---|
 | `veecode-theme` | VeeCode brand palette and logos |
-| `github` | GitHub OAuth, catalog provider, SCM integration |
+| `github` | GitHub catalog provider, SCM integration, Actions UI tab (does NOT wire OAuth — see `installing.md`) |
 | `gitlab` | GitLab OAuth, catalog provider |
 | `azure` | Azure DevOps catalog, scaffolder, pipelines UI tab |
 | `keycloak` | Keycloak/OIDC auth, user-group sync |
@@ -215,9 +215,11 @@ docker run -p 7007:7007 \
 ```
 
 Required vars: `GITHUB_PAT` (scope: `repo`, `read:org`), `GITHUB_ORG`.
-The `github` preset wires GitHub OAuth, a catalog provider scanning
-`catalog-info.yaml` files in `GITHUB_ORG`, and the GitHub SCM integration.
-(Source: `presets/github.yaml` § `requires.variables`.)
+The `github` preset wires a catalog provider that scans `catalog-info.yaml`
+files in `GITHUB_ORG`, the GitHub SCM integration, and the GitHub Actions
+UI tab. It does **not** wire the GitHub OAuth sign-in provider —
+operators add that block via `app-config.local.yaml` (see
+`presets/github.yaml` header comment).
 
 ### `recommended,keycloak` — Keycloak/OIDC-authenticated stack
 

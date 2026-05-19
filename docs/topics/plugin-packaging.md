@@ -203,18 +203,29 @@ picture, including the distinction between mirror mode and loaded-variant mode.
 For fully air-gapped environments where the container runtime cannot reach any
 registry at boot, a **loaded variant** build is the correct approach.
 
-You build your own image from the published base:
+You build your own image from the published base. The standard pattern is to
+extract the plugin bundle at build time with `skopeo` + `tar` (the same tools
+`install-dynamic-plugins.py` uses at runtime) and copy the result into the
+image's plugin root:
 
 ```dockerfile
 FROM veecode/devportal-platform:<tag>
-
-# Extract the plugins you need at image-build time
-RUN install-dynamic-plugins.py --only my-plugin-selector
+USER root
+RUN skopeo copy \
+      docker://quay.io/veecode/<workspace>:bs_<ver> dir:/tmp/bundle && \
+    LAYER=$(jq -r '.layers[0].digest | sub("sha256:";"")' /tmp/bundle/manifest.json) && \
+    mkdir -p /app/dynamic-plugins-root && \
+    tar -xzf /tmp/bundle/$LAYER -C /app/dynamic-plugins-root && \
+    rm -rf /tmp/bundle
+USER 1001
 ```
 
-The pre-extracted plugins live in `/app/dynamic-plugins-root/` inside the
-image. At boot, `install-dynamic-plugins.py` detects already-extracted plugins
-and skips the OCI pull.
+Then add the plugin to `dynamic-plugins.default.yaml` (or a preset fragment
+mounted into the image) with `preInstalled: true`. At boot,
+`install-dynamic-plugins.py` skips the OCI pull for preInstalled entries and
+only merges their `pluginConfig:`. See the Dockerfile's own `skopeo`/`tar`
+block (around lines 220–238) for the upstream-canonical version of this
+recipe.
 
 This approach trades build-time complexity for zero runtime registry access.
 The tradeoff: every plugin update requires a new image build and push cycle,

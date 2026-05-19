@@ -154,20 +154,20 @@ Node. This shows exactly which `--config` flags are passed and in what order.
 
 ### Verify a setting took effect
 
-Backstage exposes the merged, resolved config through the backend:
+Backstage does not expose a stock "merged config" endpoint. Two practical
+verifications:
 
-```bash
-USER_TOKEN="$(curl -s -X POST http://localhost:7007/api/auth/guest/refresh \
-  -H 'Content-Type: application/json' -d '{}' \
-  | jq -r '.backstageIdentity.token')"
+1. **Check the boot logs** — many keys (catalog providers, auth providers,
+   integration tokens) emit a `Found N config(s)` or `Configured for ...` line
+   on startup. Tail `docker logs <container>` after the boot completes.
 
-curl -s -H "Authorization: Bearer $USER_TOKEN" \
-  http://localhost:7007/api/app-config | jq .
-```
+2. **Test the behavior** — hit the API or UI surface the key controls (e.g. for
+   a `catalog.providers.github` change, watch the catalog refresh tick and check
+   that the new schedule applies). For an auth provider, attempt sign-in.
 
-Compare the key you set against what the API returns. If the value differs from
-what you put in your config file, check the chain order — a file loaded later
-may be winning, or var substitution may have resolved differently than expected.
+If the observed behavior differs from what you put in your config file, check
+the chain order — a file loaded later may be winning — or whether var
+substitution resolved differently than expected.
 
 ## Related topics
 

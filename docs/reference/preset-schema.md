@@ -107,11 +107,14 @@ plugins:
   `backstage.json`) are substituted by `entrypoint.sh` before the
   install runs, so a Backstage bump or a registry mirror swap doesn't
   mean editing every preset.
-- `<bare-name>` (no `oci://` prefix) — used for the always-on chrome
-  plugins that are pre-installed into `/app/dynamic-plugins-root/` at
-  image build time and ship with `preInstalled: true` in
-  `dynamic-plugins.default.yaml`. The install script skips pulling
-  these and only merges their `pluginConfig`.
+- `<bare-name>` (no `oci://` prefix) — used for plugins that are
+  pre-installed into `/app/dynamic-plugins-root/` at image build time and
+  ship with `preInstalled: true` in `dynamic-plugins.default.yaml`. The
+  install script skips pulling these and only merges their `pluginConfig`.
+  Pre-installed entries may be **always-on** (no `disabled:` field, e.g.
+  `veecode-homepage`, `veecode-global-header`) or **disabled-by-default**
+  and gated by a preset (e.g. RHDH `catalog-backend-module-extensions`,
+  which `presets/recommended.yaml` flips on).
 
 **`disabled: false` is the preset's intent.** A preset that enables a
 plugin must set this. If a preset wants a plugin available-but-off,

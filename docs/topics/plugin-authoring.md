@@ -29,7 +29,7 @@ plugin going through exactly this flow.
 
 A frontend dynamic plugin is a Module-Federation remote — a JavaScript bundle
 served at runtime and mounted into the running app by
-[Scalprum](https://github.com/scalprum/scaffolder-root) / the `DynamicRoot`
+[Scalprum](https://github.com/scalprum) / the `DynamicRoot`
 shell in `packages/app/src/components/DynamicRoot/`. Its presence and
 configuration are declared entirely in `dynamic-plugins.default.yaml` under the
 plugin's `pluginConfig.dynamicPlugins.frontend.<plugin-id>` block. Common
@@ -51,8 +51,9 @@ a missing export is a silent non-render, not a build error.
 ### Backend plugins
 
 A backend dynamic plugin is a CommonJS module consumed by the dynamic-feature-loader
-registered in `packages/backend/src/index.ts` (lines 54–95,
-`@backstage/backend-dynamic-feature-service`). It exports a
+registered in `packages/backend/src/index.ts` (the `dynamicPluginsFeatureLoader`
+block, currently lines 54–109, from `@backstage/backend-dynamic-feature-service`).
+It exports a
 `createBackendPlugin(...)` or `createBackendModule(...)` instance as its
 default export. The loader discovers it from `dynamic-plugins.default.yaml`,
 resolves it from `dynamic-plugins-root/`, and adds it to the backend at boot —
@@ -111,7 +112,9 @@ This runs `tsc` then webpack (MF mode), producing `dist-dynamic/dist-scalprum/`
 with:
 
 - `remoteEntry.js` — the MF remote entry the Scalprum host loads
-- `plugin-manifest.json` — metadata read by `install-dynamic-plugins.py` at boot
+- `plugin-manifest.json` — plugin metadata served back to the frontend at
+  `/api/scalprum/plugins` (consumed by the `DynamicRoot` shell, not by
+  `install-dynamic-plugins.py`, which only unpacks the OCI layer)
 
 Note: `backstage-cli package build` is **not** needed before `rhdh-cli plugin export`
 and currently breaks on CSS imports in this setup. Run `rhdh-cli plugin export`
@@ -203,10 +206,13 @@ the backend without any static registration code in this repo.
 ### The `dist-scalprum/` contract
 
 `rhdh-cli plugin export` writes `dist-dynamic/dist-scalprum/`. That directory
-is what `docker/install-dynamic-plugins.py` extracts from the OCI bundle at
-boot and places under `/app/dynamic-plugins-root/<plugin-name>/dist-scalprum/`.
-The backend dynamic-feature-loader resolves backend plugin CommonJS from
-`dist/`, not `dist-scalprum/` — the `schemaLocator` in `packages/backend/src/index.ts`
+ends up packed inside the OCI bundle layer. At boot `install-dynamic-plugins.py`
+extracts the layer into `/app/dynamic-plugins-root/<selector>/` (where
+`<selector>` is the substring after `!` in the OCI ref); the layer layout
+itself determines whether `dist-scalprum/` or `dist/` appears under that
+directory. The backend dynamic-feature-loader resolves backend plugin CommonJS
+from `dist/`; the frontend `DynamicRoot` shell loads frontend MF remotes from
+`dist-scalprum/`. The `schemaLocator` in `packages/backend/src/index.ts`
 selects the right subdirectory by `platform` (`node` vs `web`).
 
 ---

@@ -25,18 +25,20 @@ entries at runtime and merges them into the `themes` array passed to `createApp`
 (`DynamicRoot.tsx:533-553,600-636`). See
 [ADR-011 § "The theme is a dynamic frontend plugin"](../adr/011-frontend-design-system.md).
 
-The theme preset is Phase 1 of ADR-011 — validated on branch
-`feat/veecode-theme-dynamic-plugin`, against Backstage 1.50, with five
+The theme preset is Phase 1 of ADR-011 — validated as a POC on branch
+`feat/veecode-theme-dynamic-plugin` against a Backstage 1.50 tree, with five
 explicit pass criteria including picker replacement, no id collision, and
-CSS injection. ADR-011 § "Phase 2" describes the future migration to
-`ThemeBlueprint` once NFS core packages leave `@alpha`; nothing in Phase 1 blocks
-that later work.
+CSS injection. The shipped image is on Backstage 1.49.4; the 1.50 bump is a
+separate upgrade track (see [`docs/UPGRADING.md`](../UPGRADING.md)). ADR-011
+§ "Phase 2" describes the future migration to `ThemeBlueprint` once NFS core
+packages leave `@alpha`; nothing in Phase 1 blocks that later work.
 
 ### The header is always on
 
-The Core-tier plugin `veecode-platform-plugin-veecode-global-header-dynamic` ships
-`disabled: false` unconditionally — it is always loaded regardless of the preset
-list. That means the VeeCode header and logo appear even under
+The Core-tier plugin `veecode-platform-plugin-veecode-global-header-dynamic`
+ships `preInstalled: true` with no `disabled:` field (default-false in
+`install-dynamic-plugins.py:360`) — no preset gates it. That means the VeeCode
+header and logo appear even under
 `VEECODE_PRESETS=recommended` with no theme preset. What `veecode-theme` adds is
 the **full identity**: palette, typography, MUI component overrides, and BUI tokens.
 The image reads as VeeCode chrome-wise without the theme preset; it reads as the
@@ -239,9 +241,10 @@ duplicates with no collision resolution.
 ## The minimum-VeeCode-identity fallback
 
 The Core-tier `veecode-platform-plugin-veecode-global-header-dynamic` plugin is
-always loaded; its `disabled: false` entry in `dynamic-plugins.default.yaml` is
-unconditional and no preset gates it. The VeeCode header and sidebar logo render
-even under `VEECODE_PRESETS=recommended` or a purely customer-branded preset list.
+always loaded; its entry in `dynamic-plugins.default.yaml` carries
+`preInstalled: true` with no `disabled:` field (default-false), so no preset
+gates it. The VeeCode header and sidebar logo render even under
+`VEECODE_PRESETS=recommended` or a purely customer-branded preset list.
 
 This means: removing `veecode-theme` from your preset list does not produce a
 naked Backstage UI. It produces a VeeCode-chrome UI with the RHDH stock color

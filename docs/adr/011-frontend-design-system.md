@@ -13,11 +13,11 @@ Frontend System migration to a separate, gated epic.
 ## Context
 
 VeeCode DevPortal runs Backstage's **legacy frontend system** —
-`createApp` from `@backstage/app-defaults@^1.7.7`
+`createApp` from `@backstage/app-defaults@^1.7.6`
 (`packages/app/src/components/DynamicRoot/DynamicRoot.tsx:609`) —
 inside an RHDH-derived Scalprum / Module-Federation dynamic-plugin
 shell (`packages/app/src/components/DynamicRoot/`). Theming uses
-`createUnifiedTheme` (`@backstage/theme@^0.7.3`) via
+`createUnifiedTheme` (`@backstage/theme@^0.7.2`) via
 `@red-hat-developer-hub/backstage-plugin-theme@^0.10.0` — `useThemes()`
 in `DynamicRoot.tsx:154` feeds the `themes:` array of `createApp`,
 where it is merged with theme providers discovered from dynamic-plugin
@@ -25,7 +25,7 @@ configs (`DynamicRoot.tsx:533-553,636`). The palette is configured
 through `app-config.yaml` `app.branding.theme` (the RHDH theme-config
 schema). MUI v5 (`@mui/material@^5.15.10`) is the component library, with
 a v4 compatibility layer (`docs/MUI_MIGRATION_STATUS.md`). `@backstage/ui`
-("BUI", formerly Canon) `^0.14.0` is already a direct dependency and its
+("BUI", formerly Canon) `^0.13.2` is already a direct dependency and its
 base CSS is imported at `packages/app/src/index.tsx:1` — it came with the
 RHDH 1.50 app skeleton, so BUI-rendered surfaces already exist in the
 bundle.
