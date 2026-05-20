@@ -80,8 +80,10 @@ jobs:
             exit 1
           fi
           export PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
-          # Strip the !<selector> suffix before dedup — multiple entries can share the same OCI image
-          mapfile -t refs < <(grep -hoE 'oci://[^!"[:space:]]+' dynamic-plugins.default.yaml presets/*.yaml | sort -u)
+          # Strip the !<selector> suffix before dedup — multiple entries can share the same OCI image.
+          # Drop full-line comments first: header docs may mention `oci://...` example refs that are
+          # not real package values and must not be skopeo-checked.
+          mapfile -t refs < <(grep -hvE '^[[:space:]]*#' dynamic-plugins.default.yaml presets/*.yaml | grep -oE 'oci://[^!"[:space:]]+' | sort -u)
           if [ "${#refs[@]}" -eq 0 ]; then
             echo "No OCI refs found in dynamic-plugins.default.yaml — skipping skopeo check"
             exit 0
