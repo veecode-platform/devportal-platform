@@ -49,8 +49,8 @@ in `devportal-base` is superseded by it.
 + image: veecode/devportal-platform:0.1.x # unified image
 + env:
 -   VEECODE_PROFILE: github
-+   VEECODE_PRESETS: recommended,veecode-theme,github
-+   # plus the env vars the github preset requires — see table below
++   VEECODE_PRESETS: recommended,veecode-theme,github,github-auth
++   # plus the env vars the github + github-auth presets require — see table below
 ```
 
 Two things to know upfront before you reach the detail:
@@ -133,10 +133,23 @@ and brand chrome (Core-tier), but not the full palette — see
 
 ## Profile → preset translation
 
-The table below is the contract. The "Carry over" column names what
+The table below is the contract. The "Gap" column names what
 your legacy `app-config.<profile>.yaml` covered that the preset does
 **not** — those blocks belong in your mounted
 `app-config.local.yaml` on the new image.
+
+The "Gap" column scopes only the **profile → preset** translation. It
+does **not** cover app-config you added *beyond* the profile — custom
+branding, an extra integration host, a custom RBAC policy, custom
+catalog locations. Anything in your legacy config that wasn't part of
+the profile carries over the same way it always did: mount it, and it
+layers after the preset.
+
+> **Env var renames.** Most variables carry over unchanged. The rename
+> the table flags is `GITHUB_TOKEN` → `GITHUB_PAT`. Each preset's exact
+> variable names are authoritative in its
+> [`presets/<name>.yaml`](../presets) `requires.variables` block —
+> check there rather than assuming the legacy name.
 
 | Legacy `VEECODE_PROFILE` | New preset (compose with `recommended,veecode-theme`) | Required env vars (per the preset) | Gap — carry over via `app-config.local.yaml` |
 |---|---|---|---|
@@ -178,6 +191,28 @@ counterpart. They're not on by default; opt in via
   **Composes with `mcp`** (talks loopback to the MCP server).
   Requires `MCP_CHAT_PROVIDER`, `MCP_CHAT_API_KEY`,
   `MCP_CHAT_MODEL`. See [`presets/mcp-chat.yaml`](../presets/mcp-chat.yaml).
+
+## What the preset already configures
+
+Do **not** copy these blocks from your legacy `app-config.<profile>.yaml`
+into `app-config.local.yaml` — the preset owns them, and a stale copy
+layered on top only invites drift:
+
+- **Integration base config** (`integrations.<provider>`) — the preset
+  wires the host and credentials from the env vars it declares.
+- **Catalog provider** (`catalog.providers.<provider>`) — the discovery
+  scope and schedule.
+- **Auth provider + sign-in page** (`auth.providers.<provider>`,
+  `signInPage`) — the identity preset (`github-auth`, `keycloak`, …)
+  wires both.
+- **Theme palette + branding** (`app.branding`, theme palette) — owned
+  by `veecode-theme`, or by your own `<company>-theme` preset if you
+  white-label (see [ADR-011](./adr/011-frontend-design-system.md)).
+
+What you **do** carry over is everything *outside* a preset's scope:
+custom catalog `locations`, a custom RBAC policy, an extra integration
+host, proxy entries, feature flags — see the "Gap" column and the note
+above it.
 
 ## Step-by-step
 
