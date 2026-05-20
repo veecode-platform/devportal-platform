@@ -185,20 +185,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Must mirror ALL_TESTS in scripts/smoke-presets.sh — the publish gate
+        # only covers what is listed here. A divergence let the github-auth
+        # YAML bug ship in 0.1.0 (the auth presets existed in smoke-presets.sh
+        # but not here). Keep both lists in lockstep until the matrix is
+        # generated from a single source.
         preset:
           - recommended
           - veecode-theme
           - github
+          - github-auth
+          - github,github-auth
           - gitlab
           - azure
+          - azure-auth
+          - azure,azure-auth
           - keycloak
           - ldap
+          - ldap,ldap-ad
           - jenkins
           - kubernetes
           - sonarqube
           - mcp
           - recommended,mcp
           - recommended,mcp,mcp-chat
+          - recommended+mount
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
