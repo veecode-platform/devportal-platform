@@ -266,7 +266,14 @@ done
 # The canonical /app/dynamic-plugins.yaml may be a read-only bind mount and
 # would be missing those mutations.
 export DYNAMIC_PLUGINS_FILE="$DP_YAML_SHADOW"
-/app/install-dynamic-plugins.sh /app/dynamic-plugins-root
+# Fail the boot if plugin installation fails. install-dynamic-plugins.py exits
+# non-zero on any fatal config error — duplicate plugin refs, malformed YAML,
+# integrity failures. Booting with a half-installed plugin set is itself a
+# footgun, so abort here (exit 78, same fail-fast code used for preset vars).
+/app/install-dynamic-plugins.sh /app/dynamic-plugins-root || {
+    echo "VEECODE: FATAL — dynamic plugin installation failed; aborting boot" >&2
+    exit 78
+}
 
 # Remove RHDH extensions backend AFTER install — it ships in the base image
 # and gets re-installed by install-dynamic-plugins.sh from defaults.
