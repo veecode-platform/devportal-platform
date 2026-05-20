@@ -278,6 +278,45 @@ With **`VEECODE_PRESETS=recommended,veecode-theme,<integration>`**:
   config; the integration's `requires.variables` must be set in the
   env or the boot fails fast.
 
+## Enabling a specific plugin
+
+Presets are the curated path, but an operator sometimes wants a single
+plugin on without adopting a whole preset — or a plugin no preset
+covers. Three cases.
+
+**In the catalog, and a preset enables it.** Select that preset via
+`VEECODE_PRESETS`. This is the recommended path — the preset also
+layers the plugin's `appConfig` and declares its `requires.variables`.
+
+**In the catalog, but you want just it, no preset.** Every catalog
+entry in `dynamic-plugins.default.yaml` is `disabled: true` by default.
+Enable one via the operator override — the top-level `plugins:` list in
+`dynamic-plugins.yaml`, merged last so it wins over presets. Bind-mount
+your own `dynamic-plugins.yaml` (or edit it in an image-overlay loop)
+with:
+
+```yaml
+plugins:
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
+    disabled: false
+```
+
+The `package:` string must match the catalog entry exactly — copy it
+from `dynamic-plugins.default.yaml`. There is no OCI URL to hunt down;
+the catalog already declares it. The entry's `pluginConfig` (mount
+points, tabs) is inherited from the catalog — you override only
+`disabled`.
+
+**Not in the catalog at all.** Add a full entry to the override
+`plugins:` list — `package:` (an `oci://` or npm ref), `disabled:
+false`, and the `pluginConfig` block the plugin needs. Same shape as a
+catalog entry; use the existing entries in `dynamic-plugins.default.yaml`
+as templates and see § "Dynamic plugins — OCI bundles" for the ref
+format.
+
+> The override also force-*disables*: list a catalog plugin with
+> `disabled: true` to turn off something a preset enabled.
+
 ## Authoring a new plugin
 
 There are two scaffolds depending on what you want:

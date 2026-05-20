@@ -1,24 +1,22 @@
 #
-# This is a dynamic plugins config file bundled with the devportal-base image.
-# It is used to define the behaviour of the dynamic plugins system pre-startup.
+# Dynamic plugins boot config — the entry point the install script reads.
 #
-# Plugins at "dynamic-plugins-root" will be loaded at startup, and its default 
-# content is defined by the "dynamic-plugins" workspace (downloads and wrappers).
-# This file defines, on the other hand, defines the plugins that will be copied 
-# into the "dynamic-plugins-root" folder during startup.
+# At boot, docker/install-dynamic-plugins.py resolves this file: it merges
+# every `includes:` entry, then the top-level `plugins:` list, and installs
+# whatever ends up `disabled: false`. An enabled plugin is fetched (OCI via
+# skopeo, or npm) into /app/dynamic-plugins-root/ and its pluginConfig is
+# merged into a generated app-config. Disabled entries are skipped entirely.
 #
-# It is important to undertand: pre-installed plugins are bundled with the image.
-# They are forcibly loaded at startup if placed in the "dynamic-plugins-root" folder.
-# They are **not** forcibly loaded if kept somewhere else.
+# The `includes:` chain below pulls in:
+#   - dynamic-plugins.default.yaml — the full plugin catalog (mostly disabled);
+#   - extensions-install.yaml — plugins enabled via the marketplace UI;
+#   - one preset-<name>-plugins.yaml fragment per selected preset, appended
+#     at boot by entrypoint.sh from VEECODE_PRESETS.
 #
-# This config file will enumerate plugins that:
-#
-# 1. Are bundled in the image file system, but outside the "dynamic-plugins-root" folder.
-# 2. Are not bundled in the image, but are available for download.
-#
-# A start script will process this file and make sure enabled plugins are copied
-# into the "dynamic-plugins-root" folder *and* that their configuration gets merged
-# into a proper dedicated "app-config" file.
+# The top-level `plugins:` list is the operator's last-word override —
+# merged AFTER every include, so it wins over any preset. Use it to enable
+# (or force-disable) a single plugin without editing the catalog. See
+# docs/PLUGINS.md § "Enabling a specific plugin".
 #
 includes:
   # Always start by merging the defaults that ship inside the image — the
