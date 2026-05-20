@@ -477,6 +477,46 @@ def mergePlugin(plugin: dict, allPlugins: dict, dynamicPluginsFile: str):
             continue
         allPlugins[package][key] = plugin[key]
 
+def plugin_identity(package: str):
+    """Stable identity of a plugin, independent of registry and tag.
+
+    For OCI refs the part after `!` is the npm package name (the selector),
+    which is globally unique, so it identifies the plugin regardless of which
+    image/tag it is pulled from. Non-OCI refs (npm package names, local `./`
+    paths) are their own identity. Returns None for a malformed OCI ref so the
+    caller skips it instead of crashing."""
+    if package.startswith('oci://'):
+        if '!' not in package:
+            return None
+        return package.split('!', 1)[1]
+    return package
+
+def check_plugin_identity_collisions(allPlugins: dict):
+    """Fail the boot if two ENABLED entries reference the same plugin with
+    different `package` refs — that installs the same Module Federation bundle
+    twice and conflicts at runtime.
+
+    Disabled entries are skipped here on purpose: the disabled-skip in
+    install_plugin() runs only at install time, so an inert catalog stub must
+    not be counted. An intentional operator override that reuses the *exact*
+    same `package` ref collapses to one dict key in allPlugins and never
+    reaches this check."""
+    seen = {}  # identity -> first package ref seen for it
+    for package, plugin in allPlugins.items():
+        if plugin.get('disabled', False):
+            continue
+        identity = plugin_identity(package)
+        if identity is None:
+            continue
+        if identity in seen and seen[identity] != package:
+            raise InstallException(
+                f"Duplicate dynamic plugin '{identity}' enabled with "
+                f"conflicting refs:\n  {seen[identity]}\n  {package}\n"
+                f"Both install the same Module Federation bundle. Enable it "
+                f"once with a single ref (copy the canonical ref from "
+                f"dynamic-plugins.default.yaml), or disable one entry.")
+        seen[identity] = package
+
 def verify_package_integrity(plugin: dict, archive: str, working_directory: str) -> None:
     package = plugin['package']
     if 'integrity' not in plugin:
@@ -625,6 +665,10 @@ def main():
     for plugin in plugins:
         mergePlugin(plugin, allPlugins, dynamicPluginsFile)
 
+    # Reject configs that enable the same plugin via two different refs.
+    # Intentional same-ref overrides already collapsed to one key in mergePlugin.
+    check_plugin_identity_collisions(allPlugins)
+
     # add a hash for each plugin configuration to detect changes
     for plugin in allPlugins.values():
         hash_dict = copy.deepcopy(plugin)
@@ -671,4 +715,5 @@ def main():
         print('\n======= Removing previously installed dynamic plugin', plugin_path_by_hash[hash_value], flush=True)
         shutil.rmtree(plugin_directory, ignore_errors=True, onerror=None)
 
-main()
+if __name__ == '__main__':
+    main()
