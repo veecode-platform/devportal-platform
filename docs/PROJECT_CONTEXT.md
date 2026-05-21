@@ -46,13 +46,14 @@ use"):
    config chain. Use this when your stack matches one of the catalog
    entries.
 2. **Raw Backstage path.** Leave `VEECODE_PRESETS` unset and mount your
-   own `app-config.yaml`, `dynamic-plugins.yaml`, and overrides via
-   volume. The image's load order still applies, but the operator owns
-   the full surface.
+   own `app-config.yaml`, a `dynamic-plugins.yaml` with top-level
+   `plugins:` entries, and overrides via volume. The image's load order
+   still applies, and the full plugin list is still assembled by the
+   entrypoint at boot.
 
 The two paths layer naturally: an operator's `app-config.local.yaml`
 always wins over preset configs (precedence table in
-[`entrypoint.sh:218-227`](../entrypoint.sh)). The docs in this folder
+[`entrypoint.sh`](../entrypoint.sh)). The docs in this folder
 assume the preset path unless they say otherwise.
 
 ## How this differs from `devportal-base` / `devportal-distro`

@@ -55,7 +55,7 @@ a ~3-line YAML addition.
 Do not add or edit entries directly in `dynamic-plugins.default.yaml` if you
 only want to enable a plugin for one deployment. That file is image-level
 configuration. Use `VEECODE_PRESETS` and a preset file instead, or toggle the
-entry at runtime via the marketplace UI (which writes to `extensions-install.yaml`).
+entry at runtime via the marketplace UI (which writes to `/app/data/extensions-install.yaml`).
 
 ## Reference shape
 
@@ -81,7 +81,7 @@ Three real examples from `dynamic-plugins.default.yaml`:
 The four parts:
 
 - **`${PLUGIN_REGISTRY}`** — defaults to `quay.io/veecode`; substituted by
-  `entrypoint.sh` lines 230–236. Override with `PLUGIN_REGISTRY=registry.internal/veecode`
+  `entrypoint.sh`. Override with `PLUGIN_REGISTRY=registry.internal/veecode`
   to redirect all OCI pulls to an internal mirror without editing YAML.
 
 - **`<workspace>`** — the export-overlays workspace that produced the OCI bundle
@@ -89,7 +89,7 @@ The four parts:
   workspace can bundle multiple plugin packages; the selector picks the one needed.
 
 - **`bs_${BACKSTAGE_VERSION}`** — the OCI tag. `${BACKSTAGE_VERSION}` is
-  substituted by `entrypoint.sh` lines 214–224 from `backstage.json`, so a
+  substituted by `entrypoint.sh` from `backstage.json`, so a
   Backstage version bump propagates to all references that use the variable form.
   Some entries pin a literal version (e.g. `bs_1.48.4`, `bs_1.49.4`) when the
   plugin hasn't been re-published under the current Backstage tag yet — those
@@ -107,29 +107,29 @@ for these and only merges the `pluginConfig:`.
 
 What happens between `docker start` and Backstage accepting requests:
 
-1. **Preset resolver** (`entrypoint.sh` lines 83–160): for each name in
-   `VEECODE_PRESETS`, the resolver validates required env vars (exit 78 on
-   missing), writes `preset-<name>-plugins.yaml` with the preset's `plugins:`
-   list, and rewrites `dynamic-plugins.yaml`'s `includes:` array to reference
-   the preset fragments alongside the defaults.
+1. **Preset resolver** (`entrypoint.sh`): for each name in `VEECODE_PRESETS`,
+   the resolver validates required env vars (exit 78 on missing), writes
+   `preset-<name>-plugins.yaml` with the preset's `plugins:` list, and records
+   each one so the next step can load it.
 
-2. **Shadow copy** (`entrypoint.sh` lines 176–202): `dynamic-plugins.default.yaml`
-   is copied to `dynamic-plugins.default.resolved.yaml`. The original file may
-   be bind-mounted read-only (dev overlay path, Kubernetes ConfigMap); the shadow
-   is always writable. All subsequent substitutions operate on the shadow, not
-   the source. `dynamic-plugins.yaml`'s `includes:` is rewritten to reference
-   `dynamic-plugins.default.resolved.yaml`.
+2. **Assemble the plugin list** (`entrypoint.sh`): `dynamic-plugins.yaml` is
+   copied to a writable working file, and its `includes:` list is rebuilt to
+   reference the catalog, the marketplace file, and each preset's plugin file.
+   Anything in your own `includes:` is rebuilt here; your top-level `plugins:`
+   entries are kept as-is. `dynamic-plugins.default.yaml` is copied the same
+   way. The originals may be bind-mounted read-only (dev overlay path,
+   Kubernetes ConfigMap), so all later edits happen on these writable copies.
 
-3. **`${BACKSTAGE_VERSION}` substitution** (`entrypoint.sh` lines 204–224):
-   `sed` rewrites the version variable in the shadow file and all preset fragment
+3. **`${BACKSTAGE_VERSION}` substitution** (`entrypoint.sh`):
+   `sed` rewrites the version variable in the working file and all preset plugin
    files. The value comes from `backstage.json` unless `BACKSTAGE_VERSION` is
    set explicitly in the environment.
 
-4. **`${PLUGIN_REGISTRY}` substitution** (`entrypoint.sh` lines 226–236):
+4. **`${PLUGIN_REGISTRY}` substitution** (`entrypoint.sh`):
    `sed` rewrites the registry variable across the same file set. Default is
    `quay.io/veecode`.
 
-5. **`install-dynamic-plugins.sh`** (`entrypoint.sh` line 239): invokes the
+5. **`install-dynamic-plugins.sh`** (`entrypoint.sh`): invokes the
    Python install script against `/app/dynamic-plugins-root`. For each enabled
    entry the script calls `skopeo copy` to pull the OCI bundle, extracts the
    selector package, and merges the entry's `pluginConfig:` into
@@ -236,12 +236,11 @@ two distinct entries. The preset entry installs the plugin bytes without the
 `pluginConfig:` from the default; the default entry then installs a second copy
 with the config.
 
-The shadow-file mechanism (step 2 of the **Boot sequence** above) prevents the
-most common form of this mismatch: before the shadow existed, a preset's resolved
-`oci://quay.io/veecode/rbac:...` never matched the default's still-templated
-`oci://${PLUGIN_REGISTRY}/rbac:...`, so the merge always missed. Since the shadow
-copy is substituted before the install runs, both sides resolve to the same string
-and the merge works correctly.
+Step 2 of the **Boot sequence** above prevents the most common form of this
+mismatch: the working copies have `${PLUGIN_REGISTRY}` and `${BACKSTAGE_VERSION}`
+substituted before the install runs, so a preset's `oci://quay.io/veecode/rbac:...`
+and the catalog's templated `oci://${PLUGIN_REGISTRY}/rbac:...` resolve to the
+same string and the merge works.
 
 If you author a preset manually, copy the `package:` value verbatim from
 `dynamic-plugins.default.yaml` including the `${PLUGIN_REGISTRY}` and
@@ -263,7 +262,7 @@ is available. No operator configuration is needed beyond `VEECODE_PRESETS`.
 ### Mirror — internal registry
 
 Set `PLUGIN_REGISTRY=registry.internal/veecode` (or any registry prefix that
-mirrors `quay.io/veecode`). The entrypoint (`entrypoint.sh` lines 230–236)
+mirrors `quay.io/veecode`). The entrypoint (`entrypoint.sh`)
 substitutes the value into every `oci://${PLUGIN_REGISTRY}/...` reference before
 the install script runs. No YAML files need to be edited. The mirror must host
 the same workspace/tag paths as the public registry.

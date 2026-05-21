@@ -93,3 +93,7 @@ docs/superpowers/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Python bytecode
+__pycache__/
+*.pyc

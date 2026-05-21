@@ -37,7 +37,7 @@ Files 1–3 are always present inside the image. File 4 is emitted for each
 preset in `VEECODE_PRESETS` (a preset with no `appConfig:` block produces no
 file). Files 5–7 are conditional: each is skipped if absent.
 
-Source of truth: `entrypoint.sh` lines 257–267 (the comment block) and the
+Source of truth: `entrypoint.sh` (the comment block) and the
 `EXTRA_ARGS` construction that follows.
 
 ## Variable substitution
@@ -74,8 +74,10 @@ schema.
 
 **Raw Backstage path.** Skip `VEECODE_PRESETS` entirely. Mount your own
 `app-config.local.yaml` (or use `VEECODE_APP_CONFIG`) carrying the full
-Backstage config for the integrations you want. Files 1–3 still load (they set
-safe defaults like guest auth and local SQLite), but nothing else is added
+Backstage config for the integrations you want. If you need extra dynamic
+plugins, mount a `dynamic-plugins.yaml` with top-level `plugins:` entries; its
+`includes:` list is still rebuilt by the entrypoint. Files 1–3 still load (they
+set safe defaults like guest auth and local SQLite), but nothing else is added
 automatically.
 
 Both paths compose. You can use presets for most settings and still mount a
@@ -89,7 +91,7 @@ the container, encode your operator config as base64 and pass it as
 `/app/app-config.saas.yaml` before starting Backstage:
 
 ```sh
-# entrypoint.sh ~line 168
+# entrypoint.sh
 if [ ! -z "$VEECODE_APP_CONFIG" ]; then
     echo "$VEECODE_APP_CONFIG" | base64 -d > /app/app-config.saas.yaml
 fi

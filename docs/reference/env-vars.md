@@ -13,34 +13,35 @@ audience: [operator]
 
 | Variable | Source | Purpose | Default |
 |---|---|---|---|
-| `VEECODE_PRESETS` | `entrypoint.sh:98` | Comma-separated list of presets to apply | unset (boots barebones) |
-| `VEECODE_APP_CONFIG` | `entrypoint.sh:168` | Base64-encoded `app-config.yaml` overlay (decodes into `/app/app-config.saas.yaml`) | unset |
-| `VEECODE_DOMAIN` | `entrypoint.sh:245` | Informational only; logged at startup | unset |
-| `BACKSTAGE_VERSION` | `entrypoint.sh:214` | Substituted into plugin OCI tag refs; defaults to the version in `backstage.json` | read from `backstage.json` |
-| `PLUGIN_REGISTRY` | `entrypoint.sh:230` | Substituted into plugin OCI registry prefix | `quay.io/veecode` |
-| `CATALOG_INDEX_IMAGE` | `entrypoint.sh:46` | OCI image carrying the marketplace catalog index | `quay.io/veecode/plugin-catalog-index:latest` |
-| `CATALOG_INDEX_REFRESH` | `entrypoint.sh:49` | Force a re-download of the catalog index on boot | `false` |
+| `VEECODE_PRESETS` | `entrypoint.sh` | Comma-separated list of presets to apply | unset (boots barebones) |
+| `VEECODE_APP_CONFIG` | `entrypoint.sh` | Base64-encoded `app-config.yaml` overlay (decodes into `/app/app-config.saas.yaml`) | unset |
+| `VEECODE_DOMAIN` | `entrypoint.sh` | Informational only; logged at startup | unset |
+| `BACKSTAGE_VERSION` | `entrypoint.sh` | Substituted into plugin OCI tag refs; defaults to the version in `backstage.json` | read from `backstage.json` |
+| `PLUGIN_REGISTRY` | `entrypoint.sh` | Substituted into plugin OCI registry prefix | `quay.io/veecode` |
+| `CATALOG_INDEX_IMAGE` | `entrypoint.sh` | OCI image carrying the marketplace catalog index | `quay.io/veecode/plugin-catalog-index:latest` |
+| `CATALOG_INDEX_REFRESH` | `entrypoint.sh` | Force a re-download of the catalog index on boot | `false` |
 | `LOG_LEVEL` | upstream Backstage | Log verbosity | `info` |
-| `DEBUG_PORT` | `entrypoint.sh:290` | If set, enables Node `--inspect=0.0.0.0:$DEBUG_PORT` | unset |
-| `DEVELOPMENT` | `entrypoint.sh:297` | If `true`, runs under nodemon with config watching | `false` |
+| `DEBUG_PORT` | `entrypoint.sh` | If set, enables Node `--inspect=0.0.0.0:$DEBUG_PORT` | unset |
+| `DEVELOPMENT` | `entrypoint.sh` | If `true`, runs under nodemon with config watching | `false` |
 | `NODE_OPTIONS` | runtime | Forwarded to Node; image default `--no-node-snapshot` | image-set |
-| `RBAC_POLICY_PATH` | `app-config.production.yaml:82` | Path inside the container to the RBAC policy CSV the permission backend loads | `/app/rbac-policy.csv` |
+| `RBAC_POLICY_PATH` | `app-config.production.yaml:91` | Path inside the container to the RBAC policy CSV the permission backend loads | `/app/rbac-policy.csv` |
+| `DEVPORTAL_DB_PATH` | `app-config.production.yaml:35` | Directory for the persistent per-plugin sqlite databases (one `<plugin>.sqlite` per plugin). Mount a volume here so DevPortal state — including the marketplace's installed-plugin record — survives a restart | `/app/data` |
 
 ## Theme / branding (legacy chart)
 
 > ⚠️ `THEME_CUSTOM_JSON` with `THEME_MERGE_JSON=false` currently writes to a
-> broken path in `entrypoint.sh:23` (double-`dist`). The merge path
+> broken path in `entrypoint.sh` (double-`dist`). The merge path
 > (`THEME_MERGE_JSON=true`, default) is unaffected. Tracked as a code bug
 > separate from this reference.
 
 | Variable | Source | Purpose |
 |---|---|---|
-| `THEME_DOWNLOAD_URL` | `entrypoint.sh:17` | Download URL for a `theme.json` overlay |
-| `THEME_CUSTOM_JSON` | `entrypoint.sh:20` | Inline `theme.json` content (overrides `THEME_DOWNLOAD_URL`) |
-| `THEME_MERGE_JSON` | `entrypoint.sh:21` | If `false`, replace rather than merge `theme.json` |
-| `THEME_FAV_ICON` | `entrypoint.sh:38` | Favicon download URL |
-| `PLATFORM_DEVPORTAL_THEME_URL` | `entrypoint.sh:6` | Legacy chart equivalent of `THEME_DOWNLOAD_URL` |
-| `PLATFORM_DEVPORTAL_FAVICON` | `entrypoint.sh:11` | Legacy chart equivalent of `THEME_FAV_ICON` |
+| `THEME_DOWNLOAD_URL` | `entrypoint.sh` | Download URL for a `theme.json` overlay |
+| `THEME_CUSTOM_JSON` | `entrypoint.sh` | Inline `theme.json` content (overrides `THEME_DOWNLOAD_URL`) |
+| `THEME_MERGE_JSON` | `entrypoint.sh` | If `false`, replace rather than merge `theme.json` |
+| `THEME_FAV_ICON` | `entrypoint.sh` | Favicon download URL |
+| `PLATFORM_DEVPORTAL_THEME_URL` | `entrypoint.sh` | Legacy chart equivalent of `THEME_DOWNLOAD_URL` |
+| `PLATFORM_DEVPORTAL_FAVICON` | `entrypoint.sh` | Legacy chart equivalent of `THEME_FAV_ICON` |
 
 ## Per-preset variables
 

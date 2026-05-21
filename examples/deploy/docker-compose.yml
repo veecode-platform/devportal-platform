@@ -1,0 +1,38 @@
+# DevPortal — reference deployment for local evaluation and plugin experimentation.
+#
+# This is an ADAPTABLE EXAMPLE, not production infrastructure. It shows the
+# volume contract that lets an operator install / remove / reconfigure plugins
+# with a `restart` instead of a reinstall. For Kubernetes, the same two volumes
+# apply (a PVC for each) — see docs/topics/.
+#
+# Experiment loop:
+#   1. change plugins — edit a bind-mounted dynamic-plugins.yaml (file surface)
+#      or use the in-portal marketplace UI (marketplace surface)
+#   2. docker compose restart devportal
+#   3. state persists; already-downloaded plugins are not re-fetched
+
+services:
+  devportal:
+    image: veecode/devportal:latest   # set the tag you build or pull
+    ports:
+      - "7007:7007"
+    environment:
+      # Presets for your stack. `recommended` enables the marketplace UI.
+      VEECODE_PRESETS: recommended
+    volumes:
+      # Persistent state volume — carries the Backstage database (one
+      # <plugin>.sqlite file per plugin) AND extensions-install.yaml, the
+      # marketplace's record of installed plugins. The marketplace backend
+      # rewrites extensions-install.yaml in place; it must sit on a directory
+      # volume like this one, never a single-file bind mount.
+      - dp-data:/app/data
+      # Persistent plugin store — a restart skips re-downloading plugins that
+      # are already present (fast restart).
+      - dp-plugins:/app/dynamic-plugins-root
+      # File surface (optional): bind your own dynamic-plugins.yaml to enable
+      # plugins by editing YAML, then restart. Uncomment and provide the file.
+      # - ./dynamic-plugins.yaml:/app/dynamic-plugins.yaml:ro
+
+volumes:
+  dp-data:
+  dp-plugins:

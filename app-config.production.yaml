@@ -24,6 +24,15 @@ backend:
     origin: http://localhost:7007
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
+  # Persistent on-disk database — production must persist so state survives a
+  # restart. Backstage's sqlite client writes one <plugin>.sqlite file per
+  # plugin into this directory (see DEVPORTAL_DB_PATH). Supply a
+  # backend.database block via app-config.local.yaml / VEECODE_APP_CONFIG to
+  # use Postgres instead.
+  database:
+    client: better-sqlite3
+    connection:
+      directory: ${DEVPORTAL_DB_PATH:-/app/data}
 
 auth:
   experimentalDynamicClientRegistration:

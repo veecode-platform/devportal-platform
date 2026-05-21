@@ -25,7 +25,7 @@ use"):
 | Path              | When to use                                                                                    | What you set                                                                                                     |
 | ----------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | **Preset**        | Your stack matches a catalog entry (GitHub, Keycloak, Azure, …).                               | `VEECODE_PRESETS=recommended,<integration>,…` + the env vars each preset declares as required.                   |
-| **Raw Backstage** | You need something a preset doesn't cover, or you have a Helm chart that produces these files. | Mount `app-config.local.yaml` (and optionally `dynamic-plugins.yaml`) via volume. Leave `VEECODE_PRESETS` unset. |
+| **Raw Backstage** | You need something a preset doesn't cover, or you have a Helm chart that produces these files. | Mount `app-config.local.yaml` and, when needed, a `dynamic-plugins.yaml` with top-level `plugins:` entries. Leave `VEECODE_PRESETS` unset. |
 
 The two paths layer — even a preset deployment can drop in an
 `app-config.local.yaml` for overrides, and that file always wins.
@@ -101,9 +101,9 @@ What happens at boot, per preset:
    variable fails the boot with exit 78 and a list of every missing
    var across every selected preset.
 2. **`plugins`** are written into `/app/preset-<name>-plugins.yaml`
-   and added to `dynamic-plugins.yaml`'s `includes:` list. The
-   install script then loads each fragment and merges shallow per
-   `package:` key — last-write-wins on the whole entry.
+   and added to the list of plugin files loaded at boot. The install
+   script then loads each one and merges per `package:` key —
+   last-write-wins on the whole entry.
 3. **`appConfig`** is written into
    `/app/app-config.preset-<name>.yaml` and added to the backend's
    `--config` chain (in the preset's position in the list).
@@ -198,21 +198,21 @@ docker run -p 7007:7007 \
 
 Or set `VEECODE_APP_CONFIG` to its base64-encoded contents — the
 entrypoint decodes it into `app-config.saas.yaml`
-([`entrypoint.sh:162-174`](../entrypoint.sh)).
+([`entrypoint.sh`](../entrypoint.sh)).
 
 ### `dynamic-plugins.yaml`
 
-This is where the install script reads plugin entries from. The
-shipped file at `/app/dynamic-plugins.yaml` carries `includes:` for
-the default file + extensions install + any preset fragments. If you
-want to add your own plugins outside of a preset, the cleanest path
-is to volume-mount an `app-config.local.yaml` that sets the
-`dynamicPlugins.frontend.<name>` config, and either:
+This file enables plugins by hand, separately from presets. Add entries
+to its top-level `plugins:` list; the catalog, marketplace, and preset
+plugins are assembled automatically at boot, so this file carries only
+your own entries. If you want to add your own plugins outside of
+a preset, the cleanest path is to volume-mount an `app-config.local.yaml`
+that sets the `dynamicPlugins.frontend.<name>` config, and either:
 
 - Drop a built plugin into `/app/dynamic-plugins-root/<name>/` via
   volume (no install step needed — the bundle is just present).
-- Or mount a custom `dynamic-plugins.yaml` and let the install script
-  download/install your entries.
+- Or mount a custom `dynamic-plugins.yaml` containing `plugins:` entries
+  and let the install script download/install those entries.
 
 The preset path covers the common cases more cleanly, so this should
 be the exception.

@@ -11,7 +11,7 @@ See [ADR-010](adr/010-unified-image-and-presets.md) for the architectural decisi
 ## Two paths of use
 
 1. **Preset path (the shortcut)** — `VEECODE_PRESETS=recommended,veecode-theme,github` plus the env vars the preset requires.
-2. **Raw Backstage path (the escape hatch)** — leave `VEECODE_PRESETS` unset, mount your own `app-config.yaml` + `dynamic-plugins.yaml`.
+2. **Raw Backstage path (the escape hatch)** — leave `VEECODE_PRESETS` unset, mount your own `app-config.yaml` + a `dynamic-plugins.yaml` containing top-level `plugins:` entries.
 
 Both compose naturally — operator overrides via `app-config.local.yaml` always win. See [`topics/configuration-layering.md`](topics/configuration-layering.md).
 

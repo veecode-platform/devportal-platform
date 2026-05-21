@@ -70,7 +70,7 @@ Stage 2 (runtime) is built from the same UBI base and assembles
 ├── app-config.distro.yaml
 ├── dynamic-plugins.yaml
 ├── dynamic-plugins.default.yaml
-├── extensions-install.yaml                  # Created empty if absent at boot
+├── data/extensions-install.yaml             # Marketplace install state; persistent volume, created empty if absent at boot
 ├── rbac-policy.csv                          # rbac-policy-extensions.csv appended at build time
 ├── install-dynamic-plugins.py
 ├── install-dynamic-plugins.sh

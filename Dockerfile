@@ -185,8 +185,11 @@ COPY --chown=default:default --from=builder /build/app-config.yaml /build/app-co
 COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dynamic-plugins-root
 
 # Defensive: install-dynamic-plugins.py writes into this dir at boot, so it
-# must exist even if the baked set above is ever emptied.
-RUN mkdir -p /app/dynamic-plugins-root
+# must exist even if the baked set above is ever emptied. /app/data holds the
+# persistent sqlite database (app-config.production.yaml). Both are created
+# here as the `default` user, so a freshly-created named volume mounted over
+# either path inherits writable ownership.
+RUN mkdir -p /app/dynamic-plugins-root /app/data
 
 # Pull the marketplace's catalog-backend-module-extensions from the RHDH extensions OCI.
 # That module registers the extensions.backstage.io/v1alpha1 Plugin/Package/Collection
@@ -240,7 +243,6 @@ RUN set -e; \
 # Plugin install scripts + config files consumed at startup
 COPY --chown=default:default --from=builder /build/dynamic-plugins.yaml /app/
 COPY --chown=default:default --from=builder /build/dynamic-plugins.default.yaml /app/
-COPY --chown=default:default --from=builder /build/extensions-install.yaml /app/
 COPY --chown=default:default --from=builder /build/presets /app/presets
 COPY --chown=default:default --from=builder /build/docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
 COPY --chown=default:default --chmod=755 --from=builder /build/docker/install-dynamic-plugins.sh /app/install-dynamic-plugins.sh

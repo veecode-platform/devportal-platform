@@ -146,15 +146,16 @@ sugar over the same underlying mechanism, not a replacement for raw Backstage
 configuration:
 
 1. **Preset path (shortcut)** — `VEECODE_PRESETS=recommended,github` plus the
-   required env vars. The entrypoint resolves each preset into a
-   `preset-<name>-plugins.yaml` fragment and a `app-config.preset-<name>.yaml`,
-   appends them to `dynamic-plugins.yaml`'s `includes:`, and adds each app-config
-   as a `--config` flag. Use this when your stack matches one of the catalog
-   entries.
+   required env vars. The entrypoint turns each preset into a
+   `preset-<name>-plugins.yaml` file and an `app-config.preset-<name>.yaml`,
+   adds the plugin file to the list of plugin files loaded at boot, and adds
+   each app-config as a `--config` flag. Use this when your stack matches one
+   of the catalog entries.
 
 2. **Raw Backstage path** — leave `VEECODE_PRESETS` unset and mount your own
-   `app-config.yaml`, `dynamic-plugins.yaml`, and overrides via volume. Internally
-   the image's load order still applies, but the operator owns the full surface.
+   `app-config.yaml`, a `dynamic-plugins.yaml` with `plugins:` entries, and
+   overrides via volume. Internally the image's load order still applies, and
+   the full plugin list is still assembled by the entrypoint at boot.
    Use this when you need something a preset doesn't cover, or when you already
    have a Helm chart that produces these files.
 
@@ -168,9 +169,9 @@ happens at runtime in `install-dynamic-plugins.py` and `entrypoint.sh`, NOT via
 preset inheritance (presets are flat — no `extends:` keyword).
 
 - **Plugins**: each preset's `plugins:` block is written to its own
-  `preset-<name>-plugins.yaml` fragment and added to `dynamic-plugins.yaml`'s
-  `includes:`. `install-dynamic-plugins.py` then loads each fragment and merges
-  per `package` key — **shallow merge, last-write-wins on the entry as a whole**.
+  `preset-<name>-plugins.yaml` file and added to the list of plugin files
+  loaded at boot. `install-dynamic-plugins.py` then loads each file and
+  merges per `package` key — **shallow merge, last-write-wins on the entry as a whole**.
   Caveat: the `package:` field must match the entry already present in
   `dynamic-plugins.default.yaml` exactly. A mismatch installs the plugin a
   second time under a different name and the backend crashes on the duplicate

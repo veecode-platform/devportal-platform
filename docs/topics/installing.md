@@ -32,8 +32,8 @@ docker run --name devportal -d -p 7007:7007 \
 ```
 
 No presets. The entrypoint will print
-`VEECODE: no presets selected (VEECODE_PRESETS unset) — booting image defaults only`
-(see `entrypoint.sh:158`) and start Backstage with guest auth, a sample
+`VEECODE: no presets selected (VEECODE_PRESETS unset) — catalog + marketplace only`
+(see `entrypoint.sh`) and start Backstage with guest auth, a sample
 catalog, and only the core chrome plugins. Open `http://localhost:7007`
 to see the empty portal.
 
@@ -81,14 +81,14 @@ reference lists every preset's required env vars.
 
 Boot takes approximately 60–90 seconds. The sequence:
 
-**1. Preset resolver** (`entrypoint.sh:83–160`)
+**1. Preset resolver** (`entrypoint.sh`)
 
 ```
 VEECODE: preset resolver — VEECODE_PRESETS=recommended,veecode-theme,github
 VEECODE: applying preset "recommended"
 VEECODE: applying preset "veecode-theme"
 VEECODE: applying preset "github"
-VEECODE: dynamic-plugins.yaml includes → [...]
+VEECODE: dynamic plugin includes → [...]
 ```
 
 If a required variable is missing you will see an exit 78 error at this
@@ -181,7 +181,7 @@ environments, set `PLUGIN_REGISTRY` to point at your internal mirror:
 ```
 
 The entrypoint substitutes `${PLUGIN_REGISTRY}` into every plugin OCI
-ref before `install-dynamic-plugins.sh` runs (`entrypoint.sh:226–234`).
+ref before `install-dynamic-plugins.sh` runs (`entrypoint.sh`).
 The full PLUGIN_REGISTRY behavior is documented in `env-vars.md`.
 
 ## Common operations
@@ -208,9 +208,10 @@ docker run --name devportal -d -p 7007:7007 \
   docker.io/veecode/devportal-platform:latest
 ```
 
-`/app/app-config.local.yaml` loads last in the merge chain
-(`entrypoint.sh:276`), after preset configs and distro defaults, so
-any key you set there wins. See `env-vars.md` for `VEECODE_APP_CONFIG`
+`/app/app-config.local.yaml` loads after the distro defaults and the
+preset configs, so it overrides anything a preset set. (The generated
+dynamic-plugins app-config and, on SaaS, `app-config.saas.yaml` load
+after it.) See `env-vars.md` for `VEECODE_APP_CONFIG`
 (base64-encoded alternative to a bind-mount).
 
 ### Inspecting which plugins loaded
