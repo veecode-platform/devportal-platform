@@ -21,9 +21,9 @@ given deployment_ layer, see [`presets/README.md`](../presets/README.md).
 │     - write each preset's `plugins:` into preset-<n>-plugins.yaml │
 │     - write each preset's `appConfig:` into                        │
 │       app-config.preset-<n>.yaml                                   │
-│     - rewrite dynamic-plugins.yaml's `includes:` to chain          │
-│       dynamic-plugins.default.yaml, extensions-install.yaml,       │
-│       and the preset fragments.                                    │
+│     - rewrite the dynamic-plugins shadow `includes:` to chain      │
+│       dynamic-plugins.default.resolved.yaml,                       │
+│       extensions-install.yaml, and the preset fragments.           │
 │  2. Resolve ${BACKSTAGE_VERSION} in any OCI refs (sed in place).   │
 │  3. Run install-dynamic-plugins.sh /app/dynamic-plugins-root       │
 │     ↓                                                              │
@@ -241,5 +241,5 @@ plugins they enable) is the operational interface this image presents
 to its operators. The dynamic plugin _mechanism_ is upstream Backstage
 behaviour with the RHDH packaging conventions. Both layers can be used
 independently: a raw-Backstage operator who builds their own
-`dynamic-plugins.yaml` and skips `VEECODE_PRESETS` entirely is still
-using the same install pipeline.
+`dynamic-plugins.yaml` with top-level `plugins:` entries and skips
+`VEECODE_PRESETS` entirely is still using the same install pipeline.

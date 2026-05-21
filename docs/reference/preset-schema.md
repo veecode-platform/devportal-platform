@@ -159,9 +159,9 @@ When the entrypoint loads multiple presets (`VEECODE_PRESETS=a,b,c`):
    combined error message before the backend starts.
 
 2. **Plugins** — each preset's `plugins:` block is written to its own
-   `preset-<name>-plugins.yaml` fragment and added to `dynamic-plugins.yaml`'s
-   `includes:`. `install-dynamic-plugins.py` then loads each fragment and merges
-   per `package` key — **shallow merge, last-write-wins on the entry as a
+   `preset-<name>-plugins.yaml` file and added to the list of plugin files
+   loaded at boot. `install-dynamic-plugins.py` then loads each file and
+   merges per `package` key — **shallow merge, last-write-wins on the entry as a
    whole**. Two presets that reference the same `package:` produce a single
    installation governed by the later preset's `pluginConfig`.
 

@@ -74,8 +74,10 @@ schema.
 
 **Raw Backstage path.** Skip `VEECODE_PRESETS` entirely. Mount your own
 `app-config.local.yaml` (or use `VEECODE_APP_CONFIG`) carrying the full
-Backstage config for the integrations you want. Files 1–3 still load (they set
-safe defaults like guest auth and local SQLite), but nothing else is added
+Backstage config for the integrations you want. If you need extra dynamic
+plugins, mount a `dynamic-plugins.yaml` with top-level `plugins:` entries; its
+`includes:` list is still rebuilt by the entrypoint. Files 1–3 still load (they
+set safe defaults like guest auth and local SQLite), but nothing else is added
 automatically.
 
 Both paths compose. You can use presets for most settings and still mount a

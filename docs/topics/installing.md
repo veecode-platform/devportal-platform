@@ -88,7 +88,7 @@ VEECODE: preset resolver — VEECODE_PRESETS=recommended,veecode-theme,github
 VEECODE: applying preset "recommended"
 VEECODE: applying preset "veecode-theme"
 VEECODE: applying preset "github"
-VEECODE: dynamic-plugins.yaml includes → [...]
+VEECODE: dynamic plugin includes → [...]
 ```
 
 If a required variable is missing you will see an exit 78 error at this

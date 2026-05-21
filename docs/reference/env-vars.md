@@ -24,7 +24,8 @@ audience: [operator]
 | `DEBUG_PORT` | `entrypoint.sh:290` | If set, enables Node `--inspect=0.0.0.0:$DEBUG_PORT` | unset |
 | `DEVELOPMENT` | `entrypoint.sh:297` | If `true`, runs under nodemon with config watching | `false` |
 | `NODE_OPTIONS` | runtime | Forwarded to Node; image default `--no-node-snapshot` | image-set |
-| `RBAC_POLICY_PATH` | `app-config.production.yaml:82` | Path inside the container to the RBAC policy CSV the permission backend loads | `/app/rbac-policy.csv` |
+| `RBAC_POLICY_PATH` | `app-config.production.yaml:91` | Path inside the container to the RBAC policy CSV the permission backend loads | `/app/rbac-policy.csv` |
+| `DEVPORTAL_DB_PATH` | `app-config.production.yaml:35` | Directory for the persistent per-plugin sqlite databases (one `<plugin>.sqlite` per plugin). Mount a volume here so DevPortal state — including the marketplace's installed-plugin record — survives a restart | `/app/data` |
 
 ## Theme / branding (legacy chart)
 

@@ -21,13 +21,11 @@ each listed preset before Backstage starts; missing required vars cause exit
 78 with a named error before the backend boots.
 
 The image supports two equally valid operator paths. The **preset path** —
-`VEECODE_PRESETS=a,b,c` plus the required env vars — is sugar over the raw
-mechanism: the entrypoint writes each preset's `plugins:` and `appConfig:`
-blocks into fragment files and feeds them to Backstage via the same
-`dynamic-plugins.yaml` includes and `--config` flags an operator would set
-manually. The **raw Backstage path** leaves `VEECODE_PRESETS` unset and has
-the operator mount their own `app-config.yaml`, `dynamic-plugins.yaml`, and
-any overlays. The two paths layer: an operator-mounted
+`VEECODE_PRESETS=a,b,c` plus the required env vars — writes each preset's
+`plugins:` and `appConfig:` blocks into their own files, then loads the plugin
+files at boot and passes the app-configs to Backstage as `--config` flags. The **raw Backstage path** leaves `VEECODE_PRESETS` unset and has the
+operator mount their own `app-config.yaml`, a `dynamic-plugins.yaml` containing
+top-level `plugins:` entries, and any overlays. The two paths layer: an operator-mounted
 `app-config.local.yaml` always wins over preset-generated configs regardless
 of which path initiated the boot. The deep-merge order is covered in the
 [`configuration-layering`](configuration-layering.md) topic; for now the
@@ -128,9 +126,9 @@ If the preset's `plugins:` list is non-empty, the resolver writes:
 /app/preset-<name>-plugins.yaml   →  { plugins: [...] }
 ```
 
-That file is appended to the `includes:` list in `/app/dynamic-plugins.yaml`
-before `install-dynamic-plugins.py` runs. The Python script merges each
-included fragment shallow per `package:` key — the entry in
+That file is added to the list of plugin files loaded at boot, before
+`install-dynamic-plugins.py` runs.
+The Python script merges each included fragment shallow per `package:` key — the entry in
 `dynamic-plugins.default.yaml` is the authoritative record; the preset
 fragment flips `disabled: false` (and optionally sets
 `pluginConfig`). The `package:` value must match exactly; a mismatch
@@ -150,15 +148,15 @@ Backstage's config loader deep-merges `--config` files natively: object
 keys merge recursively, scalar keys are last-write-wins in preset order.
 No manual merge logic runs.
 
-After all presets are processed, the `includes:` array in
-`dynamic-plugins.yaml` looks like:
+After all presets are processed, the assembled list of plugin files
+looks like:
 
 ```
-[dynamic-plugins.default.resolved.yaml, extensions-install.yaml,
+[dynamic-plugins.default.resolved.yaml, /app/data/extensions-install.yaml,
  preset-recommended-plugins.yaml, preset-github-plugins.yaml]
 ```
 
-`entrypoint.sh:150–154` writes this with `yq eval -i` so a `docker
+`entrypoint.sh` writes this with `yq eval -i` so a `docker
 restart` that re-runs the entrypoint is idempotent.
 
 ## The curation boundary

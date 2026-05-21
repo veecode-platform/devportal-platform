@@ -1,40 +1,20 @@
+# Use this file to turn specific plugins on or off.
 #
-# Dynamic plugins boot config — the entry point the install script reads.
+# Only the plugins listed below are affected — everything else the portal
+# already runs stays exactly as it is.
 #
-# At boot, docker/install-dynamic-plugins.py resolves this file: it merges
-# every `includes:` entry, then the top-level `plugins:` list, and installs
-# whatever ends up `disabled: false`. An enabled plugin is fetched (OCI via
-# skopeo, or npm) into /app/dynamic-plugins-root/ and its pluginConfig is
-# merged into a generated app-config. Disabled entries are skipped entirely.
+# To turn a plugin on:
+#   1. Find it in dynamic-plugins.default.yaml — the catalog of every plugin
+#      this image can run, each one ready to use but turned off by default.
+#   2. Copy its `package:` value into the `plugins:` list below and set
+#      `disabled: false`. That is all you need — the plugin's settings come
+#      from the catalog. Add a `pluginConfig:` block only to override them.
+#   3. Restart the container to apply the change.
 #
-# The `includes:` chain below pulls in:
-#   - dynamic-plugins.default.yaml — the full plugin catalog (mostly disabled);
-#   - extensions-install.yaml — plugins enabled via the marketplace UI;
-#   - one preset-<name>-plugins.yaml fragment per selected preset, appended
-#     at boot by entrypoint.sh from VEECODE_PRESETS.
+# To turn a plugin off, add it here with `disabled: true`.
 #
-# The top-level `plugins:` list is the operator's last-word override —
-# merged AFTER every include, so it wins over any preset. Use it to enable
-# (or force-disable) a single plugin without editing the catalog. See
-# docs/PLUGINS.md § "Enabling a specific plugin".
-#
-includes:
-  # Always start by merging the defaults that ship inside the image — the
-  # proto-templates (every shippable plugin, mostly disabled, with pluginConfig).
-  - dynamic-plugins.default.yaml
-  # Plugins installed/enabled via the marketplace UI.
-  - extensions-install.yaml
-  # The entrypoint preset resolver (VEECODE_PRESETS) appends one
-  # `preset-<name>-plugins.yaml` fragment per selected preset to this list at
-  # startup — see entrypoint.sh and presets/README.md.
-
-# This top-level `plugins:` list is the operator's last-word override: it is
-# merged AFTER every `includes:` entry (including the preset fragments), so
-# anything listed here wins over any preset. Keep it EMPTY in the shipped image —
-# plugin selection is driven by dynamic-plugins.default.yaml + VEECODE_PRESETS.
-#
-# (It used to carry disabled stubs for the github/azure/jenkins/kubernetes/MCP
-# plugins and the dynamic-plugins-info override — all exact duplicates of entries
-# already in dynamic-plugins.default.yaml, and, because this list runs last, they
-# silently re-disabled anything an integration preset tried to enable. Removed.)
+# Example:
+#   plugins:
+#     - package: oci://${PLUGIN_REGISTRY}/<image>:bs_${BACKSTAGE_VERSION}!<plugin-name>
+#       disabled: false
 plugins: []
