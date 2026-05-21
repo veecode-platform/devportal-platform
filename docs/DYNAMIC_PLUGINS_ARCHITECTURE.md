@@ -81,7 +81,7 @@ Two kinds of `package:` references:
 - `oci://<registry>/<image>:<tag>!<sub-package>` — OCI artifact,
   pulled via skopeo. `${PLUGIN_REGISTRY}` (default `quay.io/veecode`)
   and `${BACKSTAGE_VERSION}` (from `backstage.json`) in the URL are
-  substituted at boot ([`entrypoint.sh:176-196`](../entrypoint.sh)).
+  substituted at boot ([`entrypoint.sh`](../entrypoint.sh)).
   The bulk of the inventory uses this form — bundles are published by
   [`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays)
   on a per-Backstage-version basis.

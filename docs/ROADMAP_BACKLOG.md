@@ -22,20 +22,6 @@ when `devportal-plugin-export-overlays` publishes a build whose
 catalog-backend-module-extensions doesn't have the `/alpha` import,
 bump `EXTENSIONS_TAG` and delete the patch.
 
-### `dynamic-plugins.yaml` is rewritten in place
-
-`entrypoint.sh` uses `yq -i` to edit `dynamic-plugins.yaml`'s
-`includes:` array at boot. This works fine for the image, but it
-means the file **cannot be bind-mounted** — `yq -i` can't atomically
-replace a single-file bind mount, so the preset fragments never get
-included.
-[`scripts/dev-run.sh:71-79`](../scripts/dev-run.sh) deliberately
-omits it from the overlay set.
-
-Alternatives if this becomes a pain point: rewrite the preset
-resolver to write a new file (e.g. `dynamic-plugins.runtime.yaml`)
-and pass that to the install script, so the source file is read-only.
-
 ### `customResolveDynamicPackage` error path
 
 [`packages/backend/src/index.ts:71-103`](../packages/backend/src/index.ts)

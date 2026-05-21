@@ -53,7 +53,7 @@ use"):
 
 The two paths layer naturally: an operator's `app-config.local.yaml`
 always wins over preset configs (precedence table in
-[`entrypoint.sh:218-227`](../entrypoint.sh)). The docs in this folder
+[`entrypoint.sh`](../entrypoint.sh)). The docs in this folder
 assume the preset path unless they say otherwise.
 
 ## How this differs from `devportal-base` / `devportal-distro`

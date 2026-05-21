@@ -198,7 +198,7 @@ docker run -p 7007:7007 \
 
 Or set `VEECODE_APP_CONFIG` to its base64-encoded contents — the
 entrypoint decodes it into `app-config.saas.yaml`
-([`entrypoint.sh:162-174`](../entrypoint.sh)).
+([`entrypoint.sh`](../entrypoint.sh)).
 
 ### `dynamic-plugins.yaml`
 

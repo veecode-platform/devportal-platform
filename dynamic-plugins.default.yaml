@@ -541,11 +541,11 @@ plugins:
         installation:
           enabled: true
           saveToSingleFile:
-            # Lives under /app/data (a persistent directory volume) — NOT a
-            # single-file bind mount. The marketplace backend rewrites this file
-            # via a temp-file + atomic rename, which fails on a single-file bind
-            # mount. Keep it on the same volume as the database.
-            file: /app/data/extensions-install.yaml
+            # Lives under DEVPORTAL_DB_PATH (a persistent directory volume,
+            # default /app/data) — NOT a single-file bind mount. The marketplace
+            # backend rewrites this file via a temp-file + atomic rename, which
+            # fails on a single-file bind mount. Same directory as the database.
+            file: ${DEVPORTAL_DB_PATH:-/app/data}/extensions-install.yaml
 
   # ── MCP (Model Context Protocol) ───────────────────────────────────
   # MCP Actions Backend — exposes Backstage actions as MCP tools for AI clients

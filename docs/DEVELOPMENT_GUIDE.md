@@ -187,10 +187,10 @@ The script's header documents this and it bites if you forget:
 dev-local` for those.
 - **The Dockerfile itself, dependency manifests, or `package.json`.**
   Rebuild the image.
-- **`dynamic-plugins.yaml`** — bind-mount excluded on purpose. The
-  preset resolver in [`entrypoint.sh:152-156`](../entrypoint.sh) edits
-  it in place with `yq -i`, and `yq` can't atomically replace a
-  single-file bind mount, so preset fragments never get included.
+- **`dynamic-plugins.yaml`** — not in the default overlay set. To test
+  changes to it, bind-mount your own file via `DEVPORTAL_DP_OVERRIDE`;
+  the entrypoint copies it to a writable resolved file, so a read-only
+  mount works.
 - **The `cbme` `/alpha → main` patch** to
   `catalog-backend-module-extensions/dist/module.cjs.js`. The script
   re-applies it automatically on `run`, but only when the overlay
@@ -238,7 +238,7 @@ integrations:
 It is gitignored. `yarn dev-local` reads it as the second `--config`.
 Inside the image, it would also be the last regular config layer
 before `app-config.dynamic-plugins.yaml` and `app-config.saas.yaml`
-([`entrypoint.sh:218-227`](../entrypoint.sh) has the full precedence
+([`entrypoint.sh`](../entrypoint.sh) has the full precedence
 list).
 
 ## Tests

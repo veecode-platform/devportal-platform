@@ -71,21 +71,23 @@ else
     echo "Catalog entities already present, skipping download (set CATALOG_INDEX_REFRESH=true to force)"
 fi
 
-# Ensure the persistent data directory exists before anything writes into it.
-# app-config.production.yaml points backend.database at the directory
-# ${DEVPORTAL_DB_PATH:-/app/data} (one <plugin>.sqlite file per plugin); mount a
-# volume at /app/data to persist DevPortal state — the marketplace's
-# installed-plugin database, and extensions-install.yaml below — across a restart.
-mkdir -p /app/data
+# Resolve the persistent data directory and make sure it exists before anything
+# writes into it. DEVPORTAL_DB_PATH (default /app/data) is the single directory
+# for all persistent DevPortal state — the per-plugin sqlite databases and the
+# extensions-install.yaml below. Mount a volume here so that state survives a
+# restart. app-config.production.yaml points backend.database at the same
+# ${DEVPORTAL_DB_PATH:-/app/data}.
+DEVPORTAL_DB_PATH="${DEVPORTAL_DB_PATH:-/app/data}"
+mkdir -p "$DEVPORTAL_DB_PATH"
 
 # Ensure extensions-install.yaml exists for the Python install script.
 # DB is the source of truth; this file is a write-through cache the marketplace
 # backend regenerates from the DB on every change (extensions.installation.
-# saveToSingleFile.file in dynamic-plugins.default.yaml points here). It MUST
-# live under /app/data — a directory volume — because the marketplace rewrites
-# it via a temp-file + atomic rename, which fails on a single-file bind mount.
-# On first boot it does not exist yet, so create an empty one.
-EXTENSIONS_INSTALL="/app/data/extensions-install.yaml"
+# saveToSingleFile.file in dynamic-plugins.default.yaml points at the same path).
+# It MUST live under DEVPORTAL_DB_PATH — a directory volume — because the
+# marketplace rewrites it via a temp-file + atomic rename, which fails on a
+# single-file bind mount. On first boot it does not exist yet, so create one.
+EXTENSIONS_INSTALL="$DEVPORTAL_DB_PATH/extensions-install.yaml"
 if [ ! -f "$EXTENSIONS_INSTALL" ]; then
     echo 'plugins: []' > "$EXTENSIONS_INSTALL" 2>/dev/null || (echo 'plugins: []' > /tmp/extensions-install.yaml && cp /tmp/extensions-install.yaml "$EXTENSIONS_INSTALL")
 fi
@@ -109,6 +111,10 @@ fi
 DP_YAML=/app/dynamic-plugins.yaml
 DP_YAML_SHADOW=/app/dynamic-plugins.resolved.yaml
 if [ -f "$DP_YAML" ]; then
+    if ! yq eval '.' "$DP_YAML" >/dev/null 2>&1; then
+        echo "VEECODE: FATAL — /app/dynamic-plugins.yaml is not valid YAML; aborting boot" >&2
+        exit 78
+    fi
     cp -f "$DP_YAML" "$DP_YAML_SHADOW"
 else
     echo 'plugins: []' > "$DP_YAML_SHADOW"
@@ -189,8 +195,11 @@ fi
 # read-only. The operator's top-level `plugins:` list from /app/dynamic-plugins.yaml
 # is preserved by the earlier cp, but operator-provided `includes:` are intentionally
 # replaced so both preset and no-preset boots use the same composition path.
-INCLUDES_JSON="$(printf '"%s",' dynamic-plugins.default.resolved.yaml /app/data/extensions-install.yaml $PRESET_INCLUDES | sed 's/,$//')"
-yq eval -i ".includes = [${INCLUDES_JSON}]" "$DP_YAML_SHADOW"
+INCLUDES_JSON="$(printf '"%s",' dynamic-plugins.default.resolved.yaml "$DEVPORTAL_DB_PATH/extensions-install.yaml" $PRESET_INCLUDES | sed 's/,$//')"
+yq eval -i ".includes = [${INCLUDES_JSON}]" "$DP_YAML_SHADOW" || {
+    echo "VEECODE: FATAL — failed to write the includes chain to $DP_YAML_SHADOW; aborting boot" >&2
+    exit 78
+}
 echo "VEECODE: dynamic plugin includes → $(yq eval -o=json -I=0 '.includes' "$DP_YAML_SHADOW")"
 # ── END PRESET RESOLVER ──────────────────────────────────────────────
 
@@ -243,7 +252,7 @@ fi
 BACKSTAGE_VERSION="${BACKSTAGE_VERSION:-$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)}"
 if [ -n "$BACKSTAGE_VERSION" ]; then
     echo "VEECODE: resolving \${BACKSTAGE_VERSION} → $BACKSTAGE_VERSION in plugin OCI refs"
-    for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" /app/data/extensions-install.yaml /app/preset-*-plugins.yaml; do
+    for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" "$DEVPORTAL_DB_PATH/extensions-install.yaml" /app/preset-*-plugins.yaml; do
         [ -f "$f" ] || continue
         sed -i "s/\${BACKSTAGE_VERSION}/$BACKSTAGE_VERSION/g" "$f" 2>/dev/null \
           || echo "VEECODE: note — $f is read-only; \${BACKSTAGE_VERSION} left as-is there (harmless if those refs are disabled)"
@@ -258,7 +267,7 @@ fi
 # PLUGIN_REGISTRY=registry.internal/veecode. Defaults to quay.io/veecode.
 PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
 echo "VEECODE: resolving \${PLUGIN_REGISTRY} → $PLUGIN_REGISTRY in plugin OCI refs"
-for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" /app/data/extensions-install.yaml /app/preset-*-plugins.yaml; do
+for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" "$DEVPORTAL_DB_PATH/extensions-install.yaml" /app/preset-*-plugins.yaml; do
     [ -f "$f" ] || continue
     sed -i "s|\${PLUGIN_REGISTRY}|$PLUGIN_REGISTRY|g" "$f" 2>/dev/null \
       || echo "VEECODE: note — $f is read-only; \${PLUGIN_REGISTRY} left as-is there (harmless if those refs are disabled)"

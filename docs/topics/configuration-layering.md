@@ -37,7 +37,7 @@ Files 1–3 are always present inside the image. File 4 is emitted for each
 preset in `VEECODE_PRESETS` (a preset with no `appConfig:` block produces no
 file). Files 5–7 are conditional: each is skipped if absent.
 
-Source of truth: `entrypoint.sh` lines 257–267 (the comment block) and the
+Source of truth: `entrypoint.sh` (the comment block) and the
 `EXTRA_ARGS` construction that follows.
 
 ## Variable substitution
@@ -91,7 +91,7 @@ the container, encode your operator config as base64 and pass it as
 `/app/app-config.saas.yaml` before starting Backstage:
 
 ```sh
-# entrypoint.sh ~line 168
+# entrypoint.sh
 if [ ! -z "$VEECODE_APP_CONFIG" ]; then
     echo "$VEECODE_APP_CONFIG" | base64 -d > /app/app-config.saas.yaml
 fi

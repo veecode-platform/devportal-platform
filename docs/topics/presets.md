@@ -99,11 +99,11 @@ deployment-specific, not universal chrome.
 
 ## How composition works at runtime
 
-`VEECODE_PRESETS=a,b,c` triggers the preset resolver in `entrypoint.sh`
-(lines 83–160). The resolver runs three steps per preset, in order, before
-the backend starts:
+`VEECODE_PRESETS=a,b,c` triggers the preset resolver in `entrypoint.sh`.
+The resolver runs three steps per preset, in order, before the backend
+starts:
 
-**1. Variable validation** (`entrypoint.sh:115–126`)
+**1. Variable validation** (`entrypoint.sh`)
 
 For each `requires.variables` entry marked `required: true`, the resolver
 checks whether the variable is set in the environment. It accumulates all
@@ -118,7 +118,7 @@ ERROR: the selected preset(s) require variables that are not set:
 Set them via the environment or $VEECODE_APP_CONFIG and restart.
 ```
 
-**2. Plugin fragment** (`entrypoint.sh:128–133`)
+**2. Plugin fragment** (`entrypoint.sh`)
 
 If the preset's `plugins:` list is non-empty, the resolver writes:
 
@@ -135,7 +135,7 @@ fragment flips `disabled: false` (and optionally sets
 installs the plugin a second time and the backend crashes on duplicate
 registration.
 
-**3. App-config fragment** (`entrypoint.sh:135–139`)
+**3. App-config fragment** (`entrypoint.sh`)
 
 If the preset's `appConfig:` block is non-empty, the resolver writes:
 

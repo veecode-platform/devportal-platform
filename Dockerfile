@@ -243,7 +243,6 @@ RUN set -e; \
 # Plugin install scripts + config files consumed at startup
 COPY --chown=default:default --from=builder /build/dynamic-plugins.yaml /app/
 COPY --chown=default:default --from=builder /build/dynamic-plugins.default.yaml /app/
-COPY --chown=default:default --from=builder /build/extensions-install.yaml /app/
 COPY --chown=default:default --from=builder /build/presets /app/presets
 COPY --chown=default:default --from=builder /build/docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
 COPY --chown=default:default --chmod=755 --from=builder /build/docker/install-dynamic-plugins.sh /app/install-dynamic-plugins.sh
