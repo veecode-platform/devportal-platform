@@ -15,6 +15,14 @@ A small `@mui/styles/makeStyles` surface remains in
 - `packages/app/src/components/DynamicRoot/DevportalIcon.tsx`
 - `packages/app/src/components/Root/LogoFull.tsx`
 
+An additional 4 files use `makeStyles` via `tss-react/mui` (the v5-compatible community shim):
+- `packages/app/src/components/catalog/Grid/Grid.tsx`
+- `packages/app/src/components/search/SearchPage.tsx`
+- `packages/app/src/components/Root/Root.tsx`
+- `packages/app/src/components/Root/SidebarLogo.tsx`
+
+Both `@mui/styles` and `tss-react/mui` are migrated opportunistically to `styled()` or `sx` when those files are touched.
+
 These are not on a forced migration timeline — `@mui/styles` is a
 supported MUI v5 package, and the `makeStyles` API works against the
 same theme as `styled()` / `sx`. They are migrated opportunistically
