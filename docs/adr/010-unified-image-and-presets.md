@@ -479,8 +479,7 @@ Tracked in [`docs/ROADMAP_FEATURES.md`](../ROADMAP_FEATURES.md) §
   specification.
 - [`docs/README.md`](../README.md) — entry point for the
   concept-first docs IA (what this image is, two paths of use, where
-  to start by task). Supersedes the deprecated
-  [`docs/PROJECT_CONTEXT.md`](../PROJECT_CONTEXT.md).
+  to start by task).
 - [`docs/UPGRADING_FROM_BASE_DISTRO.md`](../UPGRADING_FROM_BASE_DISTRO.md)
   — customer migration guide (the operator-facing companion to this
   ADR).
