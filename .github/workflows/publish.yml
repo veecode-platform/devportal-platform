@@ -238,9 +238,36 @@ jobs:
         if: failure()
         run: docker logs devportal-dev 2>&1 | tail -200 || true
 
+  smoke-negative:
+    # Axis 3 regression net: assert the boot fails cleanly when configuration
+    # is incomplete. Companion to the happy-path `smoke` matrix above.
+    needs: [validate-tag, build-amd64-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-amd64-test
+          path: /tmp
+
+      - name: Load image into docker
+        run: |
+          docker load < /tmp/image-amd64.tar.gz
+          docker image ls "${IMAGE_NAME}"
+
+      - name: Run negative smoke
+        run: |
+          DEVPORTAL_IMAGE="${IMAGE_NAME}:${VERSION}-amd64-test" \
+            bash scripts/smoke-presets-negative.sh
+
   push-amd64:
-    needs: [validate-tag, build-amd64-test, smoke]
-    if: needs.smoke.result == 'success'
+    needs: [validate-tag, build-amd64-test, smoke, smoke-negative]
+    if: needs.smoke.result == 'success' && needs.smoke-negative.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
