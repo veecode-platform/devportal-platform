@@ -276,6 +276,50 @@ and isn't on the near-term roadmap. The shipped model favours image
 reproducibility (a given image tag always loads the exact same plugin
 bytes) over rolling-update convenience.
 
+
+## Configuration ownership model
+
+The image has **two operator-writable surfaces** for runtime behavior:
+
+1. **`dynamic-plugins.yaml`** (top-level `plugins:` list) — adds or overrides
+   plugin enablements beyond what presets do. The `includes:` key is internal,
+   assembled by the entrypoint on every boot from the catalog plus per-preset
+   fragments. Post-PR #33 (commit fff52e5), `includes:` is not an operator
+   surface; the entrypoint generates it, and operators must not edit it.
+
+2. **`app-config.local.yaml`** (or `VEECODE_APP_CONFIG` base64 env) — layered
+   after preset `appConfig` per the file precedence chain in `entrypoint.sh`.
+
+The image also has **internal artifacts the operator must not edit**:
+
+- The assembled `includes:` chain inside `dynamic-plugins.yaml`.
+- **`dynamic-plugins.default.yaml`** — the catalog (see
+  [ADR-013](./013-plugin-catalog-model.md)). Editing it changes what is
+  *available*, not what is *enabled*; no operator effect without a
+  corresponding selection-surface change.
+
+**Two volume mounts complete the contract:**
+
+- **`/app/data`** — operator-owned **state** (SQLite per-plugin DBs,
+  `extensions-install.yaml` from marketplace UI selections). **Must be a
+  directory mount.** Single-file bind mounts break atomic file rewrites
+  and introduce silent failures in the install logic.
+
+- **`/app/dynamic-plugins-root`** — **bundle cache**. Persisting across
+  restarts amortizes the download cost on subsequent boots.
+
+This ownership model reflects a deliberate persona split: the
+**platform-installer** iterating on plugin choices needs `dynamic-plugins.yaml`
+to be **the** selection surface, with `includes:` invisible and managed by the
+entrypoint. The **product-operator** running production reads the same file but
+typically delegates plugin selection to a preset, treating `dynamic-plugins.yaml`
+as a read-only reference or an optional per-deployment override surface.
+
+Volume mount specifications and examples are documented in
+[`examples/deploy/docker-compose.yml`](../../examples/deploy/docker-compose.yml)
+and [`examples/deploy/k8s.yaml`](../../examples/deploy/k8s.yaml).
+
+
 ## Consequences
 
 ### Benefits
@@ -479,8 +523,7 @@ Tracked in [`docs/ROADMAP_FEATURES.md`](../ROADMAP_FEATURES.md) §
   specification.
 - [`docs/README.md`](../README.md) — entry point for the
   concept-first docs IA (what this image is, two paths of use, where
-  to start by task). Supersedes the deprecated
-  [`docs/PROJECT_CONTEXT.md`](../PROJECT_CONTEXT.md).
+  to start by task).
 - [`docs/UPGRADING_FROM_BASE_DISTRO.md`](../UPGRADING_FROM_BASE_DISTRO.md)
   — customer migration guide (the operator-facing companion to this
   ADR).

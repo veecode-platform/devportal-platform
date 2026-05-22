@@ -6,6 +6,9 @@ _mechanism_ by which plugins are loaded at runtime, read
 [`DYNAMIC_PLUGINS_ARCHITECTURE.md`](DYNAMIC_PLUGINS_ARCHITECTURE.md)
 first.
 
+
+The backend has a **static core** (~56 plugin registrations in [`packages/backend/src/index.ts`](../packages/backend/src/index.ts) covering auth, catalog, scaffolder, RBAC, search, and integrations). These cannot be toggled per-deployment without a code change. The frontend is **fully dynamic** (Scalprum loads plugins at runtime). **Dynamic plugins** (backend or frontend) extend the image via OCI bundles or NPM, enabled/disabled per-deployment via preset or operator override. The remainder of this doc inventories both categories.
+
 ## Three plugin kinds
 
 1. **Static plugins** — compiled into `packages/app` (frontend) and

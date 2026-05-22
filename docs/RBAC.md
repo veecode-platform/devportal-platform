@@ -132,6 +132,8 @@ When you ingest real Users/Groups:
 
 ## Customising RBAC per deployment
 
+A customer-specific RBAC policy is a **deploy-time artifact, not a preset** — see [`presets/README.md` § Discipline](../presets/README.md). Presets ship curated, generic configuration; customer-specific permissions belong in the deployment that consumes the image.
+
 Don't fork the image. Mount a custom policy:
 
 ```bash

@@ -3,10 +3,7 @@
 Releases publish the `docker.io/veecode/devportal-platform:<version>`
 image (plus `:latest`) to Docker Hub.
 
-The publish workflow is **manual-dispatch only**
-([`.github/workflows/publish.yml`](../.github/workflows/publish.yml))
-until the product has a real consumer. Tag-driven publishing is
-prewired in the workflow file but commented out — easy to switch on.
+The publish workflow is **tag-driven AND manual-dispatch** ([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)). Releases can be initiated by pushing a semver tag (`git tag 0.2.0 && git push --tags`) or by manual dispatch (`gh workflow run publish.yml -f version=0.2.0`). A matrix-based smoke gate — every preset and composition listed in [`scripts/smoke-presets.sh`](../scripts/smoke-presets.sh) `ALL_TESTS` (currently 19 entries) plus a negative-regression case — validates the amd64 image before push.
 
 ## How to release
 
@@ -76,26 +73,6 @@ still moved to point at the pre-release — which may not be what you
 want for a pre-release. If you have a stable `:latest`, hold off
 running the manifest job for pre-release versions (currently the
 workflow always writes both tags; see "Future work" below).
-
-## Switching to tag-driven publishing
-
-When the project is ready for routine consumer pulls, the publish
-workflow's `on:` block can be flipped from manual to tag-driven:
-
-```yaml
-# .github/workflows/publish.yml
-on:
-  push:
-    tags:
-      - '*.*.*'
-```
-
-The workflow file already has this as a commented-out block. The
-tag-driven path resolves `VERSION` from `${REF#refs/tags/}` and
-otherwise behaves identically — same `validate-version` semver
-check, same build matrix, same manifest stitching.
-
-The matching release shape: `git tag 0.2.0 && git push --tags`.
 
 ## Inspecting a release
 
