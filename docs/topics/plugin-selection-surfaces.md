@@ -2,7 +2,7 @@
 name: plugin-selection-surfaces
 description: How a plugin is selected and loaded — the four surfaces, their precedence, and operator decision tree.
 type: topic
-audience: [operator, platform-installer]
+audience: [operator]
 related: [dynamic-plugins, presets, configuration-layering]
 ---
 

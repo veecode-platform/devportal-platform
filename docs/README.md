@@ -44,6 +44,7 @@ What this image deliberately does NOT ship:
 - [installing](topics/installing.md): Get from "I want to try this" to a running devportal-platform with a preset enabled in under 30 minutes.
 - [plugin-authoring](topics/plugin-authoring.md): Author flow for a new dynamic plugin — the Backstage plugin code, the dynamic export, the conventions that keep it loadable.
 - [plugin-packaging](topics/plugin-packaging.md): Package an authored plugin as an OCI bundle, publish it, and reference it from devportal-platform.
+- [plugin-selection-surfaces](topics/plugin-selection-surfaces.md): How a plugin is selected and loaded — the four surfaces, their precedence, and operator decision tree.
 - [presets](topics/presets.md): Composable YAML contracts selected at runtime (VEECODE_PRESETS) that turn the generic image into a working IDP for a specific stack.
 - [theming](topics/theming.md): How the VeeCode theme is delivered as a dynamic plugin, and how to ship a customer brand the same way.
 
@@ -65,6 +66,7 @@ _(none yet)_
 - [glossary](reference/glossary.md): Backstage terms used throughout these docs, one-line definitions with upstream links.
 - [preset-schema](reference/preset-schema.md): Complete YAML schema for preset files, including frontmatter, requires, plugins, appConfig, and composition rules.
 - [shipped-presets](reference/shipped-presets.md): All presets shipped in the image, with their required variables and what they enable.
+- [tech-stack](reference/tech-stack.md): Pinned versions of Backstage, Node, Yarn, React, MUI, TypeScript, and the Scalprum runtime.
 
 <!-- END reference-index -->
 
@@ -75,5 +77,6 @@ _(none yet)_
 - [ADR-010: Unified image, preset catalog, OCI dynamic plugins](adr/010-unified-image-and-presets.md)
 - [ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset](adr/011-frontend-design-system.md)
 - [ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)](adr/012-anonymous-ubi-mirror.md)
+- [ADR-013 — Plugin catalog model: *vitrine*, selection surfaces, and the deferred unification](adr/013-plugin-catalog-model.md)
 
 <!-- END adr-index -->

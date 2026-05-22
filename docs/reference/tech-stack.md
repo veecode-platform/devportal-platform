@@ -1,3 +1,10 @@
+---
+name: tech-stack
+description: Pinned versions of Backstage, Node, Yarn, React, MUI, TypeScript, and the Scalprum runtime.
+type: reference
+audience: [operator, contributor]
+---
+
 # Tech stack & pinned versions
 
 | Component | Version | Source of truth |
