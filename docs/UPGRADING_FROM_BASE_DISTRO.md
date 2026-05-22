@@ -214,6 +214,40 @@ custom catalog `locations`, a custom RBAC policy, an extra integration
 host, proxy entries, feature flags — see the "Gap" column and the note
 above it.
 
+### Overriding branding while keeping `veecode-theme`
+
+If your legacy distro deployment swapped logos or palette tokens but
+you don't want to ship a full white-label theme plugin, keep
+`veecode-theme` in your preset list and override `app.branding` at
+runtime via your mounted `app-config.local.yaml`:
+
+```yaml
+# app-config.local.yaml
+app:
+  branding:
+    fullLogo: /my-logo.svg
+    iconLogo: /my-icon.svg
+    fullLogoWidth: 180
+```
+
+Two caveats:
+
+- **`app.title` is baked at image build time** (see the pre-flight
+  callout above). Logos and palette overrides take effect at runtime;
+  the title does not.
+- **The asset must be reachable from the URL you set.** The built-in
+  `/veecode-logo.png` and `/favicon.ico` are served by the backend
+  static handler out of `packages/app/dist/`. To serve your own,
+  either use an absolute URL (`https://cdn.example.com/logo.svg`) or
+  bind-mount your file into the static directory.
+
+For a full white-label — palette, typography, MUI overrides — author
+your own `<company>-theme` preset and **replace** (not compose with)
+`veecode-theme`. The walkthrough is in
+[`docs/topics/theming.md`](./topics/theming.md) §
+"Customizing the theme as a customer" and the rationale in
+[ADR-011](./adr/011-frontend-design-system.md).
+
 ## Step-by-step
 
 ### Self-hosted (`docker run` / `docker-compose`)
@@ -236,9 +270,22 @@ above it.
    useful for chart-managed deployments). Both load after the preset
    configs (see the `Config file precedence` comment block in
    [`entrypoint.sh`](../entrypoint.sh)), so your overrides win.
-5. **Start the container.** If the boot fails with `Preset "<name>"
+5. **Mount the two state volumes.** The image expects:
+   - `/app/data` — directory volume carrying the Backstage SQLite
+     databases (one file per plugin) and `extensions-install.yaml` (the
+     marketplace's record of installed plugins). Must be a **directory**
+     mount, not a single-file bind — the marketplace rewrites
+     `extensions-install.yaml` via atomic temp-file + rename, which
+     fails on a single-file mount.
+   - `/app/dynamic-plugins-root` — directory volume for the resolved
+     dynamic-plugin bundles. Persisting this skips re-download on
+     restart (fast restart). Bundle cache; not state.
+   Without these, every restart wipes the marketplace and re-downloads
+   every plugin bundle. See [`examples/deploy/docker-compose.yml`](../examples/deploy/docker-compose.yml)
+   for the reference shape.
+6. **Start the container.** If the boot fails with `Preset "<name>"
    requires <VAR>` and exits 78, the message names the variable.
-6. **Hit `/healthcheck`** once the container is up.
+7. **Hit `/healthcheck`** once the container is up.
 
 ```sh
 docker run --name devportal -d -p 7007:7007 \
@@ -247,33 +294,59 @@ docker run --name devportal -d -p 7007:7007 \
   -e GITHUB_ORG=my-org \
   -e GITHUB_AUTH_CLIENT_ID=Iv1.… \
   -e GITHUB_AUTH_CLIENT_SECRET=… \
+  -v devportal-data:/app/data \
+  -v devportal-plugins:/app/dynamic-plugins-root \
   veecode/devportal-platform:0.1.0
 ```
 
 For the GitHub stack (above) no `app-config.local.yaml` mount is needed.
 For profiles whose translation row flagged a gap (e.g. `ldap-ad`, `azure`
-sign-in), add the bind-mount described in step 4.
+sign-in), add the bind-mount described in step 4. For a worked reference
+that includes the optional bind of `dynamic-plugins.yaml`, see
+[`examples/deploy/docker-compose.yml`](../examples/deploy/docker-compose.yml).
+
+#### Beyond presets: per-plugin operator surfaces
+
+Presets are the primary selection mechanism. Two surfaces let an
+operator flip individual plugins on top of (or instead of) what a
+preset enables, without rebuilding the image:
+
+- **File surface** — bind-mount `/app/dynamic-plugins.yaml` and edit its
+  top-level `plugins:` list. `includes:` is internal (assembled by the
+  entrypoint) and not an operator surface.
+- **UI surface** — the marketplace at `/extensions/marketplace`
+  (requires the `recommended` preset). Installations persist in
+  `/app/data/extensions-install.yaml` across restarts.
+
+A `docker restart devportal` re-runs the install step; already-cached
+bundles in `/app/dynamic-plugins-root` are not re-downloaded. See
+[`docs/topics/dynamic-plugins.md`](./topics/dynamic-plugins.md) for the
+full boot sequence and failure modes.
 
 ### Helm / Kubernetes
 
 A first-party Helm chart for `devportal-platform` is **not shipped
 yet** — track this in
 [`docs/ROADMAP_FEATURES.md`](./ROADMAP_FEATURES.md) and
-[`docs/ROADMAP_BACKLOG.md`](./ROADMAP_BACKLOG.md). Operators on the
-existing VeeCode Helm chart (which targets `devportal-base` /
-`devportal`) continue to use that chart against the legacy images
-until either a `devportal-platform`-aware chart ships or your
-deployment switches to a plain Deployment + ConfigMap pattern
-mirroring the `docker run` invocation above.
+[`docs/ROADMAP_BACKLOG.md`](./ROADMAP_BACKLOG.md). Until then,
+operators on Kubernetes have two paths:
 
-Specifically, the existing chart's `veecodeProfile:` value has no
-direct equivalent on the platform image — you'd set the
-`VEECODE_PRESETS` env var via the chart's generic-env-vars escape
-hatch, but the chart's Backstage-specific helpers (auth-secret
-projection, profile-keyed ConfigMaps) are coupled to the
-`veecodeProfile:` model and won't all carry over cleanly. If you
-need this path soon, file an issue on the chart repo so the priority
-is visible.
+**1. Plain manifests.** Apply
+[`examples/deploy/k8s.yaml`](../examples/deploy/k8s.yaml) — a
+minimal Deployment + Service + two PVCs (`/app/data`,
+`/app/dynamic-plugins-root`) + an optional carry-over ConfigMap.
+It mirrors the `docker run` invocation above one-to-one, and is the
+recommended path for an operator who needs to deploy today.
+
+**2. The existing VeeCode Helm chart against the legacy images.**
+The chart targets `devportal-base` / `devportal` and stays usable
+against those images. Its `veecodeProfile:` value has no direct
+equivalent on the platform image — you'd set `VEECODE_PRESETS` via
+the chart's generic-env-vars escape hatch, but the chart's
+Backstage-specific helpers (auth-secret projection, profile-keyed
+ConfigMaps) are coupled to the `veecodeProfile:` model and won't all
+carry over cleanly. If you need a platform-aware chart soon, file an
+issue on the chart repo so the priority is visible.
 
 ## Validation
 
@@ -370,6 +443,12 @@ It does not include:
   the visual result is equivalent. A redesign would be a separate
   decision under [ADR-011](./adr/011-frontend-design-system.md) §
   Phase 2.
+- **Runtime override of build-time frontend keys.** `app.title` (and
+  any `app.baseUrl` not env-substituted at boot) are baked into the
+  frontend bundle at image build time and cannot be changed via a
+  mounted `app-config.local.yaml` — see the pre-flight callout under
+  § "Pre-flight: keep your current config readable". Branding logos
+  and palette override correctly at runtime; the title does not.
 
 ## Where to go for help
 

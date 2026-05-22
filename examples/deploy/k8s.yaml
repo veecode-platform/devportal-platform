@@ -1,0 +1,99 @@
+# DevPortal — minimal Kubernetes reference deployment.
+#
+# This is an ADAPTABLE EXAMPLE, not a production manifest. It mirrors the
+# docker-compose.yml in this directory:
+#   - one PVC for state (/app/data)
+#   - one PVC for the plugin bundle cache (/app/dynamic-plugins-root)
+#   - an optional ConfigMap mounted as /app/app-config.local.yaml
+#
+# Apply:
+#   kubectl apply -f k8s.yaml
+#
+# Real deployments will want a Secret for credentials (the env values
+# below are placeholders), resource limits, a chosen StorageClass, an
+# Ingress, and a host that isn't `localhost`.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: devportal-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: devportal-plugins
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devportal-config
+data:
+  # Carry-over app-config.local.yaml — populate with the blocks the
+  # "Gap" column in the UPGRADING_FROM_BASE_DISTRO.md translation table
+  # flagged for your profile. Leave the placeholder if your composition
+  # has no gap (e.g. github,github-auth).
+  app-config.local.yaml: |
+    # backend:
+    #   reading:
+    #     allow:
+    #       - host: extra-internal-host.example.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devportal
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: devportal }
+  template:
+    metadata:
+      labels: { app: devportal }
+    spec:
+      containers:
+        - name: devportal
+          image: veecode/devportal-platform:0.1.0
+          ports:
+            - containerPort: 7007
+          env:
+            - name: VEECODE_PRESETS
+              value: "recommended,veecode-theme,github,github-auth"
+            - name: GITHUB_PAT
+              value: "ghp_…"             # replace with a Secret reference
+            - name: GITHUB_ORG
+              value: "my-org"
+            - name: GITHUB_AUTH_CLIENT_ID
+              value: "Iv1.…"
+            - name: GITHUB_AUTH_CLIENT_SECRET
+              value: "…"                 # replace with a Secret reference
+          volumeMounts:
+            - { name: data,    mountPath: /app/data }
+            - { name: plugins, mountPath: /app/dynamic-plugins-root }
+            - { name: config,  mountPath: /app/app-config.local.yaml, subPath: app-config.local.yaml }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: devportal-data }
+        - name: plugins
+          persistentVolumeClaim: { claimName: devportal-plugins }
+        - name: config
+          configMap: { name: devportal-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devportal
+spec:
+  selector: { app: devportal }
+  ports:
+    - port: 7007
+      targetPort: 7007
