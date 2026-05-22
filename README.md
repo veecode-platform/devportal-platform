@@ -26,8 +26,7 @@ to layer in.
   [`docs/adr/011-frontend-design-system.md`](docs/adr/011-frontend-design-system.md)
   § Phase 2).
 
-For the full picture, start with
-[`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md).
+For the full picture, start with [`docs/README.md`](docs/README.md).
 
 ## Quick start
 
@@ -132,8 +131,8 @@ can override anything without forking the preset.
 
 ## Quick links
 
-- [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md) — what this
-  image is, two paths of use, what's _not_ here.
+- [`docs/README.md`](docs/README.md) — what this image is, two paths
+  of use, what's _not_ here.
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — local
   dev: `yarn dev-local` vs `scripts/dev-run.sh`.
 - [`docs/DOCKER_DEVELOPMENT.md`](docs/DOCKER_DEVELOPMENT.md) —

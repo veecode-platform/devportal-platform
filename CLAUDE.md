@@ -18,7 +18,7 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
 
 ## Understanding the codebase
 
-- docs/PROJECT_CONTEXT.md - What this image is, two paths of use, how it differs from devportal-base/distro
+- docs/README.md - What this image is, two paths of use; docs/UPGRADING_FROM_BASE_DISTRO.md for base/distro migration details
 - docs/MONOREPO_STRUCTURE.md - Yarn 4 root workspace; dynamic plugins now consumed as OCI bundles
 - docs/DEVELOPMENT_GUIDE.md - Local dev: `yarn dev-local` (Node loop) vs `scripts/dev-run.sh` (image overlay)
 - docs/DOCKER_DEVELOPMENT.md - Unified image build, build-args, the `cbme` stopgap
