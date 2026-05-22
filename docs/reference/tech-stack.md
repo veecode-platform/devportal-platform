@@ -12,7 +12,7 @@
 
 ## Frontend system
 
-Backstage **legacy frontend system** (`createApp` from `@backstage/app-defaults`) inside a Scalprum host. The New Frontend System is **deferred** — see [ADR-011 § Phase 2](../adr/011-frontend-design-system.md).
+Backstage **legacy frontend system** (`createApp` from `@backstage/app-defaults`) inside a Scalprum host. The New Frontend System is **deferred** — see [ADR-011 § "Phase the rest"](../adr/011-frontend-design-system.md).
 
 ## Backstage version bump cadence
 

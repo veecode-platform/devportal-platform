@@ -35,9 +35,13 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
 - docs/ROADMAP_FEATURES.md - What's planned (more presets, MCP preset, 1.50 bump, NFS)
 - docs/ROADMAP_BACKLOG.md - Known tech debt and gotchas to clean up
 - docs/adr/ - Architecture Decision Records:
+  - ADR-010: Unified image, preset catalog, OCI dynamic plugins
   - ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset
   - ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)
+  - ADR-013: Plugin catalog model — *vitrine*, selection surfaces, deferred unification
 - presets/README.md + presets/SCHEMA.md - The preset model itself (tiers, requires.variables, composition)
+
+**Doc discipline.** Every claim in these docs is verified against this repo's code at the time of writing. Do not infer behavior from `devportal-base` or `devportal-distro` — if a fact isn't backed by code here, it isn't true here. When in doubt, re-verify against the current code.
 
 ## Known Issues
 

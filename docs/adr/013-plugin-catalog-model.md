@@ -217,11 +217,11 @@ Three approaches were evaluated for when and how to converge to a single vitrine
 
 ## Cross-references
 
-- **[ADR-010 § Unified image and presets](./010-unified-image-and-presets.md)** — defines the preset model, the boot-time resolver logic, and the conceptual split between *catalog* and *selection*.
-- **[ADR-011 § Frontend design system](./011-frontend-design-system.md)** — documents the theme system as a dynamic plugin enabled by preset.
+- **[ADR-010](./010-unified-image-and-presets.md)** — defines the preset model, the boot-time resolver logic, and the conceptual split between *catalog* and *selection*.
+- **[ADR-011](./011-frontend-design-system.md)** — documents the theme system as a dynamic plugin enabled by preset.
 - **[topics/plugin-selection-surfaces.md](../topics/plugin-selection-surfaces.md)** — operator-facing documentation of the three selection surfaces, precedence rules, and decision tree for operators choosing which surface to use.
-- **[PR #32](https://github.com/veecode-io/devportal-platform/pull/32)** — implements the duplicate-plugin detector guard-rail (shipped 2026-05-20).
-- **`entrypoint.sh`** — lines 43–72 (catalog index download via skopeo), 83–160 (preset resolver with variable validation), 192–203 (includes chain assembly), 220–274 (template substitution for version and registry placeholders).
+- **[PR #32](https://github.com/veecode-platform/devportal-platform/pull/32)** — implements the duplicate-plugin detector guard-rail (shipped 2026-05-20).
+- **`entrypoint.sh`** — lines 43–72 (catalog index download via skopeo), 123–204 (preset resolver with variable validation + includes chain assembly), 220–274 (template substitution for version and registry placeholders).
 
 ## Implementation notes for future unification work
 

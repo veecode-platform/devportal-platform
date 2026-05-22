@@ -3,7 +3,7 @@
 Releases publish the `docker.io/veecode/devportal-platform:<version>`
 image (plus `:latest`) to Docker Hub.
 
-The publish workflow is **tag-driven AND manual-dispatch** ([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)). Releases can be initiated by pushing a semver tag (`git tag 0.2.0 && git push --tags`) or by manual dispatch (`gh workflow run publish.yml -f version=0.2.0`). A matrix-based smoke gate (13 preset boot tests + 1 negative regression) validates the amd64 image before push.
+The publish workflow is **tag-driven AND manual-dispatch** ([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)). Releases can be initiated by pushing a semver tag (`git tag 0.2.0 && git push --tags`) or by manual dispatch (`gh workflow run publish.yml -f version=0.2.0`). A matrix-based smoke gate — every preset and composition listed in [`scripts/smoke-presets.sh`](../scripts/smoke-presets.sh) `ALL_TESTS` (currently 19 entries) plus a negative-regression case — validates the amd64 image before push.
 
 ## How to release
 
