@@ -273,10 +273,20 @@ your own `<company>-theme` preset and **replace** (not compose with)
 5. **Mount the two state volumes.** The image expects:
    - `/app/data` — directory volume carrying the Backstage SQLite
      databases (one file per plugin) and `extensions-install.yaml` (the
-     marketplace's record of installed plugins). Must be a **directory**
-     mount, not a single-file bind — the marketplace rewrites
-     `extensions-install.yaml` via atomic temp-file + rename, which
-     fails on a single-file mount.
+     marketplace's write-through cache; the per-plugin SQLite DB is the
+     source of truth and the file is regenerated from it on every change).
+     The Dockerfile declares `VOLUME /app/data`, so even a bare
+     `docker run` without `-v` gets an anonymous volume here and state
+     survives container restart; for persistence across container
+     recreation, use a named volume (or the shipped compose file).
+     Must be a **directory** mount, not a single-file bind — the
+     marketplace rewrites `extensions-install.yaml` via atomic temp-file +
+     rename, which fails on a single-file mount.
+     **Migrating from distro:** the legacy `/app/extensions-install.yaml`
+     bind-mount path is gone. The platform image only reads/writes
+     `/app/data/extensions-install.yaml` and ignores the legacy path
+     entirely. Drop any `-v /host/x.yaml:/app/extensions-install.yaml`
+     from your old `docker run` command.
    - `/app/dynamic-plugins-root` — directory volume for the resolved
      dynamic-plugin bundles. Persisting this skips re-download on
      restart (fast restart). Bundle cache; not state.

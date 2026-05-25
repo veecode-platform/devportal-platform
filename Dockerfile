@@ -191,6 +191,13 @@ COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dy
 # either path inherits writable ownership.
 RUN mkdir -p /app/dynamic-plugins-root /app/data
 
+# Declare /app/data as a volume so `docker run` without an explicit -v still
+# gets an anonymous volume mounted here. Marketplace state (extensions-install.yaml,
+# write-through cache of the per-plugin SQLite DBs) then survives a `docker stop/
+# start` cycle without operator action. For persistence across container recreation
+# operators still need a named volume (or use the shipped docker-compose.yml).
+VOLUME /app/data
+
 # Pull the marketplace's catalog-backend-module-extensions from the RHDH extensions OCI.
 # That module registers the extensions.backstage.io/v1alpha1 Plugin/Package/Collection
 # entity kinds and ingests the plugin-catalog-index (the ~215 YAMLs entrypoint.sh downloads
