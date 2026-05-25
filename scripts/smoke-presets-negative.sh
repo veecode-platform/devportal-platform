@@ -6,7 +6,8 @@
 # and asserts:
 #   1. container exits with code 78 (the preset/var fail-fast code),
 #   2. boot was fast (≤15s — fail-fast happens before Backstage starts),
-#   3. the error message names the missing variable (or the unknown preset).
+#   3. the error message names the offending input (missing variable, unknown
+#      preset, or exclusive-group conflict).
 #
 # Companion to smoke-presets.sh (which exercises the happy path). The two
 # scripts together protect the Axis 3 contract: "configuration is explicit
@@ -89,6 +90,10 @@ run_case ldap_missing_secret      "ldap"       "LDAP_SECRET"       "require vari
 
 # 2. Unknown preset name — different code path, same exit code, same UX contract.
 run_case preset_not_found         "naoexiste"  "not found"         "available presets"
+
+# 3. Exclusive-group conflict — two identity presets selected. Fail-fast runs
+#    before any download or var validation; no env vars needed.
+run_case identity_exclusive_group "github-auth,keycloak" "exclusive group" "cannot be selected together"
 
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
