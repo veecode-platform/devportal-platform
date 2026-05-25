@@ -40,6 +40,27 @@ if [ -n "$THEME_FAV_ICON" ]; then
     curl -L -o /app/packages/app/dist/favicon.ico "$THEME_FAV_ICON"
 fi
 
+# ENTRYPOINT FAIL-FAST: exclusive_group conflicts
+# Runs before any download so a bad VEECODE_PRESETS value fails immediately.
+if [ -n "$VEECODE_PRESETS" ]; then
+    _SEEN_GROUPS=""
+    for _preset in ${VEECODE_PRESETS//,/ }; do
+        _pfile="/app/presets/$_preset.yaml"
+        [ ! -f "$_pfile" ] && continue
+        _group="$(yq eval '.exclusive_group // ""' "$_pfile" 2>/dev/null)"
+        if [ -n "$_group" ]; then
+            _existing="$(echo "$_SEEN_GROUPS" | grep "^${_group}=" | cut -d= -f2)"
+            if [ -n "$_existing" ]; then
+                echo "ERROR: presets \"$_existing\" and \"$_preset\" belong to the exclusive group \"$_group\" and cannot be selected together."
+                echo "       Select only one identity preset: github-auth, azure-auth, gitlab, keycloak, ldap."
+                exit 78
+            fi
+            _SEEN_GROUPS="${_SEEN_GROUPS}${_group}=${_preset}"$'\n'
+        fi
+    done
+    unset _preset _pfile _group _existing _SEEN_GROUPS
+fi
+
 # ENTRYPOINT DOWNLOAD CATALOG INDEX
 # Downloads the marketplace catalog entities (Plugin/Package/Collection YAMLs)
 # from the OCI catalog index image published by export-overlays.
@@ -139,23 +160,6 @@ PRESET_INCLUDES=""
 if [ -n "$VEECODE_PRESETS" ]; then
     echo "VEECODE: preset resolver — VEECODE_PRESETS=$VEECODE_PRESETS"
     MISSING_VARS=""
-
-    # Pre-pass: detect exclusive_group conflicts before any preset is applied.
-    SEEN_EXCLUSIVE_GROUPS=""
-    for preset in ${VEECODE_PRESETS//,/ }; do
-        PRESET_FILE="$PRESETS_DIR/$preset.yaml"
-        [ ! -f "$PRESET_FILE" ] && continue   # file-not-found is caught in the main loop
-        group="$(yq eval '.exclusive_group // ""' "$PRESET_FILE" 2>/dev/null)"
-        if [ -n "$group" ]; then
-            existing="$(echo "$SEEN_EXCLUSIVE_GROUPS" | grep "^${group}=" | cut -d= -f2)"
-            if [ -n "$existing" ]; then
-                echo "ERROR: presets \"$existing\" and \"$preset\" belong to the exclusive group \"$group\" and cannot be selected together."
-                echo "       Select only one identity preset: github-auth, azure-auth, gitlab, keycloak, ldap."
-                exit 78
-            fi
-            SEEN_EXCLUSIVE_GROUPS="${SEEN_EXCLUSIVE_GROUPS}${group}=${preset}"$'\n'
-        fi
-    done
 
     for preset in ${VEECODE_PRESETS//,/ }; do
         PRESET_FILE="$PRESETS_DIR/$preset.yaml"
