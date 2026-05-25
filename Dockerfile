@@ -254,11 +254,24 @@ COPY --chown=default:default --from=builder /build/presets /app/presets
 COPY --chown=default:default --from=builder /build/docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
 COPY --chown=default:default --chmod=755 --from=builder /build/docker/install-dynamic-plugins.sh /app/install-dynamic-plugins.sh
 
-# Marketplace catalog entities (baked-in fallback; entrypoint refreshes from OCI at boot)
-COPY --chown=default:default --from=builder /build/catalog-entities /app/catalog-entities
-RUN mkdir -p /app/catalog-entities/extensions/plugins \
-            /app/catalog-entities/extensions/packages \
-            /app/catalog-entities/extensions/collections
+# Marketplace catalog entities — bake a snapshot from the OCI catalog index so
+# every fresh container starts ready (~157KB tarball, ~220 YAMLs as of bs_1.49.4).
+# The entrypoint's PACKAGES_COUNT guard skips the runtime download when these
+# are present. Operators force a runtime refresh with CATALOG_INDEX_REFRESH=true,
+# which overlays a fresh download on top of the baked snapshot.
+ARG CATALOG_INDEX_IMAGE=quay.io/veecode/plugin-catalog-index:latest
+RUN set -e; \
+    mkdir -p /app/catalog-entities/extensions/plugins \
+             /app/catalog-entities/extensions/packages \
+             /app/catalog-entities/extensions/collections; \
+    TMP_CATALOG="$(mktemp -d)"; \
+    skopeo copy "docker://${CATALOG_INDEX_IMAGE}" "dir:$TMP_CATALOG"; \
+    LAYER=$(jq -r '.layers[0].digest' "$TMP_CATALOG/manifest.json" | sed 's/sha256://'); \
+    tar -xf "$TMP_CATALOG/$LAYER" -C /app/catalog-entities/extensions --strip-components=1 2>/dev/null \
+      || tar -xzf "$TMP_CATALOG/$LAYER" -C /app/catalog-entities/extensions --strip-components=1; \
+    YAML_COUNT=$(find /app/catalog-entities/extensions -name '*.yaml' | wc -l); \
+    echo "Baked catalog index: $YAML_COUNT YAMLs from $CATALOG_INDEX_IMAGE"; \
+    rm -rf "$TMP_CATALOG"
 
 # Version stamp consumed by the about plugin
 ARG DEVPORTAL_VERSION=dev
