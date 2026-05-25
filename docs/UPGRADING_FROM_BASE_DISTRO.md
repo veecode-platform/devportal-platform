@@ -98,6 +98,18 @@ a preset.
 > of frontend config (themes, integrations, feature flags) are
 > unaffected and override correctly at runtime.
 
+> ⚠ **`app-config.distro.yaml` ↔ preset precedence inverted.**
+> On the legacy distro image, `app-config.distro.yaml` loaded **after**
+> your `app-config.<profile>.yaml`, so distro defaults overrode profile
+> settings. On the platform image, the preset `appConfig` loads **after**
+> `app-config.distro.yaml`, so the preset wins. The change is intentional
+> (explicit operator choice should beat repo-baked defaults), but it
+> reverses behavior for any deployment that customized
+> `app-config.distro.yaml` to override a profile setting — against its
+> intended use as repo-only defaults, but it happened. Move those
+> overrides into your mounted `app-config.local.yaml` (which still loads
+> after the preset on both images) so they keep winning.
+
 If you're on the SaaS-managed VeeCode Platform, the migration is
 operator-side (you don't run `docker run`), and there is **no
 automatic migration tool today** — track the follow-up in

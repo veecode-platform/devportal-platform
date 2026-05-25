@@ -40,6 +40,14 @@ if [ -n "$THEME_FAV_ICON" ]; then
     curl -L -o /app/packages/app/dist/favicon.ico "$THEME_FAV_ICON"
 fi
 
+# Legacy distro var compat: devportal-platform uses VEECODE_PRESETS (compose),
+# not VEECODE_PROFILE (one-of). If an operator migrated from devportal-distro and
+# left the legacy var in their env, warn now so they don't later remove
+# VEECODE_PRESETS thinking VEECODE_PROFILE is doing the work.
+if [ -n "$VEECODE_PROFILE" ]; then
+    echo "WARNING: VEECODE_PROFILE=$VEECODE_PROFILE is set but ignored on devportal-platform — use VEECODE_PRESETS instead. See docs/UPGRADING_FROM_BASE_DISTRO.md."
+fi
+
 # ENTRYPOINT FAIL-FAST: exclusive_group conflicts
 # Runs before any download so a bad VEECODE_PRESETS value fails immediately.
 if [ -n "$VEECODE_PRESETS" ]; then
