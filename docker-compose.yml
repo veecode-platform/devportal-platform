@@ -1,0 +1,35 @@
+# VeeCode DevPortal — standard deployment file.
+#
+# Quick start:
+#   cp .env.example .env    # edit VEECODE_PRESETS and any required vars
+#   docker compose up -d
+#   docker compose logs -f devportal
+#
+# The two named volumes are what make restart cheap:
+#   dp-data     — Backstage SQLite databases + marketplace state (extensions-install.yaml).
+#                 Without this, every restart wipes the catalog cache and marketplace installs.
+#   dp-plugins  — downloaded OCI plugin bundles. Without this, every restart re-fetches all
+#                 plugins from quay.io (~60–90s). With it, only changed or new plugins are
+#                 fetched on restart.
+#
+# Plugin override loop (platform-installer persona):
+#   1. Edit dynamic-plugins.yaml in this directory (uncomment the bind-mount below).
+#   2. docker compose restart devportal
+#   3. Plugins are toggled without rebuilding or re-downloading anything.
+
+services:
+  devportal:
+    image: veecode/devportal-platform:latest
+    ports:
+      - "7007:7007"
+    env_file:
+      - .env
+    volumes:
+      - dp-data:/app/data
+      - dp-plugins:/app/dynamic-plugins-root
+      # Operator plugin overrides — uncomment to enable:
+      # - ./dynamic-plugins.yaml:/app/dynamic-plugins.yaml:ro
+
+volumes:
+  dp-data:
+  dp-plugins:

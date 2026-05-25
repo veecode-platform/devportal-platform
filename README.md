@@ -30,85 +30,42 @@ For the full picture, start with [`docs/README.md`](docs/README.md).
 
 ## Quick start
 
-Run the image with no preset to get a barebones DevPortal (guest
-auth, sample catalog, just the core plugins enabled):
-
 ```sh
-docker run --name devportal -d -p 7007:7007 \
-  veecode/devportal-platform:latest
+cp .env.example .env          # copy the template
+# edit .env: set VEECODE_PRESETS and any required vars for your presets
+docker compose up -d
+docker compose logs -f devportal
 ```
 
-Open `http://localhost:7007`.
+Open `http://localhost:7007`. First boot takes 60–90 seconds while
+plugins are pulled from the OCI registry. Subsequent restarts are
+faster because pulled bundles are cached in the `dp-plugins` volume.
 
-For a richer out-of-the-box experience, turn on `recommended` and the
-VeeCode theme:
+### Choosing presets
 
-```sh
-docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PRESETS=recommended,veecode-theme \
-  veecode/devportal-platform:latest
-```
+Edit `VEECODE_PRESETS` in `.env`. Presets compose — combine as many
+as you need:
 
-That adds the marketplace, RBAC UI, tech-radar (with sample data),
-the pending-changes badge, and the VeeCode brand theme.
+| Want | Add to `VEECODE_PRESETS` | Required vars |
+|------|--------------------------|---------------|
+| Marketplace + RBAC + tech-radar | `recommended` | none |
+| VeeCode brand theme | `veecode-theme` | none |
+| GitHub catalog + scaffolder | `github` | `GITHUB_PAT`, `GITHUB_ORG` |
+| GitHub OAuth login | `github-auth` | above + `GITHUB_AUTH_CLIENT_ID`, `GITHUB_AUTH_CLIENT_SECRET` |
+| GitLab | `gitlab` | `GITLAB_HOST`, `GITLAB_TOKEN`, `GITLAB_GROUP`, OAuth creds |
+| Keycloak / OIDC login | `keycloak` | `KEYCLOAK_BASE_URL`, realm, client creds, `AUTH_SESSION_SECRET` |
+| Azure DevOps | `azure` | `AZURE_DEVOPS_TOKEN`, org, project |
+| Microsoft sign-in | `azure-auth` | Entra tenant + client creds |
+| Kubernetes workloads | `kubernetes` | cluster name, URL, token |
+| SonarQube | `sonarqube` | `SONARQUBE_BASE_URL`, `SONARQUBE_API_KEY` |
+| Jenkins CI | `jenkins` | `JENKINS_URL`, username, token |
+| LDAP users/groups | `ldap` | LDAP URL, bind DN + secret, user/group base DNs |
+| AI chat UI | `mcp,mcp-chat` | `MCP_CHAT_PROVIDER`, `MCP_CHAT_API_KEY`, `MCP_CHAT_MODEL` |
 
-### Enabling GitHub integration
+`.env.example` has all vars pre-grouped by preset. The boot fails fast
+(exit 78, ~3 s) with a message naming every missing var if you forget one.
 
-The `github` preset configures the (static) GitHub catalog provider
-and the GitHub integration so the scaffolder can create repos. It
-needs:
-
-```sh
-docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PRESETS=recommended,veecode-theme,github \
-  -e GITHUB_PAT=ghp_…                  \
-  -e GITHUB_ORG=my-org                 \
-  veecode/devportal-platform:latest
-```
-
-> **Note.** The `github` preset wires the catalog provider, the
-> scaffolder integration, and the GitHub Actions UI — but it does
-> **not** configure the GitHub auth provider (OAuth login). To enable
-> GitHub login, mount an `app-config.local.yaml` that sets
-> `auth.providers.github.production.{clientId,clientSecret}` and
-> `app.baseUrl` / `backend.baseUrl` for your callback URL.
-> [`docs/CONFIGURATION_GUIDE.md`](docs/CONFIGURATION_GUIDE.md) covers
-> the raw-Backstage layering path.
-
-See [`presets/github.yaml`](presets/github.yaml) for the full preset
-definition.
-
-### Enabling Keycloak login
-
-The `keycloak` preset wires the OIDC auth provider end-to-end plus
-the Keycloak user/group catalog sync. It needs:
-
-```sh
-docker run --name devportal -d -p 7007:7007 \
-  -e VEECODE_PRESETS=recommended,veecode-theme,keycloak \
-  -e KEYCLOAK_BASE_URL=https://keycloak.example.com/auth \
-  -e KEYCLOAK_REALM=my-realm \
-  -e KEYCLOAK_CLIENT_ID=backstage \
-  -e KEYCLOAK_CLIENT_SECRET=… \
-  -e AUTH_SESSION_SECRET=$(openssl rand -base64 32) \
-  veecode/devportal-platform:latest
-```
-
-See [`presets/keycloak.yaml`](presets/keycloak.yaml).
-
-### Other integration presets
-
-`azure`, `gitlab`, `ldap`, `jenkins`, `kubernetes`, `sonarqube` are
-all available in [`presets/`](presets/). Each preset's
-`requires.variables` lists the env vars the operator must set, with
-a `docs` URL pointing at the provider's documentation.
-
-Presets compose: `VEECODE_PRESETS=recommended,veecode-theme,github,keycloak,sonarqube`
-combines them. The boot fails fast (exit 78) with a clear message if
-any required env var is missing.
-
-The full preset catalog is documented in
-[`docs/CONFIGURATION_GUIDE.md`](docs/CONFIGURATION_GUIDE.md).
+For the full preset reference see [`docs/reference/shipped-presets.md`](docs/reference/shipped-presets.md).
 
 ### Boot config precedence
 
