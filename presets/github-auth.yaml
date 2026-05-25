@@ -1,6 +1,7 @@
 name: github-auth
 description: GitHub OAuth sign-in + org/team user sync. Compose with `github` for full GitHub stack, or with another SCM preset to use GitHub as identity only.
 version: 1.0.0
+exclusive_group: identity
 
 requires:
   variables:

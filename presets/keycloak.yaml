@@ -1,6 +1,7 @@
 name: keycloak
 description: Keycloak/OIDC auth + user/group sync — configures the static OIDC provider and keycloakOrg catalog provider.
 version: 1.0.0
+exclusive_group: identity
 
 requires:
   variables:
@@ -35,6 +36,12 @@ plugins: []
 
 appConfig:
   signInPage: keycloak
+
+  platform:
+    guest:
+      enabled: false
+    signInProviders:
+      - keycloak
 
   auth:
     session:

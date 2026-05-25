@@ -1,6 +1,7 @@
 name: gitlab
 description: GitLab OAuth auth + repo/org discovery — configures the static GitLab auth provider and GitLab catalog provider.
 version: 1.0.0
+exclusive_group: identity
 
 requires:
   variables:
@@ -39,6 +40,12 @@ plugins: []
 
 appConfig:
   signInPage: gitlab
+
+  platform:
+    guest:
+      enabled: false
+    signInProviders:
+      - gitlab
 
   auth:
     environment: production

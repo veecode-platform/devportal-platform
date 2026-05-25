@@ -1,6 +1,7 @@
 name: azure-auth
 description: Microsoft (Entra ID / Azure AD) OAuth sign-in + Microsoft Graph user/group sync. Compose with `azure` for full Microsoft stack (DevOps + identity), or with another SCM preset to use Entra as identity only.
 version: 1.0.0
+exclusive_group: identity
 
 requires:
   variables:

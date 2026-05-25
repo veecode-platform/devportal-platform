@@ -139,6 +139,13 @@ ADR-010 calls for adding `requires.presets:` to the schema):
 - `ldap-ad` requires `ldap` — AD overrides the OpenLDAP defaults in `ldap`.
   `VEECODE_PRESETS=ldap,ldap-ad` (in that order; later --config files win).
 
+**Mutually exclusive groups** — some presets declare an `exclusive_group` field. The
+resolver fails fast (exit 78) if two selected presets share the same group value, before
+any preset config is applied. Currently the only defined group is `identity`, shared by
+`github-auth`, `azure-auth`, `gitlab`, `keycloak`, and `ldap`. Selecting more than one
+is always wrong — only one `signInPage` and one primary auth provider can be active at
+boot.
+
 ## Two primary paths of use
 
 This image supports **two equally first-class** operator paths — preset is

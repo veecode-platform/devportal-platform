@@ -139,6 +139,24 @@ PRESET_INCLUDES=""
 if [ -n "$VEECODE_PRESETS" ]; then
     echo "VEECODE: preset resolver — VEECODE_PRESETS=$VEECODE_PRESETS"
     MISSING_VARS=""
+
+    # Pre-pass: detect exclusive_group conflicts before any preset is applied.
+    SEEN_EXCLUSIVE_GROUPS=""
+    for preset in ${VEECODE_PRESETS//,/ }; do
+        PRESET_FILE="$PRESETS_DIR/$preset.yaml"
+        [ ! -f "$PRESET_FILE" ] && continue   # file-not-found is caught in the main loop
+        group="$(yq eval '.exclusive_group // ""' "$PRESET_FILE" 2>/dev/null)"
+        if [ -n "$group" ]; then
+            existing="$(echo "$SEEN_EXCLUSIVE_GROUPS" | grep "^${group}=" | cut -d= -f2)"
+            if [ -n "$existing" ]; then
+                echo "ERROR: presets \"$existing\" and \"$preset\" belong to the exclusive group \"$group\" and cannot be selected together."
+                echo "       Select only one identity preset: github-auth, azure-auth, gitlab, keycloak, ldap."
+                exit 78
+            fi
+            SEEN_EXCLUSIVE_GROUPS="${SEEN_EXCLUSIVE_GROUPS}${group}=${preset}"$'\n'
+        fi
+    done
+
     for preset in ${VEECODE_PRESETS//,/ }; do
         PRESET_FILE="$PRESETS_DIR/$preset.yaml"
         if [ ! -f "$PRESET_FILE" ]; then

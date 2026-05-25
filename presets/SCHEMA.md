@@ -8,6 +8,7 @@ A preset is a YAML document with the following top-level fields.
 name: string                    # required, kebab-case
 description: string             # required, one-line summary
 version: semver                 # required, e.g. "1.0.0"
+exclusive_group: string         # optional; only one preset per group may be selected
 
 requires:                       # optional, default: empty
   variables: {}
@@ -38,6 +39,16 @@ Semver (`1.0.0`). Bump when the preset's contract changes:
 - **major** — removed/renamed a required variable, removed a plugin
 
 Operators pin against major versions when they care about stability.
+
+### `exclusive_group`
+
+Optional string. When set, the entrypoint fails (exit 78) if two selected presets share
+the same value — before any preset config is applied or any file is written to disk.
+Intended for categories where selecting more than one is always wrong at runtime.
+
+Currently defined group: `identity` — shared by `github-auth`, `azure-auth`, `gitlab`,
+`keycloak`, and `ldap`. Only one identity provider can be active at boot (one `signInPage`,
+one primary auth provider). Error message names both conflicting presets and the group.
 
 ## `requires.variables`
 

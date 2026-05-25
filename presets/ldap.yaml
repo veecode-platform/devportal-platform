@@ -1,6 +1,7 @@
 name: ldap
 description: LDAP auth + user/group sync — configures the static LDAP auth provider and ldapOrg catalog provider.
 version: 1.0.0
+exclusive_group: identity
 
 requires:
   variables:
@@ -43,6 +44,12 @@ plugins: []
 
 appConfig:
   signInPage: ldap
+
+  platform:
+    guest:
+      enabled: false
+    signInProviders:
+      - ldap
 
   auth:
     environment: production
