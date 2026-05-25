@@ -295,6 +295,14 @@ for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" "$DEVPORTAL_DB_PATH/extensions-
       || echo "VEECODE: note — $f is read-only; \${PLUGIN_REGISTRY} left as-is there (harmless if those refs are disabled)"
 done
 
+# Log one fully-resolved OCI ref so an operator can verify the substitutions
+# (PLUGIN_REGISTRY + BACKSTAGE_VERSION) actually landed in the file the install
+# script will read. Useful for air-gapped / mirror deployments where a typo in
+# PLUGIN_REGISTRY would otherwise only surface as a skopeo error mid-install.
+_SAMPLE_REF="$(yq eval '.plugins[] | select(.package // "" | test("^oci://")) | .package' "$DEFAULT_DPD_SHADOW" 2>/dev/null | head -1)"
+[ -n "$_SAMPLE_REF" ] && echo "VEECODE: example resolved plugin ref → $_SAMPLE_REF"
+unset _SAMPLE_REF
+
 # ENTRYPOINT INSTALL PLUGINS
 # Point the install script at the resolved shadow — it has the preset fragments
 # wired into `includes:` and ${PLUGIN_REGISTRY}/${BACKSTAGE_VERSION} substituted.
