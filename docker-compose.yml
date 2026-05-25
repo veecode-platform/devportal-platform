@@ -13,8 +13,8 @@
 #                 fetched on restart.
 #
 # Plugin override loop (platform-installer persona):
-#   1. Edit dynamic-plugins.yaml in this directory (uncomment the bind-mount below).
-#   2. docker compose restart devportal
+#   1. Edit dynamic-plugins.yaml in this directory (template ships empty).
+#   2. docker compose restart devportal   # required — `up -d` won't see edits to bind-mounted files.
 #   3. Plugins are toggled without rebuilding or re-downloading anything.
 
 services:
@@ -27,8 +27,8 @@ services:
     volumes:
       - dp-data:/app/data
       - dp-plugins:/app/dynamic-plugins-root
-      # Operator plugin overrides — uncomment to enable:
-      # - ./dynamic-plugins.yaml:/app/dynamic-plugins.yaml:ro
+      # Operator plugin overrides. Ships empty (plugins: []); edit + `compose restart` to apply.
+      - ./dynamic-plugins.yaml:/app/dynamic-plugins.yaml:ro
 
 volumes:
   dp-data:

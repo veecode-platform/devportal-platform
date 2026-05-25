@@ -263,16 +263,25 @@ alternative to a bind-mount).
 ### Operator plugin override
 
 For the platform-installer persona — toggling plugins on/off or pinning
-a different version than what a preset wires — uncomment the
-`dynamic-plugins.yaml` bind-mount in `docker-compose.yml`, drop a
-`dynamic-plugins.yaml` next to it, then:
+a different version than what a preset wires — edit
+`dynamic-plugins.yaml` at the repo root (it ships as `plugins: []` with
+inline instructions and is bind-mounted by the compose file by default),
+then:
 
 ```sh
 docker compose restart devportal
 ```
 
+Use `restart` rather than `up -d`: Compose does not see edits to
+bind-mounted file content, so `up -d` will print `Running` without
+re-running the entrypoint.
+
 The plugins listed there compose with the preset's plugins. The
-contract and merge rules are in the `presets` topic.
+contract and merge rules are in the `presets` topic. Plugins with both
+a frontend and a backend package (e.g. `tech-radar` →
+`backstage-community-plugin-tech-radar` and
+`backstage-community-plugin-tech-radar-backend`) need an entry per
+package to fully toggle.
 
 ### RBAC policy
 
