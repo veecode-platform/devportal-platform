@@ -154,6 +154,25 @@ for combo in "${TESTS[@]}"; do
     continue
   fi
 
+  # Identity presets disable guest auth (platform.guest.enabled: false +
+  # auth.environment: production), so the /api/auth/guest/refresh path below
+  # would 401 and the harness would falsely report AUTH_FAIL. For these combos,
+  # /healthcheck returning 200 (already gated by "up (" above) IS the contract.
+  # These presets also carry no `plugins:` of their own, so plugin-count would
+  # add nothing.
+  is_identity_combo=false
+  for p in ${presets_value//,/ }; do
+    case "$p" in
+      github-auth|azure-auth|gitlab|keycloak|ldap) is_identity_combo=true; break ;;
+    esac
+  done
+  if [ "$is_identity_combo" = "true" ]; then
+    RESULTS[$combo]="PASS (${elapsed}s, identity preset — healthcheck only)"
+    PLUGINS_COUNT[$combo]="-"
+    echo "PASS: healthcheck reached in ${elapsed}s (identity preset; plugin count skipped)"
+    continue
+  fi
+
   # Healthcheck passed. Count loaded plugins.
   TOKEN=$(curl -s -X POST http://localhost:7007/api/auth/guest/refresh -H 'Content-Type: application/json' -d '{}' | jq -r '.backstageIdentity.token' 2>/dev/null)
   if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
