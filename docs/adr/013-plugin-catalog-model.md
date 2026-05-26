@@ -11,7 +11,7 @@ The repository currently maintains two independent artifacts that function as pl
 ### The two catalogs in detail
 
 **1. `dynamic-plugins.default.yaml`** (in-repo, ~33 entries, hand-maintained)
-- **Role:** Drives boot-time plugin installation via `install-dynamic-plugins.py`, invoked from `entrypoint.sh` (lines 43–72).
+- **Role:** Drives boot-time plugin installation via `install-dynamic-plugins.py`, invoked from `entrypoint.sh`:74-95 (catalog index resolution block; runtime download only on `CATALOG_INDEX_REFRESH=true` since the 2026-05-25 build-time bake — see § "Document history" below).
 - **Entries with local bundles** (`dynamicArtifact: ./`):
   - 7 preInstalled core plugins: homepage, global-header, about-backend, about-frontend, dynamic-plugins-info, RHDH extensions (2 entries)
   - These are packaged inside the container image; no external fetch required.
@@ -27,7 +27,7 @@ The repository currently maintains two independent artifacts that function as pl
 - **Source:** Built by the `devportal-plugin-export-overlays` fork (external repo, separate maintenance).
 - **Update schedule:** Decoupled from the main distro release cycle.
 - **Content:** Rich metadata beyond `default.yaml` — plugin descriptions, category taxonomy, icons, install instructions, documentation links.
-- **Delivery:** Published to quay.io; pulled by the Marketplace plugin at runtime using skopeo (see `entrypoint.sh` lines 43–72).
+- **Delivery:** Published to quay.io. **As of 2026-05-25 (commit `6cb820d`) the catalog is baked into the image at build time** (`Dockerfile`:262-274) and lives in the image layer at `/app/catalog-entities/extensions/`. The runtime skopeo download path in `entrypoint.sh`:74-95 is preserved as an opt-in (`CATALOG_INDEX_REFRESH=true`) and remains the fallback when the baked directory is empty.
 - **Operator visibility:** End-users see the index contents in the portal UI, making it the primary source of plugin discoverability for self-serve scenarios.
 
 ### The problem: split, independent, incoherent
@@ -221,7 +221,7 @@ Three approaches were evaluated for when and how to converge to a single vitrine
 - **[ADR-011](./011-frontend-design-system.md)** — documents the theme system as a dynamic plugin enabled by preset.
 - **[topics/plugin-selection-surfaces.md](../topics/plugin-selection-surfaces.md)** — operator-facing documentation of the three selection surfaces, precedence rules, and decision tree for operators choosing which surface to use.
 - **[PR #32](https://github.com/veecode-platform/devportal-platform/pull/32)** — implements the duplicate-plugin detector guard-rail (shipped 2026-05-20).
-- **`entrypoint.sh`** — lines 43–72 (catalog index download via skopeo), 123–204 (preset resolver with variable validation + includes chain assembly), 220–274 (template substitution for version and registry placeholders).
+- **`entrypoint.sh`** — :74-95 (catalog index resolution; build-time bake by default, runtime skopeo only on `CATALOG_INDEX_REFRESH=true`), :168-225 (preset resolver with variable validation), :228-231 (`INCLUDES_JSON` chain assembly), :272-291 (`BACKSTAGE_VERSION` substitution), :294-303 (`PLUGIN_REGISTRY` substitution).
 
 ## Implementation notes for future unification work
 
@@ -229,7 +229,7 @@ The following notes are provided to guide future owners attempting Forma A or Fo
 
 ### Forma A implementation sketch
 
-1. Extend the existing catalog index download (entrypoint.sh lines 43–72) to include generation of `dynamic-plugins.yaml` includes chain.
+1. Extend the existing catalog index resolution (entrypoint.sh:74-95) to include generation of `dynamic-plugins.yaml` includes chain.
 2. Parse the index YAML to extract OCI refs and metadata.
 3. Apply selection rules (preset + override + marketplace) to determine enabled plugins.
 4. Validate that all referenced plugins exist in the index (catch typos, deprecations).
@@ -282,3 +282,6 @@ This is a 1-line fix that should be prioritized separately (e.g., in a quick bug
 
 **Document history:**
 - 2026-05-22: ADR-013 accepted with Forma C (deferred unification). Version-lockstep, preInstalled plugins, and audit findings deferred. Revisit trigger: 4 sprints (early August 2026).
+- 2026-05-25: Catalog index baked into the image at build time (commit `6cb820d`). The runtime skopeo download path in `entrypoint.sh` is preserved as an opt-in via `CATALOG_INDEX_REFRESH=true` and as a fallback when the baked directory is empty. Affects § "The two catalogs in detail" line 30 (in-place edited) and § "The current implementation" (in-place edited). Does not affect the Forma A/B/C decision — the unification deferral stands; the bake is an orthogonal performance/network optimization.
+- 2026-05-26: Quick-win typo `devportal-marketplace-backend-dynamic-dynamic` was already fixed before this audit (`grep` returns zero matches in `dynamic-plugins.default.yaml`). The "safe quick-win" framing in § "Status of execution" is therefore historical, not pending.
+- 2026-05-26: `entrypoint.sh` line citations updated in-place to match the current 407-line file. Future drift on these specific lines is expected; prefer greping for the named section over trusting the cited range.

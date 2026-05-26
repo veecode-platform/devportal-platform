@@ -147,14 +147,14 @@ Migration is not forced.
 | Image tag scheme | Plain semver from `package.json` `version`; multi-arch `linux/amd64` + `linux/arm64` manifest. No `bs_<bsver>__<distver>` compound tags. |
 | Publish | Manual `workflow_dispatch` on [`.github/workflows/publish.yml`](../../.github/workflows/publish.yml). Tag-driven publish exists commented-out; flips on when there's a real consumer. |
 | Plugin inventory | [`dynamic-plugins.default.yaml`](../../dynamic-plugins.default.yaml) ships with all optional plugins `disabled: true`. Core-tier (homepage, global-header, about, about-backend, dynamic-plugins-info) ships `preInstalled: true` with no `disabled:` field, so default-on. |
-| Preset selector | `VEECODE_PRESETS=<csv>` env var, resolved at boot by [`entrypoint.sh`](../../entrypoint.sh) lines 83–160. Empty/unset → barebones (core only). |
+| Preset selector | `VEECODE_PRESETS=<csv>` env var, resolved at boot by [`entrypoint.sh`](../../entrypoint.sh):168-225 (preset resolver loop + `requires.variables` validation). Empty/unset → barebones (core only). |
 | Preset format | YAML per [`presets/SCHEMA.md`](../../presets/SCHEMA.md). Flat — no `extends:`; composition is the env-var list. Per-preset `requires.variables` validated at boot, missing vars fail with exit 78. |
-| OCI registry indirection | `${PLUGIN_REGISTRY}` env var (default `quay.io/veecode`) is substituted into every plugin OCI ref by `entrypoint.sh` lines 226–236 — operators with internal mirrors set `PLUGIN_REGISTRY=registry.internal/veecode` and don't touch YAML. |
-| Backstage version substitution | `${BACKSTAGE_VERSION}` (default read from [`backstage.json`](../../backstage.json), env-overridable) is substituted into plugin OCI tags by `entrypoint.sh` lines 204–224. A Backstage bump doesn't mean editing every preset. |
+| OCI registry indirection | `${PLUGIN_REGISTRY}` env var (default `quay.io/veecode`) is substituted into every plugin OCI ref by `entrypoint.sh`:294-303 (`PLUGIN_REGISTRY` substitution block) — operators with internal mirrors set `PLUGIN_REGISTRY=registry.internal/veecode` and don't touch YAML. |
+| Backstage version substitution | `${BACKSTAGE_VERSION}` (default read from [`backstage.json`](../../backstage.json), env-overridable) is substituted into plugin OCI tags by `entrypoint.sh`:272-291 (`BACKSTAGE_VERSION` substitution block). A Backstage bump doesn't mean editing every preset. |
 | `dynamic-plugins.default.yaml` lifecycle | **Kept as the plugin inventory** — it didn't dissolve into presets as the POC speculated. Presets carry `{package, disabled: false}` entries whose `package:` strings match the default's entries verbatim, and `install-dynamic-plugins.py` merges shallow per-key (so the `pluginConfig` from the default — mountPoints, dynamicRoutes, RBAC scope — survives a preset enabling the plugin). |
 
 The shadow file trick (`dynamic-plugins.default.resolved.yaml`,
-`entrypoint.sh` lines 176–202) handles the case where the default is
+`entrypoint.sh`:141 (`DP_YAML_SHADOW`) + :267 (`DEFAULT_DPD_SHADOW`)) handles the case where the default is
 bind-mounted read-only in dev / kubernetes contexts; without it the
 in-place `sed` substitutions silently fail and preset/default `package:`
 strings stop matching. Documented in
@@ -387,7 +387,7 @@ and [`examples/deploy/k8s.yaml`](../../examples/deploy/k8s.yaml).
   pair appears, the right move is to add `requires.presets:` to the
   schema, not let the convention multiply.
 - **Bind-mount foot-gun on `dynamic-plugins.default.yaml`.** Fixed
-  by the shadow-file approach in `entrypoint.sh` lines 176–202.
+  by the shadow-file approach in `entrypoint.sh`:141 + :267 (the two `*_SHADOW` assignments).
   Captured here because re-architecting the resolver to write a
   separate runtime file (instead of editing in place) would
   eliminate the class of bug entirely; that refactor is in
@@ -434,7 +434,7 @@ The architectural decisions in this ADR are considered validated by:
    boots and registers the integration's plugins (smoke matrix
    covers each integration in isolation).
 5. **Omitting a required variable** fails the boot with exit 78 and
-   a preset-aware error message (`entrypoint.sh` lines 141–146; the
+   a preset-aware error message (`entrypoint.sh`:186-215, the `requires.variables` loop with exit-78; the
    smoke harness disambiguates timeout-from-missing-vars from a real
    boot hang, so a regression in the fail-fast path would surface).
 
@@ -537,3 +537,68 @@ Tracked in [`docs/ROADMAP_FEATURES.md`](../ROADMAP_FEATURES.md) §
   `dynamic-plugins.default.yaml` rewrite-in-place foot-gun.
 - POC repository: `veecode-platform/devportal-poc` (abandoned
   branch, kept as archaeology for design rationale).
+
+## Update history
+
+The body of this ADR is point-in-time as of acceptance (2026-05-14).
+The architectural decisions themselves stand. The list below tracks
+post-acceptance changes that affect the *numbers* and *details* in
+the body — append-only; the body is not rewritten.
+
+- **2026-05-25 — Catalog index baked at build time** (commit
+  `6cb820d`). The Dockerfile now extracts the marketplace catalog
+  into `/app/catalog-entities/extensions/` at image build time. The
+  runtime download path in `entrypoint.sh` is preserved as an
+  opt-in (`CATALOG_INDEX_REFRESH=true`); default cold boot no longer
+  hits the network for the catalog. Affects § "Costs" — the
+  "slightly slower first boot" claim is now bounded by OCI plugin
+  fetches only, not catalog fetches. Cross-doc impact: ADR-013 § 30
+  ("pulled by the Marketplace plugin at runtime") is no longer the
+  default path.
+
+- **2026-05-25/26 — Install-script hard-fail** (commit `649e2c8`).
+  `install-dynamic-plugins.py` now collects per-plugin install
+  failures, prints an install summary, and exits 78. The
+  `DYNAMIC_PLUGINS_TOLERATE_FAILURES=true` opt-out preserves the
+  pre-fix behavior for dev iteration. Affects § Consequences — the
+  partial-half-installed-portal failure mode is now closed by
+  default. Documented in `docs/topics/installing.md` § "Exit 78 —
+  plugin install failure" and `docs/reference/env-vars.md`.
+
+- **2026-05-26 — Always-on chrome count corrected** (commit
+  `5da6334`). `red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions`
+  was documented as "gated by the `recommended` preset" but the
+  install-script's `disabled:` check only skips install + pluginConfig
+  merge — for `preInstalled: true` backend modules, the bytes are
+  already in `/app/dynamic-plugins-root/` from build time and the
+  backend feature loader picks them up regardless of `disabled:`.
+  The plugin was effectively always-on; the metadata + docs now
+  reflect that. The § "What this repo concretely ships" table row
+  for the Core-tier (line 149) lists 5 plugins; the actual chrome
+  set is 6 (add `catalog-backend-module-extensions`). Cross-doc:
+  `docs/topics/dynamic-plugins.md`, `docs/PLUGINS.md`,
+  `docs/CONFIGURATION_GUIDE.md`, and `docs/BACKSTAGE_ARCHITECTURE.md`
+  were updated in the same commit.
+
+- **Preset count drift.** Body says "12 presets as of 2026-05-18".
+  Today (2026-05-26): **15** — added `github-auth`, `azure-auth`,
+  `ldap-ad` after acceptance (SCM/identity split formalized in
+  `UPGRADING_FROM_BASE_DISTRO.md`). The Risks parenthetical
+  ("10 integration + brand + recommended") becomes "13 integration
+  + brand + recommended". The "12 are all defensible" framing
+  generalizes — the discipline is the curation boundary, not a
+  numeric cap (already noted in the body line 99).
+
+- **Smoke harness coverage growth.** Body § Validation lines
+  411-415 enumerate the 2026-05-18 ALL_TESTS matrix. Current
+  coverage is a strict superset: also covers `github-auth`,
+  `github,github-auth`, `azure-auth`, `azure,azure-auth`,
+  `ldap,ldap-ad`, plus a `+mount` regression variant exercising
+  the bind-mounted operator overlay. No regression in coverage —
+  the body just lists the older matrix.
+
+- **Line-citation drift.** All `entrypoint.sh` line references in
+  the body were updated 2026-05-26 to match the current 407-line
+  file. Future drift on these specific lines is expected; prefer
+  greping for the named section (e.g. `# ── Resolve ${PLUGIN_REGISTRY}`)
+  over trusting the cited range.
