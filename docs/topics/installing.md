@@ -161,6 +161,35 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 The response is a JSON array of every plugin the image loaded at boot.
 
+### Known boot-log noise
+
+Three lines appear on every healthy boot. They read like errors; they
+are not platform bugs.
+
+- `skipping '/app/dynamic-plugins-root/app-config.dynamic-plugins.yaml' since it is not a directory` — Backstage scanning the dynamic-plugins-root for directory-style plugin configs; the file it skips is the merged config, not a plugin directory.
+- `==> WARNING: skipping file containing link outside of the archive: …/mime/cli.js` (typically ×4) — upstream tarball symlinks in some plugin bundles; the symlinks aren't needed at runtime.
+- `(node:1) [DEP0040] DeprecationWarning: The 'punycode' module is deprecated.` — Node deprecation in an upstream Backstage dependency.
+
+If you grep `docker compose logs` for `WARNING` or `error` and only
+these appear, the boot is healthy.
+
+### `docker compose up -d` exits 0 even on container failure
+
+If the entrypoint exits 78 (any of the failure modes below), `docker
+compose up -d` still prints `Container … Started` and returns exit code
+0. The compose CLI reports successful *creation*, not successful *boot*.
+
+For CI and scripted deployments, always pair `up -d` with a status
+check:
+
+```sh
+docker compose up -d
+docker compose ps -a --format '{{.Service}}\t{{.State}}\t{{.ExitCode}}'
+```
+
+A row with `State=exited` and `ExitCode=78` is a fail-fast boot — read
+`docker compose logs` for the named error.
+
 ## Common boot failures
 
 ### Exit 78 — missing required variable
