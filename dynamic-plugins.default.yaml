@@ -281,8 +281,9 @@ plugins:
   #   - recommended → disabled: true here; the pluginConfig stays so a preset only
   #                 has to flip `disabled` (install-dynamic-plugins.py merges shallow
   #                 per-key). Enabled via VEECODE_PRESETS=recommended. (RBAC,
-  #                 tech-radar + backend, marketplace front/back, pending-changes,
-  #                 catalog-backend-module-extensions.)
+  #                 tech-radar + backend, marketplace front/back, pending-changes.)
+  #                 catalog-backend-module-extensions is preInstalled + always-on
+  #                 chrome (see entry below); listed here for awareness only.
   - package: oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
@@ -531,10 +532,14 @@ plugins:
                   props:
                     pollingIntervalMs: 30000
   # Catalog backend module — entity providers for Extension/Package/Collection kinds
-  # (powers the marketplace "Catalog" tab — recommended-tier, ships with the marketplace)
+  # (powers the marketplace "Catalog" tab). Effectively always-on: the bytes are
+  # extracted at image build time and the backend's feature loader picks them up
+  # regardless of `disabled:` (the install-script's disabled check only skips the
+  # install step + pluginConfig merge — see docker/install-dynamic-plugins.py).
+  # Frontend plugins are not affected because scalprum needs the merged pluginConfig
+  # to surface dynamic routes; backend modules do not.
   - package: red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
     preInstalled: true
-    disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       extensions:
         directory: /app/catalog-entities/extensions

@@ -256,18 +256,19 @@ toolset list, SaaS card UX) live in the [Confluence "DevPortal MCP — Configura
 With **no preset** (`VEECODE_PRESETS` unset):
 
 - Global header, homepage, About (front+back), dynamic-plugins-info
-  (with routes/menu suppressed).
+  (with routes/menu suppressed), `catalog-backend-module-extensions`
+  (preInstalled backend module — always-on regardless of preset; the
+  marketplace UI it powers is gated by `recommended`).
 - Theme: falls back to the static
   `@red-hat-developer-hub/backstage-plugin-theme` `light`/`dark`
   (the VeeCode theme plugin is `disabled: true`).
-- No marketplace, no RBAC UI, no tech-radar, no pending-changes
+- No marketplace UI, no RBAC UI, no tech-radar, no pending-changes
   badge, no integration plugins.
 
 With **`VEECODE_PRESETS=recommended`** ([`presets/recommended.yaml`](../presets/recommended.yaml)):
 
-- All of the above, plus the marketplace (front+back),
-  `catalog-backend-module-extensions`, RBAC (UI + backend), tech-radar
-  (with sample data), pending-changes badge.
+- All of the above, plus the marketplace (front+back), RBAC (UI + backend),
+  tech-radar (with sample data), pending-changes badge.
 - Still no integration plugins, no theme override.
 
 With **`VEECODE_PRESETS=recommended,veecode-theme`**:

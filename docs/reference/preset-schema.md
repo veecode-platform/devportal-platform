@@ -111,10 +111,17 @@ plugins:
   pre-installed into `/app/dynamic-plugins-root/` at image build time and
   ship with `preInstalled: true` in `dynamic-plugins.default.yaml`. The
   install script skips pulling these and only merges their `pluginConfig`.
-  Pre-installed entries may be **always-on** (no `disabled:` field, e.g.
-  `veecode-homepage`, `veecode-global-header`) or **disabled-by-default**
-  and gated by a preset (e.g. RHDH `catalog-backend-module-extensions`,
-  which `presets/recommended.yaml` flips on).
+  Pre-installed entries are typically **always-on** (no `disabled:` field,
+  e.g. `veecode-homepage`, `veecode-global-header`,
+  `catalog-backend-module-extensions`). A pre-installed entry can also
+  ship `disabled: true` as a reference-only mode (e.g. the RHDH
+  `extensions` frontend); this is effective for frontend plugins because
+  scalprum needs the install-script's pluginConfig merge to surface them.
+  **Backend modules are an exception** — their bytes are loaded by the
+  backend feature loader's directory scan regardless of `disabled:`, so
+  `preInstalled + disabled: true` is not a reliable gate for a backend
+  module. List them without `disabled:` and treat as always-on chrome
+  (see `install-dynamic-plugins.py:install_plugin`).
 
 **`disabled: false` is the preset's intent.** A preset that enables a
 plugin must set this. If a preset wants a plugin available-but-off,

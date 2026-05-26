@@ -102,18 +102,23 @@ Migration is not forced.
   referenced as `oci://${PLUGIN_REGISTRY}/<workspace>:bs_${BACKSTAGE_VERSION}!<selector>`
   in [`dynamic-plugins.default.yaml`](../../dynamic-plugins.default.yaml).
   [`docker/install-dynamic-plugins.py`](../../docker/install-dynamic-plugins.py)
-  pulls each bundle via `skopeo` at boot. Five always-on chrome
+  pulls each bundle via `skopeo` at boot. Six always-on chrome
   plugins (homepage, global-header, about, about-backend,
-  dynamic-plugins-info) are baked into the image as npm-published
-  packages — they live under `preInstalled: true` with no `disabled:`
-  field; `dynamic-plugins-store/` is materialized into
-  `/app/dynamic-plugins-root/` at build time. Two more entries
-  (`red-hat-developer-hub-backstage-plugin-extensions` and
-  `red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions`)
-  are also pre-installed but ship `disabled: true`; the former is kept
-  as a reference and never enabled, the latter is the marketplace
-  catalog backend and is flipped on only by the `recommended` preset. The image itself
-  stays generic; the plugin set is data, not code.
+  dynamic-plugins-info, catalog-backend-module-extensions) are baked into
+  the image as npm-published packages — they live under
+  `preInstalled: true` with no `disabled:` field;
+  `dynamic-plugins-store/` is materialized into `/app/dynamic-plugins-root/`
+  at build time. One more entry
+  (`red-hat-developer-hub-backstage-plugin-extensions`) is also pre-installed
+  but ships `disabled: true`; it is kept as a reference and never enabled
+  (the disable is effective because frontend plugins need the
+  install-script's pluginConfig merge to surface via scalprum, and `disabled:`
+  skips that merge). Backend modules are different: a
+  `preInstalled: true + disabled: true` backend module is effectively
+  always-on because the backend's feature loader picks up its bytes
+  regardless of the disabled flag — `catalog-backend-module-extensions` is
+  documented as always-on for that reason. The image itself stays generic;
+  the plugin set is data, not code.
 
 ### What stays
 

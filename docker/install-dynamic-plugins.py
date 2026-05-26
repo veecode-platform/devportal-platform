@@ -356,7 +356,16 @@ def install_plugin(plugin: dict, plugin_path_by_hash: dict, destination: str, sk
     """Install a single plugin and handle configuration merging."""
     package = plugin['package']
     
-    # Check if plugin is disabled
+    # Check if plugin is disabled.
+    # NOTE: this only skips the install step and the pluginConfig merge. For a
+    # `preInstalled: true` plugin the bytes are already in
+    # /app/dynamic-plugins-root/ from image build time and are NOT removed
+    # here. For frontend plugins that's fine — scalprum needs the merged
+    # pluginConfig to surface them, so skipping the merge effectively disables
+    # them. For backend modules the directory scan picks them up regardless,
+    # so `preInstalled: true + disabled: true` is effectively always-on.
+    # Don't rely on `disabled:` to gate a preInstalled backend module — list
+    # it without `disabled:` and treat it as always-on chrome instead.
     if plugin.get('disabled', False):
         print(f'\n======= Skipping disabled dynamic plugin {package}', flush=True)
         return None, {}

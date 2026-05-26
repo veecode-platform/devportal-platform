@@ -32,11 +32,9 @@ plugins:
     disabled: false
   - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-pending-changes-dynamic
     disabled: false
-  # Catalog backend module — ingests the bundled plugin catalog so the
-  # marketplace "Catalog" tab is populated.
-  - package: red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
-    preInstalled: true
-    disabled: false
+  # catalog-backend-module-extensions is preInstalled and effectively always-on
+  # (the backend feature loader picks up its bytes regardless of `disabled:`).
+  # It lives in dynamic-plugins.default.yaml with no override here.
 
 # No app-config additions — the baseline runs on app-config.yaml plus the
 # platform-level config files.

@@ -28,14 +28,24 @@ each enabled plugin bundle via `skopeo copy`, extracts the plugin layer into
 after `!` in the OCI ref), and walks its `pluginConfig:` block into the
 generated `/app/dynamic-plugins-root/app-config.dynamic-plugins.yaml`.
 
-Five chrome plugins — `veecode-homepage`, `veecode-global-header`,
-`about-backend`, `about`, and `dynamic-plugins-info` — ship **pre-installed
-and always-on**: they are extracted into the image at build time, carry the
-bare npm package name in `dynamic-plugins.default.yaml`, and have no
-`disabled:` field (default-false). Two more entries are pre-installed but
-ship `disabled: true`: the original RHDH `extensions` frontend (kept as a
-reference, never enabled by any preset), and `catalog-backend-module-extensions`
-(enabled only by the `recommended` preset).
+Six chrome plugins ship **pre-installed and always-on**: `veecode-homepage`,
+`veecode-global-header`, `about-backend`, `about`, `dynamic-plugins-info`,
+and `catalog-backend-module-extensions` (the marketplace catalog entity
+provider). They are extracted into the image at build time, carry the bare
+npm package name in `dynamic-plugins.default.yaml`, and have no `disabled:`
+field (default-false).
+
+One more entry is pre-installed but ships `disabled: true`: the original
+RHDH `extensions` frontend, kept as a reference and never enabled by any
+preset. The disable is effective there because frontend plugins need their
+`pluginConfig:` merged into `app-config.dynamic-plugins.yaml` for scalprum
+to surface them, and the install-script's `disabled:` check skips that
+merge. **Backend modules are different** — they are loaded by the backend
+feature loader's directory scan and do not need any config merge to
+activate. A `preInstalled: true + disabled: true` backend module is
+effectively always-on regardless of the disabled flag; that is why
+`catalog-backend-module-extensions` is documented as always-on here
+rather than gated by `recommended`.
 
 ## The plugin inventory
 

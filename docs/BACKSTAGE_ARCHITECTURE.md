@@ -213,9 +213,10 @@ catalog:
 
 `Plugin`, `Package`, `Collection` are the kinds the marketplace
 catalog uses. They are populated by
-`catalog-backend-module-extensions` (ships pre-installed; enabled by
-the `recommended` preset) ingesting the catalog index image pulled
-into `/app/catalog-entities/extensions/` by
+`catalog-backend-module-extensions` (ships pre-installed and always-on
+as a backend module — the marketplace UI surface is what's gated by the
+`recommended` preset, not this module) ingesting the catalog index image
+pulled into `/app/catalog-entities/extensions/` by
 [`entrypoint.sh:43-72`](../entrypoint.sh).
 
 ## Scaffolder
