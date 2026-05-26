@@ -19,7 +19,7 @@
 
 services:
   devportal:
-    image: veecode/devportal-platform:latest
+    image: veecode/devportal:2.0.0
     ports:
       - "7007:7007"
     env_file:

@@ -62,7 +62,7 @@ spec:
     spec:
       containers:
         - name: devportal
-          image: veecode/devportal-platform:0.1.0
+          image: veecode/devportal:2.0.0
           ports:
             - containerPort: 7007
           env:
