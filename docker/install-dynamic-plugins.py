@@ -695,12 +695,18 @@ def main():
                     plugin_path_by_hash[hash_value] = dir_name
                     
     # iterate through the list of plugins
+    # Track per-plugin install failures so we can fail the boot at the end if any
+    # plugin couldn't be installed. The previous behavior (silent `continue`, exit 0)
+    # let bad PLUGIN_REGISTRY and bogus operator OCI refs slip through as a
+    # half-installed container.
+    failures = []
     for plugin in allPlugins.values():
         try:
             _, plugin_config = install_plugin(plugin, plugin_path_by_hash, dynamicPluginsRoot, skipIntegrityCheck)
         except InstallException as e:
             print(f'\n======= ERROR: Failed to install plugin {plugin["package"]}: {e}', flush=True)
             print(f'\t==> Skipping this plugin and continuing with the rest...', flush=True)
+            failures.append((plugin['package'], str(e)))
             continue
 
         # Merge plugin configuration if provided
@@ -714,6 +720,20 @@ def main():
         plugin_directory = os.path.join(dynamicPluginsRoot, plugin_path_by_hash[hash_value])
         print('\n======= Removing previously installed dynamic plugin', plugin_path_by_hash[hash_value], flush=True)
         shutil.rmtree(plugin_directory, ignore_errors=True, onerror=None)
+
+    # Fail the boot if any plugin failed to install. DYNAMIC_PLUGINS_TOLERATE_FAILURES=true
+    # opts back into the old forgiving behavior (dev iteration, known-flaky upstream
+    # plugins). Exit code 78 matches the platform's existing fail-fast convention
+    # (preset vars, exclusive_group, malformed YAML).
+    if failures:
+        tolerate = os.environ.get("DYNAMIC_PLUGINS_TOLERATE_FAILURES", "").lower() == "true"
+        print(f'\n======= INSTALL SUMMARY: {len(failures)} of {len(allPlugins)} plugins failed:', flush=True)
+        for pkg, err in failures:
+            print(f'\t- {pkg}: {err}', flush=True)
+        if not tolerate:
+            print('Set DYNAMIC_PLUGINS_TOLERATE_FAILURES=true to allow partial installs.', flush=True)
+            sys.exit(78)
+        print('DYNAMIC_PLUGINS_TOLERATE_FAILURES=true — proceeding with partial install.', flush=True)
 
 if __name__ == '__main__':
     main()
