@@ -20,6 +20,7 @@ audience: [operator]
 | `PLUGIN_REGISTRY` | `entrypoint.sh` | Substituted into plugin OCI registry prefix | `quay.io/veecode` |
 | `CATALOG_INDEX_IMAGE` | `entrypoint.sh` | OCI image carrying the marketplace catalog index | `quay.io/veecode/plugin-catalog-index:latest` |
 | `CATALOG_INDEX_REFRESH` | `entrypoint.sh` | Force a re-download of the catalog index on boot | `false` |
+| `DYNAMIC_PLUGINS_TOLERATE_FAILURES` | `docker/install-dynamic-plugins.py` | If `true`, per-plugin install failures are logged in an install summary but do not fail the boot (revert to pre-`649e2c8` behavior). Default behavior is exit 78 when any plugin fails to install. **Do not use in production** — defeats the half-installed-portal safeguard | `false` |
 | `LOG_LEVEL` | upstream Backstage | Log verbosity | `info` |
 | `DEBUG_PORT` | `entrypoint.sh` | If set, enables Node `--inspect=0.0.0.0:$DEBUG_PORT` | unset |
 | `DEVELOPMENT` | `entrypoint.sh` | If `true`, runs under nodemon with config watching | `false` |

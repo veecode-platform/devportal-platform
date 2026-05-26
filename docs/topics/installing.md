@@ -209,22 +209,44 @@ This is mainly a concern on WSL2 and low-memory CI runners. Production
 Kubernetes deployments typically do not need explicit limits because
 the node has enough headroom.
 
-### Skopeo failure — registry unreachable
+### Exit 78 — plugin install failure
 
 ```
-Could not resolve plugin oci://quay.io/veecode/rbac:...
+======= ERROR: Failed to install plugin oci://quay.io/veecode/rbac:bs_1.49.4!backstage-community-plugin-rbac:
+        ==> Skipping this plugin and continuing with the rest...
+…
+======= INSTALL SUMMARY: 7 of 12 plugins failed:
+        - oci://quay.io/veecode/rbac:bs_1.49.4!backstage-community-plugin-rbac: <error>
+        - …
+Set DYNAMIC_PLUGINS_TOLERATE_FAILURES=true to allow partial installs.
 ```
 
-The container cannot reach `quay.io`. In air-gapped or mirror
-environments, set `PLUGIN_REGISTRY` in `.env`:
+One or more dynamic plugins failed to install (typically: `quay.io`
+unreachable, a typo'd OCI ref, or `PLUGIN_REGISTRY` pointing at a
+registry that doesn't mirror all bundles). At HEAD `649e2c8` and later,
+the install script collects every failure, prints a summary, and exits
+78. The entrypoint propagates that exit code so the container does not
+boot in a half-installed state.
 
-```env
-PLUGIN_REGISTRY=registry.internal/veecode
-```
+Common causes:
 
-The entrypoint substitutes `${PLUGIN_REGISTRY}` into every plugin OCI
-ref before `install-dynamic-plugins.sh` runs (`entrypoint.sh`). The
-full PLUGIN_REGISTRY behavior is documented in `env-vars.md`.
+- **`quay.io` unreachable.** Air-gapped or proxied environments. Set
+  `PLUGIN_REGISTRY=registry.internal/veecode` in `.env` so every
+  `oci://${PLUGIN_REGISTRY}/…` ref resolves to your mirror. The
+  entrypoint substitutes the variable into every OCI ref before the
+  install runs.
+- **Typo in an operator overlay.** A bogus OCI ref in your bind-mounted
+  `dynamic-plugins.yaml` will fail to pull and the boot aborts. Fix the
+  ref and rerun.
+- **Mirror missing a bundle.** Your mirror has some plugins but not all.
+  Push the missing bundle, or remove the plugin from your preset set.
+
+If you knowingly want partial installs (dev iteration, deliberately
+tolerated upstream flake), set `DYNAMIC_PLUGINS_TOLERATE_FAILURES=true`
+in `.env`. The summary still prints, but the boot proceeds with
+whichever plugins did install. **Do not use this in production** —
+it's exactly the silent-half-installed-portal mode the exit-78 contract
+exists to prevent.
 
 ## Common operations
 
@@ -242,6 +264,24 @@ volume already has them).
 `docker compose restart devportal` does **not** re-read `.env` — it
 just restarts the process inside the existing container. Use `up -d`
 for env changes.
+
+### Refreshing the catalog index
+
+The marketplace catalog (~220 plugin YAMLs) is baked into the image at
+build time, so the default cold boot does not hit the network for it
+— you'll see `Catalog entities already present, skipping download` in
+the log. To force a fresh pull from
+`quay.io/veecode/plugin-catalog-index:latest` (or whatever
+`CATALOG_INDEX_IMAGE` points at):
+
+```env
+CATALOG_INDEX_REFRESH=true
+```
+
+The freshly-downloaded layer is extracted over the baked content;
+nothing else changes. Adds ~3 s to boot. Useful when the upstream
+catalog ships a new entry you want before the next image rebuild;
+otherwise leave it `false` and let the image-level bake handle it.
 
 ### Mounting a custom app-config overlay
 

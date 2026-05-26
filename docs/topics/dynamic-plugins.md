@@ -200,20 +200,29 @@ If a plugin you expected to load is absent, check the container logs for
 
 ## Common failure modes
 
-### Registry unreachable — skopeo error in logs
+### Registry unreachable — exit 78 with install summary
 
-Symptom: container logs show `Could not resolve plugin` or a `skopeo copy`
-error mentioning a timeout or TLS failure. The plugin directory under
-`/app/dynamic-plugins-root/` does not exist.
+Symptom: container logs show one or more
+`======= ERROR: Failed to install plugin oci://…` lines, followed by an
+`======= INSTALL SUMMARY: N of M plugins failed:` block listing each
+failed ref, then the entrypoint exits 78. The plugin directories under
+`/app/dynamic-plugins-root/` for the failed entries do not exist.
 
 Cause: the image cannot reach `quay.io/veecode` (air-gapped network, proxy
-misconfiguration, outage).
+misconfiguration, outage), an operator overlay has a typo'd OCI ref, or
+the mirror at `PLUGIN_REGISTRY` is missing one of the bundles.
 
 Fix: mirror the OCI bundles to an internal registry and set
 `PLUGIN_REGISTRY=registry.internal/veecode`. The entrypoint substitutes that
 value into every `oci://${PLUGIN_REGISTRY}/...` reference before the install
 script runs — no YAML editing needed. See the **Mirror** entry under
 "Distribution modes" below.
+
+To bypass the exit-78 (dev iteration, deliberately tolerated upstream
+flake), set `DYNAMIC_PLUGINS_TOLERATE_FAILURES=true`. The summary still
+prints; the boot proceeds with whichever plugins did install. Do not
+use in production — this is the silent-half-installed-portal mode the
+exit-78 contract exists to prevent.
 
 ### Backend crash: "Plugin `<id>` is already registered"
 
