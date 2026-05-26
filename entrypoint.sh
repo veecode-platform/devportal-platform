@@ -216,7 +216,7 @@ if [ -n "$VEECODE_PRESETS" ]; then
     fi
 
 else
-    echo "VEECODE: no presets selected (VEECODE_PRESETS unset) — catalog + marketplace only"
+    echo "VEECODE: no presets selected (VEECODE_PRESETS unset) — core only (catalog + global header). Add 'recommended' to VEECODE_PRESETS to enable marketplace, RBAC, tech-radar."
 fi
 
 # Rebuild the includes list on the shadow on every boot: image defaults first,
