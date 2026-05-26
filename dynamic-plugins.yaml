@@ -13,6 +13,11 @@
 #
 # To turn a plugin off, add it here with `disabled: true`.
 #
+# Multi-package plugins: some plugins ship as a frontend/backend pair
+# (e.g. tech-radar → backstage-community-plugin-tech-radar AND
+# backstage-community-plugin-tech-radar-backend). Disabling only one half
+# leaves the other half loaded. Add an entry for each package.
+#
 # Example:
 #   plugins:
 #     - package: oci://${PLUGIN_REGISTRY}/<image>:bs_${BACKSTAGE_VERSION}!<plugin-name>
