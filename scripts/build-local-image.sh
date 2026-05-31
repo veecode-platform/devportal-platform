@@ -99,8 +99,10 @@ VERSION=$(node -p "require('./package.json').version")
 # Step 1 — compile on host (skippable when artefacts are already fresh)
 if [ "$SKIP_BUILD" = false ]; then
     print_status "Step 1/2: Building backend artefacts on host (yarn build:backend)..."
+    # packages/app webpack peaks above the default ~2 GB V8 heap limit.
+    # 4 GB clears it on the host; CI runners have more headroom.
     yarn install --immutable
-    yarn build:backend
+    NODE_OPTIONS="--max-old-space-size=4096" yarn build:backend
     print_success "Backend artefacts built."
 else
     print_warning "--skip-build: skipping yarn build:backend, using existing dist/ artefacts."
