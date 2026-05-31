@@ -1,18 +1,18 @@
 #!/bin/bash
 set -e
 
-# DevPortal POC Local Image Build Script
+# DevPortal Local Image Build Script
 #
-# The unified Dockerfile is self-contained: it runs yarn install + build +
-# dynamic-plugin export inside the builder stage. No pre-build artifacts
-# need to exist in the host workspace.
+# Orchestrates two steps:
+#   1. yarn build:backend  — compiles on the host (Node, full RAM, turbo cache)
+#   2. docker build        — packages the pre-built artefacts into the image
 #
 # Usage:
 #   ./scripts/build-local-image.sh [OPTIONS]
 #
 # Options:
 #   --no-cache       Disable Docker layer caching
-#   --memory=<size>  Override memory limit (default: 4g, recommended for WSL)
+#   --memory=<size>  Override memory limit (default: 3g)
 #   --help, -h       Show help message
 
 RED='\033[0;31m'
@@ -35,10 +35,11 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 show_help() {
     cat <<EOF
-DevPortal POC Local Image Build Script
+DevPortal Local Image Build Script
 
-Builds the unified veecode/devportal Docker image. The Dockerfile is
-self-contained — no host-side pre-build steps required.
+Builds the veecode/devportal Docker image in two steps:
+  1. Compile on the host (yarn build:backend)
+  2. Package into the image (docker build)
 
 Usage: $0 [OPTIONS]
 
