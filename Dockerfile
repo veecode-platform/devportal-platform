@@ -17,6 +17,15 @@
 # contributor laptops. See `docs/adr/012-anonymous-ubi-mirror.md`.
 ARG NODE_BASE=registry.access.redhat.com/ubi10/nodejs-22:10.1-1775712813
 
+# Runtime base: the *minimal* UBI Node.js image. It ships node+npm but NO build
+# toolchain (make/gcc/g++ are absent) and uses microdnf instead of dnf. The builder
+# above keeps the full image because it compiles; the runtime does not — the only
+# native module (better-sqlite3) installs a prebuilt binary at `yarn workspaces focus`
+# time, so nothing is compiled in the runtime stage. Pinned by digest for a
+# reproducible, multi-arch (amd64/arm64/…) build; this is the
+# ubi10/nodejs-22-minimal:10.1 image index as of 2026-05-30.
+ARG NODE_BASE_RUNTIME=registry.access.redhat.com/ubi10/nodejs-22-minimal:10.1@sha256:ddd89a0893420dc94698d10325c664eb900c61c4c5eb4e839b93a0cd27f34668
+
 # Pinned versions of CLI binaries shipped in the runtime image.
 ARG YQ_VERSION=4.53.2
 ARG DECK_VERSION=1.59.1
@@ -32,12 +41,12 @@ FROM ${NODE_BASE} AS builder
 
 USER root
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
+    --mount=type=cache,target=/var/lib/dnf,sharing=locked \
     dnf -y upgrade && \
-    dnf install -y --setopt=install_weak_deps=False \
+    dnf install -y --setopt=install_weak_deps=False --setopt=keepcache=1 \
       make cmake cpp gcc gcc-c++ skopeo git pkg-config \
-      jq wget tar gzip ca-certificates sqlite-devel \
+      jq wget tar gzip ca-certificates \
       python3.12 python3.12-pip python3.12-devel && \
     alternatives --install /usr/bin/python python /usr/bin/python3.12 1 && \
     alternatives --install /usr/bin/pip pip /usr/bin/pip3.12 1
@@ -52,13 +61,20 @@ ENV NPM_REGISTRY=$NPM_REGISTRY \
 
 RUN npm install -g corepack && corepack enable && corepack prepare yarn@4.12.0 --activate
 
-# Conservative parallelism — WSL hosts crash above this.
-ENV TURBO_CONCURRENCY=1
-
-# V8 heap headroom for the frontend build (webpack + tsc).
-# Default ~4GB is not enough for `packages/app` on WSL; we've observed
-# JavaScript heap OOM (exit 129) at the default. 6GB clears it.
-ENV NODE_OPTIONS=--max-old-space-size=6144
+# Build parallelism and V8 heap are PARAMETERS, not baked-in constants. A raw
+# `docker build` defaults to the safe floor (single-threaded) so it cannot OOM
+# on a memory-constrained host (e.g. WSL). CI raises TURBO_CONCURRENCY via
+# --build-arg to exploit its 16GB runners — see .github/workflows/publish.yml.
+#
+# Memory math: each `turbo run tsc` task is one node process that can grow to
+# NODE_MAX_OLD_SPACE. packages/app's type-check peaks above 4GB (we've observed
+# heap OOM / exit 129 at the 4GB default), so the heap default stays 6GB — this
+# is a correctness floor for app's type graph, NOT a WSL throttle. Safe
+# concurrency therefore tracks the memory budget: floor(mem_budget / ~5GB).
+ARG TURBO_CONCURRENCY=1
+ARG NODE_MAX_OLD_SPACE=6144
+ENV TURBO_CONCURRENCY=${TURBO_CONCURRENCY} \
+    NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE}
 
 # --- Dependency layers first ----------------------------------------------------
 # Copy only the manifests + lockfiles, run `yarn install`, THEN copy the source.
@@ -72,7 +88,14 @@ COPY --parents --chown=default:default \
     package.json yarn.lock backstage.json \
     packages/*/package.json plugins/*/package.json \
     /build/
-RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
+# Yarn cache mount so a partial dependency change doesn't re-download every
+# tarball on rebuild (mirrors the runtime stage's `yarn workspaces focus` mount).
+# Berry's global cache lives under $HOME (/opt/app-root/src) for the `default`
+# (uid 1001, gid 0) user; the mount only speeds rebuilds — a --no-cache build
+# is unaffected.
+RUN --mount=type=cache,target=/opt/app-root/src/.yarn/berry/cache,sharing=locked,uid=1001,gid=0 \
+    --mount=type=cache,target=/opt/app-root/src/.yarn/berry/index,sharing=locked,uid=1001,gid=0 \
+    yarn config set npmRegistryServer "$NPM_REGISTRY" && \
     yarn config set nodeLinker node-modules && \
     if [ "$NPM_REGISTRY" != "https://registry.npmjs.org/" ]; then \
       HOST=$(printf '%s\n' "$NPM_REGISTRY" | awk -F[/:] '{print $4}') && \
@@ -86,8 +109,10 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
 # and host node_modules is .dockerignore'd so it can't clobber the installed one.
 COPY --chown=default:default . /build/
 
-# Root workspace build
-RUN yarn tsc && yarn build:backend
+# Root workspace build. `build:backend` is `yarn tsc && yarn workspace backend
+# build`, so it already runs the full-repo type-check — no separate `yarn tsc &&`
+# prefix needed (that was a redundant second pass).
+RUN yarn build:backend
 
 # Pre-fetch the small set of npm-published plugins still baked into the image
 # (homepage, global-header, about, about-backend). Everything else loads via
@@ -97,7 +122,7 @@ RUN /build/docker/download-baked-plugins.sh /build/dynamic-plugins-store
 # ============================================================================
 # Stage 2 — runtime
 # ============================================================================
-FROM ${NODE_BASE}
+FROM ${NODE_BASE_RUNTIME}
 
 USER root
 
@@ -105,16 +130,21 @@ ARG YQ_VERSION
 ARG DECK_VERSION
 ARG KUBECTL_VERSION
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    dnf -y upgrade && \
-    dnf install -y --setopt=install_weak_deps=False \
-      skopeo git jq wget tar gzip ca-certificates sqlite-devel \
-      python3.12 python3.12-pip python3.12-devel && \
-    alternatives --install /usr/bin/python python /usr/bin/python3.12 1 && \
-    alternatives --install /usr/bin/pip pip /usr/bin/pip3.12 1 && \
-    wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64" \
-      -O /usr/local/bin/yq && \
+# Runtime packages. Minimal base → microdnf, and NO build toolchain / *-devel:
+# the only native module (better-sqlite3) installs a prebuilt binary during
+# `yarn workspaces focus`, so nothing compiles in this stage. `python`/`python3`
+# are symlinked to 3.12 because install-dynamic-plugins.sh calls bare `python`
+# and the minimal base ships no `alternatives`. yq is fetched with curl (no wget
+# on minimal) and is arch-aware (the old line hardcoded amd64 — wrong on arm64).
+RUN ARCH="$(arch | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')" && \
+    microdnf install -y --nodocs --setopt=install_weak_deps=0 \
+      skopeo git jq tar gzip ca-certificates \
+      python3.12 python3.12-pip && \
+    microdnf clean all && rm -rf /var/cache/dnf /var/cache/yum /var/cache/libdnf5 && \
+    ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.12 /usr/bin/python && \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${ARCH}" \
+      -o /usr/local/bin/yq && \
     chmod +x /usr/local/bin/yq
 
 RUN ARCH=$(arch | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/') && \
@@ -133,11 +163,11 @@ RUN ARCH=$(arch | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/') && \
 COPY python /opt/python
 RUN --mount=type=cache,target=/root/.cache/pip \
     cd /opt/python/ && \
-    pip install --upgrade pip setuptools pyyaml && \
-    pip install -r requirements.txt --ignore-installed urllib3 && \
+    python3.12 -m pip install --upgrade pip setuptools pyyaml && \
+    python3.12 -m pip install -r requirements.txt --ignore-installed urllib3 && \
     mkdocs --version
 
-USER default
+USER 1001
 WORKDIR /app
 
 ARG NPM_REGISTRY
@@ -149,11 +179,14 @@ ENV NPM_REGISTRY=$NPM_REGISTRY \
 
 RUN npm install -g corepack && corepack enable && corepack prepare yarn@4.12.0 --activate
 
-# Skeleton install (dependency manifests only, then production install)
-COPY --chown=default:default --from=builder /build/.yarn ./.yarn
-COPY --chown=default:default --from=builder /build/yarn.lock /build/package.json /build/backstage.json ./
-COPY --chown=default:default --from=builder /build/packages/backend/dist/skeleton.tar.gz ./
-RUN tar xzf skeleton.tar.gz && rm skeleton.tar.gz
+# Skeleton install (dependency manifests only, then production install).
+# The skeleton/bundle tarballs are bind-mounted from the builder and extracted in
+# place — they never land in their own COPY layer (a `COPY … && rm` leaves the
+# tarball stuck in the COPY layer; the later `rm` can't reclaim it).
+COPY --chown=1001:0 --from=builder /build/.yarn ./.yarn
+COPY --chown=1001:0 --from=builder /build/yarn.lock /build/package.json /build/backstage.json ./
+RUN --mount=type=bind,from=builder,source=/build/packages/backend/dist/skeleton.tar.gz,target=/tmp/skeleton.tar.gz \
+    tar xzf /tmp/skeleton.tar.gz
 
 RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
     yarn config set nodeLinker node-modules && \
@@ -168,21 +201,21 @@ RUN --mount=type=cache,target=/opt/app-root/src/.yarn/berry/cache,sharing=locked
     yarn workspaces focus --all --production
 
 # Backend bundle + runtime configs
-COPY --chown=default:default --from=builder /build/packages/backend/dist/bundle.tar.gz ./
-RUN tar xzf bundle.tar.gz && rm bundle.tar.gz
+RUN --mount=type=bind,from=builder,source=/build/packages/backend/dist/bundle.tar.gz,target=/tmp/bundle.tar.gz \
+    tar xzf /tmp/bundle.tar.gz
 
-COPY --chown=default:default --from=builder /build/examples ./examples
-COPY --chown=default:default --from=builder /build/rbac-policy.csv ./
-COPY --chown=default:default --from=builder /build/rbac-policy-extensions.csv /tmp/rbac-policy-extensions.csv
+COPY --chown=1001:0 --from=builder /build/examples ./examples
+COPY --chown=1001:0 --from=builder /build/rbac-policy.csv ./
+COPY --chown=1001:0 --from=builder /build/rbac-policy-extensions.csv /tmp/rbac-policy-extensions.csv
 RUN cat /tmp/rbac-policy-extensions.csv >> /app/rbac-policy.csv && rm /tmp/rbac-policy-extensions.csv
 
-COPY --chown=default:default --from=builder /build/app-config.yaml /build/app-config.production.yaml /build/app-config.distro.yaml ./
+COPY --chown=1001:0 --from=builder /build/app-config.yaml /build/app-config.production.yaml /build/app-config.distro.yaml ./
 
 # Bake the small set of npm-published plugins fetched in Stage 1 into the
 # image at the path install-dynamic-plugins.py expects (preInstalled:true
 # entries in dynamic-plugins.default.yaml). Everything else loads via OCI
 # references at boot.
-COPY --chown=default:default --from=builder /build/dynamic-plugins-store /app/dynamic-plugins-root
+COPY --chown=1001:0 --from=builder /build/dynamic-plugins-store /app/dynamic-plugins-root
 
 # Defensive: install-dynamic-plugins.py writes into this dir at boot, so it
 # must exist even if the baked set above is ever emptied. /app/data holds the
@@ -248,11 +281,11 @@ RUN set -e; \
     rm -rf "$TMP_OCI" "$TMP_EXTRACT"
 
 # Plugin install scripts + config files consumed at startup
-COPY --chown=default:default --from=builder /build/dynamic-plugins.yaml /app/
-COPY --chown=default:default --from=builder /build/dynamic-plugins.default.yaml /app/
-COPY --chown=default:default --from=builder /build/presets /app/presets
-COPY --chown=default:default --from=builder /build/docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
-COPY --chown=default:default --chmod=755 --from=builder /build/docker/install-dynamic-plugins.sh /app/install-dynamic-plugins.sh
+COPY --chown=1001:0 --from=builder /build/dynamic-plugins.yaml /app/
+COPY --chown=1001:0 --from=builder /build/dynamic-plugins.default.yaml /app/
+COPY --chown=1001:0 --from=builder /build/presets /app/presets
+COPY --chown=1001:0 --from=builder /build/docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
+COPY --chown=1001:0 --chmod=755 --from=builder /build/docker/install-dynamic-plugins.sh /app/install-dynamic-plugins.sh
 
 # Marketplace catalog entities — bake a snapshot from the OCI catalog index so
 # every fresh container starts ready (~157KB tarball, ~220 YAMLs as of bs_1.49.4).
@@ -278,7 +311,7 @@ ARG DEVPORTAL_VERSION=dev
 RUN echo "{\"version\":\"${DEVPORTAL_VERSION}\"}" > /app/devportal.json
 
 # Entrypoint
-COPY --chown=default:default --chmod=755 --from=builder /build/entrypoint.sh /app/entrypoint.sh
+COPY --chown=1001:0 --chmod=755 --from=builder /build/entrypoint.sh /app/entrypoint.sh
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "packages/backend", "--config", "app-config.yaml", "--config", "app-config.production.yaml", "--config", "/app/dynamic-plugins-root/app-config.dynamic-plugins.yaml"]
