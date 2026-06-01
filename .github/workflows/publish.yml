@@ -218,38 +218,32 @@ jobs:
           cache-from: type=gha,scope=arm64
           cache-to: type=gha,scope=arm64,mode=max
 
+  gen-matrix:
+    # Single source of truth for the smoke matrix: derived from ALL_TESTS in
+    # scripts/smoke-presets.sh via --list-json. A hand-maintained parallel list
+    # here once drifted and let the github-auth bug ship in 0.1.0 — never again.
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      presets: ${{ steps.list.outputs.presets }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Derive smoke matrix from smoke-presets.sh
+        id: list
+        run: |
+          presets="$(bash scripts/smoke-presets.sh --list-json)"
+          echo "Derived presets: $presets"
+          echo "presets=$presets" >> "$GITHUB_OUTPUT"
+
   smoke:
-    needs: [validate-tag, build-amd64-test]
+    needs: [validate-tag, build-amd64-test, gen-matrix]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # Must mirror ALL_TESTS in scripts/smoke-presets.sh — the publish gate
-        # only covers what is listed here. A divergence let the github-auth
-        # YAML bug ship in 0.1.0 (the auth presets existed in smoke-presets.sh
-        # but not here). Keep both lists in lockstep until the matrix is
-        # generated from a single source.
-        preset:
-          - recommended
-          - veecode-theme
-          - github
-          - github-auth
-          - github,github-auth
-          - gitlab
-          - azure
-          - azure-auth
-          - azure,azure-auth
-          - keycloak
-          - ldap
-          - ldap,ldap-ad
-          - jenkins
-          - kubernetes
-          - sonarqube
-          - mcp
-          - recommended,mcp
-          - recommended,mcp,mcp-chat
-          - recommended+mount
+        preset: ${{ fromJson(needs.gen-matrix.outputs.presets) }}
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
@@ -367,3 +361,45 @@ jobs:
           docker buildx imagetools create -t "${IMAGE_NAME}:latest" \
             "${IMAGE_NAME}:${VERSION}-amd64" \
             "${IMAGE_NAME}:${VERSION}-arm64"
+
+  github-release:
+    # GitHub Release + SBOM. Runs after the multi-arch manifest exists. The image
+    # is already public at :<version>, so the SBOM is generated against the pushed
+    # manifest and attached (SPDX + CycloneDX) as release assets. Image-level signed
+    # attestation (cosign/provenance) is deferred — the amd64 load→push path strips
+    # buildx attestations, and reworking it would lose the smoke-before-push gate on
+    # the local tarball. The tag already exists (pushed by release.yml); the body is
+    # GitHub's auto-generated notes from commits/PRs since the previous release.
+    needs: [validate-tag, manifest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install syft
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM (SPDX + CycloneDX) from the published image
+        run: |
+          syft "${IMAGE_NAME}:${VERSION}" \
+            -o "spdx-json=sbom-${VERSION}.spdx.json" \
+            -o "cyclonedx-json=sbom-${VERSION}.cdx.json"
+          ls -lh "sbom-${VERSION}".*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+          generate_release_notes: true
+          prerelease: ${{ needs.validate-tag.outputs.is_prerelease == 'true' }}
+          files: |
+            sbom-${{ env.VERSION }}.spdx.json
+            sbom-${{ env.VERSION }}.cdx.json

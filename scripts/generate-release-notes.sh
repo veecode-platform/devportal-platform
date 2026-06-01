@@ -29,8 +29,9 @@ fi
 
 last_line=$(printf "%s\n" "$COMMITS" | tail -n 1)
 
-# Check if it starts with "* Bump version " and remove line if it does
-if [[ $last_line == \*\ Release\ version\ * ]]; then
+# Drop the release/bump commit itself from the notes if it's the last line.
+# Matches both the legacy "Release version X" and the current "chore: release X".
+if [[ $last_line == \*\ Release\ version\ * || $last_line == \*\ chore:\ release\ * ]]; then
   # Remove last line
   COMMITS=$(printf "%s\n" "$COMMITS" | sed '$d')
 fi
@@ -38,7 +39,7 @@ fi
 # Create CHANGELOG.md if it doesn't exist
 if [ ! -f CHANGELOG.md ]; then
   info "Creating new CHANGELOG.md file"
-  echo "# devportal-base changelog" > CHANGELOG.md
+  echo "# devportal-platform changelog" > CHANGELOG.md
   echo "" >> CHANGELOG.md
 fi
 

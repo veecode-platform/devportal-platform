@@ -1,0 +1,137 @@
+name: VKDR Install E2E
+
+# Real-deploy validation of the supported install path: `vkdr devportal-platform
+# install` → published `veecode-devportal-platform` Helm chart → k3d → /healthcheck.
+# This is the integration gate that the docker-run smoke matrix cannot cover: chart
+# correctness, Kong ingress, the credentials Secret wiring, and Ready-under-k8s.
+#
+# Placement: runs AFTER Publish (workflow_run) against the freshly-published image,
+# plus on-demand (workflow_dispatch). It is a CANARY / status report — it does NOT
+# move :latest or any pointer. (V1/V2 coexist on veecode/devportal; :latest must not
+# point at V2 until the V2 rollout completes. See docs/RELEASE_CYCLE.md.)
+#
+# Key subtlety: `vkdr devportal-platform install` never overrides image.tag — it uses
+# the chart's default (currently 2.0.0). To validate the JUST-PUBLISHED image we pass
+# `--merge-values` with image.tag pinned to <version>. Assertions mirror vkdr's own
+# src/test/bats/.../devportal-platform/install.bats (namespace, deployment Ready,
+# Secret, /healthcheck 200, ingress) but against the overridden image.
+
+on:
+  workflow_run:
+    workflows: ["Publish"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Published image tag to validate (e.g. 2.1.0). Defaults to package.json version.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_REPOSITORY: docker.io/veecode/devportal
+  DEVPORTAL_NAMESPACE: platform
+  CHART_RELEASE: veecode-devportal-platform
+
+jobs:
+  e2e:
+    # Only run after a SUCCESSFUL publish (or any manual dispatch).
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: resolve
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_TAG:-}" ]; then
+            VERSION="$INPUT_TAG"
+          else
+            VERSION="$(jq -r .version package.json)"
+          fi
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+            echo "::error::resolved image tag ($VERSION) is not valid semver."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Validating vkdr install against ${IMAGE_REPOSITORY}:${VERSION}"
+
+      - name: Install kubectl
+        run: |
+          curl -sSLo /tmp/kubectl "https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Install vkdr
+        run: |
+          curl -L get-vkdr.vee.codes | bash
+          # get-vkdr installs to a user bin; make sure it's on PATH for later steps.
+          echo "$HOME/.vkdr/bin" >> "$GITHUB_PATH"
+          echo "/usr/local/bin" >> "$GITHUB_PATH"
+
+      - name: vkdr init (download kubectl/helm/k3d toolchain)
+        run: vkdr init
+
+      - name: vkdr infra up (create k3d cluster)
+        run: vkdr infra up
+
+      - name: Write image override (pin the just-published tag)
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          cat > /tmp/override.yaml <<EOF
+          image:
+            repository: ${IMAGE_REPOSITORY}
+            tag: "${VERSION}"
+            pullPolicy: Always
+          EOF
+          cat /tmp/override.yaml
+
+      - name: vkdr devportal-platform install (recommended preset, no credentials)
+        run: vkdr devportal-platform install --merge-values /tmp/override.yaml
+
+      # The install runs helm --wait --timeout 10m, so success here already means the
+      # release reconciled and pods are Ready. The asserts below confirm the contract.
+      - name: Assert deployment exists and is available
+        run: |
+          set -euo pipefail
+          kubectl -n "$DEVPORTAL_NAMESPACE" get deploy -l app.kubernetes.io/name=veecode-devportal-platform
+          kubectl -n "$DEVPORTAL_NAMESPACE" rollout status \
+            deploy -l app.kubernetes.io/name=veecode-devportal-platform --timeout=120s
+
+      - name: Assert /healthcheck returns 200
+        run: |
+          set -euo pipefail
+          POD="$(kubectl -n "$DEVPORTAL_NAMESPACE" get pod \
+            -l app.kubernetes.io/name=veecode-devportal-platform -o name | head -1)"
+          test -n "$POD"
+          CODE="$(kubectl -n "$DEVPORTAL_NAMESPACE" exec "$POD" -c devportal -- \
+            curl -s -o /dev/null -w '%{http_code}' localhost:7007/healthcheck)"
+          echo "healthcheck → $CODE"
+          test "$CODE" = "200"
+
+      - name: Assert Kong ingress controller and ingress object present
+        run: |
+          set -euo pipefail
+          kubectl -n "$DEVPORTAL_NAMESPACE" get ingress
+          kubectl get pods -A | grep -i kong
+
+      - name: Capture diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== pods ==="
+          kubectl -n "$DEVPORTAL_NAMESPACE" get pods -o wide || true
+          echo "=== describe deploy ==="
+          kubectl -n "$DEVPORTAL_NAMESPACE" describe deploy -l app.kubernetes.io/name=veecode-devportal-platform || true
+          echo "=== devportal logs ==="
+          kubectl -n "$DEVPORTAL_NAMESPACE" logs -l app.kubernetes.io/name=veecode-devportal-platform -c devportal --tail=200 || true
+          echo "=== events ==="
+          kubectl -n "$DEVPORTAL_NAMESPACE" get events --sort-by=.lastTimestamp | tail -50 || true

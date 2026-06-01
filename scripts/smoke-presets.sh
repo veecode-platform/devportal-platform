@@ -12,6 +12,7 @@
 #   scripts/smoke-presets.sh                                # all defaults, :latest image
 #   scripts/smoke-presets.sh --image veecode/devportal-platform:0.1.0  # specific tag
 #   scripts/smoke-presets.sh --presets recommended,mcp      # subset (csv of tests)
+#   scripts/smoke-presets.sh --list-json                    # print ALL_TESTS as a JSON array and exit
 #   scripts/smoke-presets.sh --help
 #
 # Env:
@@ -24,6 +25,7 @@ cd "$(dirname "$0")/.."
 
 IMAGE="${DEVPORTAL_IMAGE:-veecode/devportal-platform:latest}"
 PRESETS_FILTER=""
+LIST_JSON=false
 DEVPORTAL_MEM="${DEVPORTAL_MEM:-4g}"
 DEVPORTAL_MEMSWAP="${DEVPORTAL_MEMSWAP:-6g}"
 
@@ -31,8 +33,9 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --image) IMAGE="$2"; shift 2 ;;
     --presets) PRESETS_FILTER="$2"; shift 2 ;;
+    --list-json) LIST_JSON=true; shift ;;
     -h|--help)
-      sed -n '2,21p' "$0" | sed 's/^# *//'
+      sed -n '2,22p' "$0" | sed 's/^# *//'
       exit 0 ;;
     *) echo "unknown arg: $1 (see --help)" >&2; exit 64 ;;
   esac
@@ -85,6 +88,15 @@ ALL_TESTS=(
   # In CI/publish, host == image source, so the gate is faithful there.
   'recommended+mount'
 )
+
+# --list-json: emit ALL_TESTS as a compact JSON array and exit. This is the single
+# source of truth for the publish.yml smoke matrix — the workflow builds its matrix
+# from this output instead of hand-maintaining a parallel list (a past divergence let
+# the github-auth bug ship in 0.1.0). Requires jq.
+if [ "$LIST_JSON" = true ]; then
+  printf '%s\n' "${ALL_TESTS[@]}" | jq -R . | jq -cs .
+  exit 0
+fi
 
 # Operator override fixture for the +mount regression case.
 DP_OVERRIDE_FIXTURE="$(pwd)/scripts/smoke/operator-dp-override.yaml"

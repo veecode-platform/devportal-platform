@@ -1,7 +1,24 @@
 name: Release
 
+# Single entry point for cutting a release. Dispatch does everything:
+#   bump package.json → CHANGELOG → commit → push main → tag → push tag.
+# The tag push triggers Publish (build → smoke → push → manifest). There is no
+# separate "bump by hand + run Publish" path anymore — this workflow IS the path.
+#
+# Supports any semver bump (patch / minor / major / prerelease) via the `version`
+# input. Example:  gh workflow run release.yml -f version=2.1.0
+#
+# Requires RELEASE_TOKEN (a PAT/app token allowed to push to main past branch
+# protection — the release bot bypass). DOCKER creds are consumed downstream by
+# Publish, not here.
+
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (semver, e.g. 2.1.0 or 2.1.0-rc.1). Must be greater than the current package.json version.'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -9,11 +26,28 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
+          ref: main
           token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Validate version shape
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+            echo "::error::version ($VERSION) is not valid semver (e.g. 2.1.0 or 2.1.0-rc.1)."
+            exit 1
+          fi
+          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::error::tag $VERSION already exists. Pick a new version."
+            exit 1
+          fi
 
       - name: Configure git
         run: |
@@ -26,4 +60,6 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
 
       - name: Release
-        run: make release
+        env:
+          VERSION: ${{ inputs.version }}
+        run: make release VERSION="$VERSION"
