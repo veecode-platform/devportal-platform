@@ -1,18 +1,18 @@
 #!/bin/bash
 set -e
 
-# DevPortal POC Local Image Build Script
+# DevPortal Local Image Build Script
 #
-# The unified Dockerfile is self-contained: it runs yarn install + build +
-# dynamic-plugin export inside the builder stage. No pre-build artifacts
-# need to exist in the host workspace.
+# Orchestrates two steps:
+#   1. yarn build:backend  — compiles on the host (Node, full RAM, turbo cache)
+#   2. docker build        — packages the pre-built artefacts into the image
 #
 # Usage:
 #   ./scripts/build-local-image.sh [OPTIONS]
 #
 # Options:
 #   --no-cache       Disable Docker layer caching
-#   --memory=<size>  Override memory limit (default: 4g, recommended for WSL)
+#   --memory=<size>  Override memory limit (default: 3g)
 #   --help, -h       Show help message
 
 RED='\033[0;31m'
@@ -26,6 +26,7 @@ DOCKERFILE_PATH="Dockerfile"
 NO_CACHE=""
 MEMORY_LIMIT="3g"
 MEMORY_SWAP="4g"
+SKIP_BUILD=false
 
 print_status() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
@@ -34,18 +35,27 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 show_help() {
     cat <<EOF
-DevPortal POC Local Image Build Script
+DevPortal Local Image Build Script
 
-Builds the unified veecode/devportal Docker image. The Dockerfile is
-self-contained — no host-side pre-build steps required.
+Builds the veecode/devportal Docker image in two steps:
+  1. Compile on the host (yarn build:backend)
+  2. Package into the image (docker build)
 
 Usage: $0 [OPTIONS]
 
 Options:
   --no-cache         Disable Docker layer caching
-  --memory=<size>    Memory limit for the build (default: 4g; WSL hosts
-                     should not exceed available RAM minus overhead)
+  --skip-build       Skip 'yarn build:backend' (use existing dist/ artefacts)
+  --memory=<size>    Memory limit for the Docker build (default: 3g)
   --help, -h         Show this help message
+
+Steps (default — both run):
+  1. yarn install --immutable && yarn build:backend
+     Compiles packages/app + packages/backend on the host (Node, full RAM).
+     Generates packages/backend/dist/skeleton.tar.gz + bundle.tar.gz.
+  2. docker build
+     Packages the pre-built artefacts into the runtime image.
+     No compilation inside Docker — fast, minimal, no OOM risk.
 EOF
 }
 
@@ -53,6 +63,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --no-cache)
             NO_CACHE="--no-cache"
+            shift
+            ;;
+        --skip-build)
+            SKIP_BUILD=true
             shift
             ;;
         --memory=*)
@@ -83,6 +97,26 @@ fi
 
 VERSION=$(node -p "require('./package.json').version")
 
+# Step 1 — compile on host (skippable when artefacts are already fresh)
+if [ "$SKIP_BUILD" = false ]; then
+    print_status "Step 1/2: Building backend artefacts on host (yarn build:backend)..."
+    # packages/app webpack peaks well above the default ~2 GB V8 heap limit.
+    yarn install --immutable
+    NODE_OPTIONS="--max-old-space-size=6144" yarn build:backend
+    print_success "Backend artefacts built."
+else
+    print_warning "--skip-build: skipping yarn build:backend, using existing dist/ artefacts."
+fi
+
+# Artefacts must exist regardless of --skip-build
+if [ ! -f "packages/backend/dist/skeleton.tar.gz" ] || \
+   [ ! -f "packages/backend/dist/bundle.tar.gz" ]; then
+    print_error "Artefacts not found in packages/backend/dist/."
+    print_error "Run without --skip-build, or run: yarn install --immutable && yarn build:backend"
+    exit 1
+fi
+
+print_status "Step 2/2: Building Docker image..."
 print_status "Image: $IMAGE_NAME"
 print_status "Tags : $VERSION, latest"
 print_status "Memory limit: $MEMORY_LIMIT (swap: $MEMORY_SWAP)"

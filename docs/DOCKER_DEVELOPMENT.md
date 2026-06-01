@@ -1,68 +1,77 @@
 # Docker Development
 
-This repo builds **one image**: `veecode/devportal-platform`. There is
-no base/distro split — both layers were collapsed into a single
-multi-stage [`Dockerfile`](../Dockerfile). The published image is
-`docker.io/veecode/devportal-platform:<version>` plus `:latest`,
+This repo builds **one image**: `veecode/devportal-platform`. The published
+image is `docker.io/veecode/devportal-platform:<version>` plus `:latest`,
 multi-arch (`linux/amd64` + `linux/arm64`).
+
+## Build model
+
+The image follows the canonical Backstage pattern: **compilation happens on the
+host or CI runner, not inside `docker build`**. The Dockerfile only packages
+pre-built artefacts — it never runs `tsc`, `webpack`, or `yarn install` for the
+full monorepo.
+
+```
+1. yarn install --immutable && yarn build:backend   ← on the host / CI runner
+   → generates packages/backend/dist/skeleton.tar.gz + bundle.tar.gz
+
+2. docker build .                                   ← packages the artefacts
+   → yarn workspaces focus --production (prod deps only)
+   → copies configs, presets, policies
+   → downloads baked plugins (lightweight npm pack, no compilation)
+```
 
 ## Building locally
 
-```bash
-docker build . \
-  -t veecode/devportal-platform:local \
-  --memory=4g --memory-swap=6g \
-  --build-arg DEVPORTAL_VERSION=local
-```
-
-The memory flags are not optional on WSL — the frontend build needs
-~6 GB of V8 heap and the dnf upgrade step plus the dynamic-plugin
-export are themselves heavy. Without `--memory`, builds die at exit
-129 (JavaScript heap OOM) or get killed by the kernel OOM killer.
-
-There is a wrapper script:
+Use the wrapper script — it handles both steps in order:
 
 ```bash
 ./scripts/build-local-image.sh
 ```
 
-It applies sensible defaults (memory, build-args), and an
-optional `--quick` mode for iterating.
+If you have already run `yarn build:backend` and just want to rebuild the image
+(e.g. you changed a config file, not source code):
+
+```bash
+./scripts/build-local-image.sh --skip-build
+```
+
+Or run the steps manually:
+
+```bash
+yarn install --immutable
+yarn build:backend          # → packages/backend/dist/skeleton.tar.gz + bundle.tar.gz
+docker build . \
+  -t veecode/devportal-platform:local \
+  --build-arg DEVPORTAL_VERSION=local
+```
 
 ### Build args
 
-- `DEVPORTAL_VERSION` — written into `/app/devportal.json` and read by
-  the About plugin. Defaults to `dev`. Set this to the semver you
-  intend to publish.
-- `NODE_BASE` — UBI Node base image. Defaults to
-  `registry.access.redhat.com/ubi10/nodejs-22:10.1-1775712813` (the
-  anonymous mirror — see [ADR-012](adr/012-anonymous-ubi-mirror.md)).
-  No Red Hat credentials are needed.
+- `DEVPORTAL_VERSION` — written into `/app/devportal.json` and read by the
+  About plugin. Defaults to `dev`. Set to the semver you intend to publish.
+- `NODE_BASE_RUNTIME` — UBI minimal Node runtime base image. Pinned by digest
+  for reproducible multi-arch builds. See
+  [ADR-012](adr/012-anonymous-ubi-mirror.md).
 - `NPM_REGISTRY` — for offline / mirrored installs. Defaults to
-  `https://registry.npmjs.org/`. If you point this at a private
-  registry, the Dockerfile adds the host to Yarn's
-  `unsafeHttpWhitelist` automatically.
-- `EXTENSIONS_TAG` — the `quay.io/veecode/extensions` OCI tag that
-  ships the RHDH `catalog-backend-module-extensions` artifact.
-  Defaults to `bs_1.49.4`. See "The `cbme` stopgap" below.
-- `YQ_VERSION`, `DECK_VERSION`, `KUBECTL_VERSION` — pinned versions
-  for `yq` (config edits at boot), Kong `deck` (scaffolder action),
-  and `kubectl` (kubernetes plugin). Bump independently as needed.
+  `https://registry.npmjs.org/`. If you point this at a private registry, the
+  Dockerfile adds the host to Yarn's `unsafeHttpWhitelist` automatically.
+- `EXTENSIONS_TAG` — the `quay.io/veecode/extensions` OCI tag for the RHDH
+  `catalog-backend-module-extensions` artifact. Defaults to `bs_1.49.4`. See
+  "The `cbme` stopgap" below.
+- `YQ_VERSION`, `DECK_VERSION`, `KUBECTL_VERSION` — pinned versions for `yq`,
+  Kong `deck`, and `kubectl`. Bump independently as needed.
 
 ## What the image contains
 
-[`Dockerfile`](../Dockerfile) has two stages. Stage 1 (builder) runs
-`yarn install` for the root workspace and builds the Backstage backend
-bundle. There is no longer a sibling dynamic-plugins workspace —
-dynamic plugins are fetched as OCI bundles at boot from
-[`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays).
-Stage 2 (runtime) is built from the same UBI base and assembles
-`/app/`:
+The [`Dockerfile`](../Dockerfile) is a single-stage runtime image. It takes
+the pre-built backend bundle and packages it alongside production dependencies
+and runtime tooling under `/app/`:
 
 ```text
 /app/
-├── packages/backend/                        # Backend bundle
-├── dynamic-plugins-root/                    # Empty at build time; populated at boot from OCI
+├── packages/backend/                        # Backend bundle (unpacked from bundle.tar.gz)
+├── dynamic-plugins-root/                    # Baked plugins; further populated at boot from OCI
 ├── presets/                                 # Preset catalog
 ├── catalog-entities/extensions/             # Marketplace catalog YAMLs (baked-in fallback)
 ├── app-config.yaml
@@ -70,7 +79,7 @@ Stage 2 (runtime) is built from the same UBI base and assembles
 ├── app-config.distro.yaml
 ├── dynamic-plugins.yaml
 ├── dynamic-plugins.default.yaml
-├── data/extensions-install.yaml             # Marketplace install state; persistent volume, created empty if absent at boot
+├── data/extensions-install.yaml             # Marketplace install state; persistent volume
 ├── rbac-policy.csv                          # rbac-policy-extensions.csv appended at build time
 ├── install-dynamic-plugins.py
 ├── install-dynamic-plugins.sh
@@ -89,7 +98,7 @@ Runtime binaries baked into the image alongside Node 22:
 
 ## The `cbme` stopgap
 
-This bites if you bump `EXTENSIONS_TAG` blindly. [`Dockerfile:217-270`](../Dockerfile)
+This bites if you bump `EXTENSIONS_TAG` blindly. [`Dockerfile`](../Dockerfile)
 documents it in detail; the short version:
 
 - The marketplace's catalog provider (`catalog-backend-module-extensions`)
@@ -102,12 +111,9 @@ documents it in detail; the short version:
 - The Dockerfile patches `dist/module.cjs.js` with a `sed`:
   `if (!alpha.catalogProcessingExtensionPoint) alpha = Object.assign({}, alpha, require('@backstage/plugin-catalog-node'));`
 
-When `quay.io/veecode/extensions:bs_1.50.0` (or whatever the current
-target is) is published by `devportal-plugin-export-overlays`, set
-`EXTENSIONS_TAG=bs_1.50.0` and drop the sed (the Dockerfile comment
-spells out the cleanup). See also
-[`scripts/dev-run.sh:56-69`](../scripts/dev-run.sh) — it carries the
-same patch for the overlay loop.
+When `quay.io/veecode/extensions:bs_1.50.0` is published by
+`devportal-plugin-export-overlays`, set `EXTENSIONS_TAG=bs_1.50.0` and drop
+the sed (the Dockerfile comment spells out the cleanup).
 
 ## Running the image
 
@@ -130,13 +136,12 @@ docker run -p 7007:7007 --memory=2g \
   veecode/devportal-platform:local
 ```
 
-Ports: the image listens on `:7007` (set in
-[`app-config.production.yaml`](../app-config.production.yaml)). The
-frontend is served from the same port (the backend `app-backend`
-plugin serves the bundled frontend at `/`).
+Ports: the image listens on `:7007`. The frontend is served from the same port
+(the backend `app-backend` plugin serves the bundled frontend at `/`).
 
-Memory: 2 GB is enough to run; less and the heap pressure shows up as
-slow startup or eventual GC death under load.
+Memory: 2 GB is enough to run the container. The heavy compilation (tsc,
+webpack) now happens on the host before `docker build`, so no extra memory is
+needed for the image build itself.
 
 ## Inner-loop development against the image
 
@@ -151,34 +156,37 @@ up changes — full details in
 
 Image publish is a manual GitHub Actions dispatch
 ([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)):
-matrix build for `amd64` + `arm64`, push per-arch tags
-(`<version>-amd64`, `<version>-arm64`), and a final `manifest` job
-stitches them under `<version>` and `latest`. See
-[`RELEASE_CYCLE.md`](RELEASE_CYCLE.md) for the full procedure.
+each per-arch job (amd64 on `ubuntu-latest`, arm64 on `ubuntu-22.04-arm`)
+runs `yarn build:backend` first, then builds and pushes the Docker image.
+A final `manifest` job stitches the per-arch tags under `<version>` and
+`latest`. See [`RELEASE_CYCLE.md`](RELEASE_CYCLE.md) for the full procedure.
 
-No Red Hat credentials are required for the publish workflow — UBI
-is pulled from the anonymous mirror per ADR-012. The only secrets
-needed are `DOCKER_USERNAME` and `DOCKER_PASSWORD`.
+No Red Hat credentials are required — UBI is pulled from the anonymous mirror
+per ADR-012. The only secrets needed are `DOCKER_USERNAME` and
+`DOCKER_PASSWORD`.
 
 ## Troubleshooting
 
-**OOM during build** — bump `--memory` and `--memory-swap`, ensure
-WSL itself has at least 8 GB allocated to it (`%USERPROFILE%\.wslconfig`).
+**`yarn build:backend` OOM on WSL** — the `packages/app` type-check needs
+~5 GB of V8 heap. If it OOMs, increase WSL's memory allocation in
+`%USERPROFILE%\.wslconfig` (`memory=10GB` or more) and retry. This runs on
+the host (not inside Docker), so Docker memory limits don't apply here.
 
-**`skopeo copy` fails in the Dockerfile's cbme step** — the
-`quay.io/veecode/extensions:bs_X.Y.Z` image you set in
-`EXTENSIONS_TAG` may not exist yet. Check what
-`devportal-plugin-export-overlays` has published; the Dockerfile
-emits a warning and continues but the marketplace catalog will be
-empty.
+**`docker build` fails with "skeleton.tar.gz not found"** — the artefacts from
+`yarn build:backend` are missing. Run `./scripts/build-local-image.sh` (without
+`--skip-build`) to generate them first.
+
+**`skopeo copy` fails in the cbme step** — the `quay.io/veecode/extensions:bs_X.Y.Z`
+image set in `EXTENSIONS_TAG` may not exist yet. Check what
+`devportal-plugin-export-overlays` has published; the Dockerfile emits a warning
+and continues but the marketplace catalog will be empty.
 
 **Build cache is too aggressive after a yarn.lock change** —
-`docker buildx prune` and rebuild. The Dockerfile is structured so
-that `yarn install` reruns only when a manifest changes, but a stale
-cache layer can still keep an old lockfile in play.
+`docker buildx prune` and rebuild. The Dockerfile layers the production
+`yarn workspaces focus` after the skeleton extract, so a lockfile change
+invalidates from that point forward.
 
 **`registry.access.redhat.com` rate-limits in CI** — see ADR-012 §
-"Anonymous rate limits". Hosted GitHub runners come from a rotating
-IP pool, so we haven't seen it bite. If it does, the option is to opt
-into `registry.redhat.io` for `publish.yml` specifically (requires
-`REDHAT_USER` / `REDHAT_PASS` secrets and a `skopeo login` step).
+"Anonymous rate limits". If it bites, opt into `registry.redhat.io` for
+`publish.yml` (requires `REDHAT_USER` / `REDHAT_PASS` secrets and a
+`skopeo login` step).
