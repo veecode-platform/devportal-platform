@@ -118,7 +118,8 @@ RUN --mount=type=bind,source=packages/backend/dist/bundle.tar.gz,target=/tmp/bun
 
 # Runtime configs and policies
 COPY --chown=1001:0 examples ./examples
-COPY --chown=1001:0 rbac-policy.csv rbac-policy-extensions.csv /tmp/
+COPY --chown=1001:0 rbac-policy.csv /app/
+COPY --chown=1001:0 rbac-policy-extensions.csv /tmp/
 RUN cat /tmp/rbac-policy-extensions.csv >> /app/rbac-policy.csv && rm /tmp/rbac-policy-extensions.csv
 
 COPY --chown=1001:0 app-config.yaml app-config.production.yaml app-config.distro.yaml ./
