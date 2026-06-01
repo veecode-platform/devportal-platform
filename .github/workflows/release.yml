@@ -1,19 +1,71 @@
 name: Release
 
+# Single entry point for cutting a release. Dispatch does everything:
+#   bump package.json → CHANGELOG → commit → push main → tag → dispatch Publish.
+# There is no separate "bump by hand + run Publish" path anymore — this IS the path.
+#
+# Supports any semver bump (patch / minor / major / prerelease) via the `version`
+# input. Example:  gh workflow run release.yml -f version=2.1.0
+#
+# No RELEASE_TOKEN needed: main is not branch-protected, so the default GITHUB_TOKEN
+# pushes the bump + tag directly. The tag push itself does NOT trigger Publish (GitHub
+# suppresses workflow triggers from GITHUB_TOKEN-authored events), so we trigger
+# Publish explicitly via workflow_dispatch — which IS allowed from GITHUB_TOKEN. DOCKER
+# creds are consumed downstream by Publish, not here.
+
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (semver, e.g. 2.1.0 or 2.1.0-rc.1). Must be greater than the current package.json version.'
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: write      # push the bump commit + tag
+  actions: write       # dispatch the Publish workflow
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_TOKEN }}
+          fetch-tags: true
+          ref: main
+
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+            echo "::error::version ($VERSION) is not valid semver (e.g. 2.1.0 or 2.1.0-rc.1)."
+            exit 1
+          fi
+          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::error::tag $VERSION already exists. Pick a new version."
+            exit 1
+          fi
+          # Enforce monotonic increase: reject equal-or-lower versions so a dispatch
+          # can never downgrade package.json / publish a misleading tag+release.
+          # NOTE: uses `sort -V`, which orders stable versions correctly and handles
+          # rc.1→rc.2; it is NOT full semver prerelease ordering, so the exotic case
+          # of a prerelease for an already-released core (e.g. 2.0.0 → 2.0.0-rc.1)
+          # is not caught here. Not worth a bash semver comparator for that.
+          CURRENT="$(jq -r .version package.json)"
+          if [ "$VERSION" = "$CURRENT" ]; then
+            echo "::error::version ($VERSION) equals the current package.json version. Pick a higher version."
+            exit 1
+          fi
+          HIGHEST="$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)"
+          if [ "$HIGHEST" != "$VERSION" ]; then
+            echo "::error::version ($VERSION) is not greater than current ($CURRENT). Downgrades are not allowed."
+            exit 1
+          fi
+          echo "OK: $CURRENT → $VERSION"
 
       - name: Configure git
         run: |
@@ -25,5 +77,16 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Release
-        run: make release
+      - name: Release (bump + CHANGELOG + commit + push main + tag)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: make release VERSION="$VERSION"
+
+      - name: Trigger Publish
+        # The tag push above does NOT trigger Publish (GITHUB_TOKEN-authored events
+        # don't fire workflows). workflow_dispatch IS allowed from GITHUB_TOKEN, so we
+        # kick Publish explicitly. Publish re-validates version == package.json.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: gh workflow run publish.yml --ref main -f version="$VERSION"
