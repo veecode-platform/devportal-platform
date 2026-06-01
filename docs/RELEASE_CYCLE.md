@@ -26,12 +26,15 @@ The Release workflow then (via `make release VERSION=<version>`):
 1. Validates the version shape and that the tag does not already exist.
 2. Generates `CHANGELOG.md` notes from the commits since the last tag.
 3. Sets `package.json` `version`, commits `chore: release <version>`, and
-   pushes to `main` (the release bot uses `RELEASE_TOKEN` to push past branch
-   protection).
-4. Creates and pushes the annotated tag `<version>`.
+   pushes to `main` with the default `GITHUB_TOKEN` (main is not branch-protected).
+4. Creates and pushes the annotated tag `<version>`, then triggers **Publish**.
 
-The tag push triggers **Publish**
-([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)).
+Publish ([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)) is
+triggered **explicitly via `workflow_dispatch`**, not by the tag push. GitHub
+suppresses workflow triggers from `GITHUB_TOKEN`-authored events, so a
+`GITHUB_TOKEN`-pushed tag would not fire Publish — but a `workflow_dispatch` from
+`GITHUB_TOKEN` is allowed. (A tag pushed by a human with their own credentials
+still fires Publish directly.)
 
 ## What Publish does
 
@@ -115,10 +118,12 @@ gh workflow run vkdr-install-e2e.yml -f image_tag=2.1.0
 
 Repo or org secrets:
 
-- `RELEASE_TOKEN` — push-to-main token for the Release bot (branch-protection bypass).
 - `DOCKER_USERNAME` / `DOCKER_PASSWORD` — Docker Hub push creds.
 
-No Red Hat credentials are needed — UBI is pulled from the anonymous mirror
+No `RELEASE_TOKEN` is needed — `main` is not branch-protected, so Release pushes
+with the default `GITHUB_TOKEN` and triggers Publish via `workflow_dispatch`. (If
+`main` is ever protected, Release will need a PAT/App token with bypass to push the
+bump commit.) No Red Hat credentials are needed — UBI is pulled from the anonymous mirror
 ([`adr/012-anonymous-ubi-mirror.md`](adr/012-anonymous-ubi-mirror.md)).
 
 ## Inspecting a release

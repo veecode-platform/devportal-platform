@@ -1,16 +1,17 @@
 name: Release
 
 # Single entry point for cutting a release. Dispatch does everything:
-#   bump package.json → CHANGELOG → commit → push main → tag → push tag.
-# The tag push triggers Publish (build → smoke → push → manifest). There is no
-# separate "bump by hand + run Publish" path anymore — this workflow IS the path.
+#   bump package.json → CHANGELOG → commit → push main → tag → dispatch Publish.
+# There is no separate "bump by hand + run Publish" path anymore — this IS the path.
 #
 # Supports any semver bump (patch / minor / major / prerelease) via the `version`
 # input. Example:  gh workflow run release.yml -f version=2.1.0
 #
-# Requires RELEASE_TOKEN (a PAT/app token allowed to push to main past branch
-# protection — the release bot bypass). DOCKER creds are consumed downstream by
-# Publish, not here.
+# No RELEASE_TOKEN needed: main is not branch-protected, so the default GITHUB_TOKEN
+# pushes the bump + tag directly. The tag push itself does NOT trigger Publish (GitHub
+# suppresses workflow triggers from GITHUB_TOKEN-authored events), so we trigger
+# Publish explicitly via workflow_dispatch — which IS allowed from GITHUB_TOKEN. DOCKER
+# creds are consumed downstream by Publish, not here.
 
 on:
   workflow_dispatch:
@@ -21,7 +22,8 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: write      # push the bump commit + tag
+  actions: write       # dispatch the Publish workflow
 
 jobs:
   release:
@@ -33,7 +35,6 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: main
-          token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Validate version shape
         env:
@@ -59,7 +60,16 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Release
+      - name: Release (bump + CHANGELOG + commit + push main + tag)
         env:
           VERSION: ${{ inputs.version }}
         run: make release VERSION="$VERSION"
+
+      - name: Trigger Publish
+        # The tag push above does NOT trigger Publish (GITHUB_TOKEN-authored events
+        # don't fire workflows). workflow_dispatch IS allowed from GITHUB_TOKEN, so we
+        # kick Publish explicitly. Publish re-validates version == package.json.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: gh workflow run publish.yml --ref main -f version="$VERSION"
