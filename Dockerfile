@@ -5,18 +5,12 @@
 # tsc, webpack) runs on the host or CI runner — NOT inside `docker build`. The
 # image only packages pre-built artefacts.
 #
-# PRÉ-REQUISITO — before `docker build`, generate the artefacts on the host:
+# PREREQUISITE — before `docker build`, generate the artefacts on the host:
 #   yarn install --immutable
 #   yarn build:backend     # → packages/backend/dist/skeleton.tar.gz + bundle.tar.gz
 #
 # Local build (orchestrated — handles both steps):
 #   ./scripts/build-local-image.sh
-#
-# Why: running tsc/webpack inside the Docker builder requires >4 GB of V8 heap
-# (packages/app type graph) and caps concurrency at 1 to avoid OOM on
-# memory-constrained hosts (e.g. WSL). Building on the host eliminates those
-# constraints entirely — turbo cache is incremental, RAM is uncapped, and the
-# Dockerfile stays simple.
 
 # Red Hat publishes UBI on two registries: `registry.redhat.io` (authenticated)
 # and `registry.access.redhat.com` (anonymous, UBI-only mirror). Same image

@@ -21,13 +21,6 @@ full monorepo.
    → downloads baked plugins (lightweight npm pack, no compilation)
 ```
 
-**Why:** running `tsc` on `packages/app` inside Docker requires >4 GB of V8
-heap (Backstage + MUI type graph). On memory-constrained hosts that forced a
-`TURBO_CONCURRENCY=1` throttle and a baked `--max-old-space-size=6144` — WSL
-workarounds that had no place in a shared Dockerfile. Building on the host uses
-the full machine RAM, turbo's incremental cache, and a clean separation between
-"compile" and "package".
-
 ## Building locally
 
 Use the wrapper script — it handles both steps in order:
