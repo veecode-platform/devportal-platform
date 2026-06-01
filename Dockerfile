@@ -81,6 +81,13 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # root-owned on UBI minimal and uid 1001 cannot write to it.
 RUN npm install -g corepack && corepack enable && corepack prepare yarn@4.12.0 --activate
 
+# The root step above seeds $HOME/.npm (HOME=/opt/app-root/src) root-owned; hand the
+# home cache dirs to uid 1001 so prebuild-install can write its prebuilt-binary cache
+# during `yarn workspaces focus` instead of falling back to node-gyp (which has no
+# toolchain here and fails: better-sqlite3, keytar, isolated-vm).
+RUN mkdir -p /opt/app-root/src/.npm /opt/app-root/src/.cache && \
+    chown -R 1001:0 /opt/app-root/src/.npm /opt/app-root/src/.cache
+
 USER 1001
 WORKDIR /app
 
@@ -111,6 +118,10 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
 RUN --mount=type=cache,target=/opt/app-root/src/.yarn/berry/cache,sharing=locked,uid=1001,gid=0 \
     --mount=type=cache,target=/opt/app-root/src/.yarn/berry/index,sharing=locked,uid=1001,gid=0 \
     yarn workspaces focus --all --production
+
+# Fail fast if a required native module didn't get its prebuilt binary
+# (cpu-features is optional and may be skipped; the sqlite driver is not).
+RUN node -e "require('better-sqlite3'); console.log('native deps OK: better-sqlite3 loaded')"
 
 # Backend bundle
 RUN --mount=type=bind,source=packages/backend/dist/bundle.tar.gz,target=/tmp/bundle.tar.gz \
