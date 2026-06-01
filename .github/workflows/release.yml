@@ -36,7 +36,7 @@ jobs:
           fetch-tags: true
           ref: main
 
-      - name: Validate version shape
+      - name: Validate version
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -49,6 +49,23 @@ jobs:
             echo "::error::tag $VERSION already exists. Pick a new version."
             exit 1
           fi
+          # Enforce monotonic increase: reject equal-or-lower versions so a dispatch
+          # can never downgrade package.json / publish a misleading tag+release.
+          # NOTE: uses `sort -V`, which orders stable versions correctly and handles
+          # rc.1→rc.2; it is NOT full semver prerelease ordering, so the exotic case
+          # of a prerelease for an already-released core (e.g. 2.0.0 → 2.0.0-rc.1)
+          # is not caught here. Not worth a bash semver comparator for that.
+          CURRENT="$(jq -r .version package.json)"
+          if [ "$VERSION" = "$CURRENT" ]; then
+            echo "::error::version ($VERSION) equals the current package.json version. Pick a higher version."
+            exit 1
+          fi
+          HIGHEST="$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)"
+          if [ "$HIGHEST" != "$VERSION" ]; then
+            echo "::error::version ($VERSION) is not greater than current ($CURRENT). Downgrades are not allowed."
+            exit 1
+          fi
+          echo "OK: $CURRENT → $VERSION"
 
       - name: Configure git
         run: |

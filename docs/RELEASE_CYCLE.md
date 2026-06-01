@@ -62,6 +62,8 @@ Tag-driven (or manual-dispatch fallback). The pipeline:
 8. **`github-release`** — generates an SBOM (SPDX + CycloneDX) from the
    published image, creates the GitHub Release for the tag with
    auto-generated notes, and attaches the SBOM as release assets.
+9. **`trigger-e2e`** — dispatches the VKDR install E2E with the exact
+   `<version>` this run built (see below).
 
 If Publish succeeds, the image is live at:
 
@@ -91,10 +93,16 @@ docker buildx imagetools create -t veecode/devportal:latest \
 ## Post-publish validation (VKDR install E2E)
 
 [`.github/workflows/vkdr-install-e2e.yml`](../.github/workflows/vkdr-install-e2e.yml)
-runs after Publish (and on-demand) to validate the **supported install path**:
-`vkdr devportal-platform install` → published `veecode-devportal-platform`
-Helm chart → k3d → `/healthcheck`. It covers what the docker-run smoke matrix
-cannot: chart correctness, Kong ingress, Secret wiring, and Ready-under-k8s.
+validates the **supported install path**: `vkdr devportal-platform install` →
+published `veecode-devportal-platform` Helm chart → k3d → `/healthcheck`. It
+covers what the docker-run smoke matrix cannot: chart correctness, Kong ingress,
+Secret wiring, and Ready-under-k8s.
+
+Publish's final `trigger-e2e` job dispatches it with the **exact** version that
+run just built (via `workflow_dispatch -f image_tag=<version>`). It is **not**
+triggered by `workflow_run` — that path would resolve the version from
+`package.json`, which can drift from the published image (main advancing, an
+older republish). It is also runnable on-demand.
 
 It is a **canary / status report** — it does **not** move `:latest` or any
 pointer (see the constraint above). It is the evidence the team consults

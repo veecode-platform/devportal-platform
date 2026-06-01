@@ -403,3 +403,21 @@ jobs:
           files: |
             sbom-${{ env.VERSION }}.spdx.json
             sbom-${{ env.VERSION }}.cdx.json
+
+  trigger-e2e:
+    # Hand the EXACT published version to the VKDR install E2E. We dispatch it
+    # explicitly (workflow_dispatch is allowed from GITHUB_TOKEN) rather than letting
+    # the E2E trigger on workflow_run and guess the version from package.json — which
+    # can drift from what this run actually built (main advancing, an older republish).
+    needs: [validate-tag, manifest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Dispatch VKDR install E2E with the exact published version
+        run: gh workflow run vkdr-install-e2e.yml -R "$REPO" --ref main -f image_tag="$VERSION"

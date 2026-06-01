@@ -5,10 +5,12 @@ name: VKDR Install E2E
 # This is the integration gate that the docker-run smoke matrix cannot cover: chart
 # correctness, Kong ingress, the credentials Secret wiring, and Ready-under-k8s.
 #
-# Placement: runs AFTER Publish (workflow_run) against the freshly-published image,
-# plus on-demand (workflow_dispatch). It is a CANARY / status report — it does NOT
-# move :latest or any pointer. (V1/V2 coexist on veecode/devportal; :latest must not
-# point at V2 until the V2 rollout completes. See docs/RELEASE_CYCLE.md.)
+# Placement: Publish dispatches this workflow with the EXACT version it just built
+# (workflow_dispatch with image_tag) — never derived from package.json, which can
+# drift from the published image (main may advance, or an older version may be
+# republished). Also runnable on-demand. It is a CANARY / status report — it does
+# NOT move :latest or any pointer. (V1/V2 coexist on veecode/devportal; :latest must
+# not point at V2 until the V2 rollout completes. See docs/RELEASE_CYCLE.md.)
 #
 # Key subtlety: `vkdr devportal-platform install` never overrides image.tag — it uses
 # the chart's default (currently 2.0.0). To validate the JUST-PUBLISHED image we pass
@@ -17,13 +19,10 @@ name: VKDR Install E2E
 # Secret, /healthcheck 200, ingress) but against the overridden image.
 
 on:
-  workflow_run:
-    workflows: ["Publish"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Published image tag to validate (e.g. 2.1.0). Defaults to package.json version.'
+        description: 'Published image tag to validate (e.g. 2.1.0). Publish passes this automatically; for a manual run, leave blank to fall back to package.json.'
         required: false
         type: string
 
@@ -37,10 +36,6 @@ env:
 
 jobs:
   e2e:
-    # Only run after a SUCCESSFUL publish (or any manual dispatch).
-    if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
