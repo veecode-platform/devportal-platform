@@ -72,6 +72,16 @@ jobs:
           echo "$HOME/.vkdr/bin" >> "$GITHUB_PATH"
           echo "/usr/local/bin" >> "$GITHUB_PATH"
 
+      - name: Verify vkdr has the devportal-platform command
+        # get-vkdr installs releases/latest. If that release predates the V2 command
+        # (vkdr#25), the install below fails with a cryptic "Unmatched arguments".
+        # Fail fast with a clear, actionable message instead.
+        run: |
+          if ! vkdr devportal-platform --help >/dev/null 2>&1; then
+            echo "::error::Installed vkdr ($(vkdr --version 2>/dev/null | head -1 || echo '?')) has no 'devportal-platform' command. The latest vkdr release predates it — cut a vkdr release that includes the V2 command (see veecode-platform/vkdr, 'make release')."
+            exit 1
+          fi
+
       - name: vkdr init (download kubectl/helm/k3d toolchain)
         run: vkdr init
 
