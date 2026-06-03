@@ -1,6 +1,10 @@
 # devportal-platform changelog
 
 
+## v2.1.0 (2026-06-03)
+* docs(migration): fix missed image ref in intro (devportal-platform:<tag>) (e682d1e)
+* docs(migration): fix stale image name/tag and Helm-chart claim (3f3d015)
+
 ## v2.0.1-rc.2 (2026-06-03)
 * fix(presets): bump stale bs_1.48.4 OCI refs to bs_1.49.4; rename github-actions workspace to github (#47) (de4e332)
 * refactor(plugins): make dynamic-plugins.default.yaml vitrine-only (#46) (63507c1)
