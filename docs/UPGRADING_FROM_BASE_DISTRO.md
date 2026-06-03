@@ -11,7 +11,8 @@ on Backstage 1.49.x:
   on top of base, with the dynamic-plugin set baked in)
 
 …who want to move to the **unified image**:
-`docker.io/veecode/devportal-platform:<tag>`.
+`docker.io/veecode/devportal:2.0.0` (same repository as the distro, a
+major tag bump — not a renamed image).
 
 This is **not a forced migration.** Both legacy images stay on their
 1.49.4 line under maintenance-indefinite ownership (security backports
