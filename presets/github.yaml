@@ -26,7 +26,7 @@ requires:
 #    For GitHub-as-identity (OAuth sign-in + org/team user sync), compose with the
 #    `github-auth` preset: `VEECODE_PRESETS=recommended,github,github-auth`.
 plugins:
-  - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
+  - package: oci://${PLUGIN_REGISTRY}/github:bs_1.49.4!backstage-community-plugin-github-actions
     disabled: false
     pluginConfig:
       dynamicPlugins:

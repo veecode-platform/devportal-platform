@@ -31,7 +31,7 @@ requires:
 #  - The `plugins:` list is the dynamic UI add-ons with full pluginConfig inline.
 #    dynamic-plugins.default.yaml is documentation only (not in the runtime chain).
 plugins:
-  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops
+  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.49.4!backstage-community-plugin-azure-devops
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -54,7 +54,7 @@ plugins:
                   if:
                     allOf:
                       - isAzureDevOpsAvailable
-  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend
+  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.49.4!backstage-community-plugin-azure-devops-backend
     disabled: false
 
 appConfig:

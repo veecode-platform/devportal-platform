@@ -19,7 +19,7 @@ requires:
 #  - Enables the SonarQube backend plugin (proxies API calls, hides the token).
 #  - Enables the SonarQube scaffolder backend module (sonarqube:create-project action).
 plugins:
-  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube
+  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -53,9 +53,9 @@ plugins:
                   if:
                     allOf:
                       - isSonarQubeAvailable
-  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube-backend
+  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube-backend
     disabled: false
-  - package: oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.48.4!backstage-community-plugin-scaffolder-backend-module-sonarqube
+  - package: oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.49.4!backstage-community-plugin-scaffolder-backend-module-sonarqube
     disabled: false
 
 appConfig:
