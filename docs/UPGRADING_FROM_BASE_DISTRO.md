@@ -31,7 +31,7 @@ operator selects at runtime via `VEECODE_PRESETS`.
 
 | Before (legacy) | After (unified) |
 |---|---|
-| Two images: `veecode/devportal-base` + `veecode/devportal` (the distro that builds on base) | One image: `veecode/devportal-platform` |
+| Two images: `veecode/devportal-base` + `veecode/devportal:1.3.x` (the distro that builds on base) | One image: `veecode/devportal:2.0.0` (same repo, major tag bump) |
 | `dynamic-plugins/` workspace built inside the distro at image-build time | Plugins published separately as OCI bundles by [`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays); resolved at boot via `oci://` refs |
 | Auth + integration selected via `VEECODE_PROFILE=<github\|azure\|gitlab\|keycloak\|ldap\|github-pat\|ldap-ad>` (loads one `app-config.<profile>.yaml`) | Same surfaces selected via `VEECODE_PRESETS=a,b,c` (composes). The per-integration preset is intentionally narrower than the legacy all-in-one profile — see the translation table below. |
 | Built-in VeeCode look (palette + logos imported statically in `packages/app`) | Same look opt-in via the `veecode-theme` preset (a dynamic plugin) — composable, replaceable by a customer brand |
@@ -45,8 +45,8 @@ in `devportal-base` is superseded by it.
 ## Quick reference
 
 ```diff
-- image: veecode/devportal:1.3.x          # distro image, all plugins baked
-+ image: veecode/devportal-platform:0.1.x # unified image
+- image: veecode/devportal:1.3.x  # distro image, all plugins baked
++ image: veecode/devportal:2.0.0  # unified image, same repo, major tag bump
 + env:
 -   VEECODE_PROFILE: github
 +   VEECODE_PRESETS: recommended,veecode-theme,github,github-auth
@@ -55,11 +55,11 @@ in `devportal-base` is superseded by it.
 
 Two things to know upfront before you reach the detail:
 
-1. **The image name changes.** The legacy distro image was
-   `veecode/devportal`; the platform image is `veecode/devportal-platform`.
-   This is not a tag bump — your image reference changes. The
-   platform line restarts at `0.1.0` rather than continuing the
-   distro's `1.3.x`.
+1. **It's a major tag bump, not an image rename.** The image repository
+   stays `veecode/devportal` — the unified platform ships as
+   `veecode/devportal:2.0.0`, continuing the same repo the distro used
+   (`veecode/devportal:1.3.x`). Only the tag changes; your registry
+   reference keeps the same name.
 2. **SCM and identity are separate presets you compose.** A legacy
    profile like `VEECODE_PROFILE=github` carried the whole GitHub
    story in one switch: OAuth login, org/team discovery, repo
@@ -264,11 +264,9 @@ your own `<company>-theme` preset and **replace** (not compose with)
 
 ### Self-hosted (`docker run` / `docker-compose`)
 
-1. **Pin the image** to `veecode/devportal-platform:0.1.x`. Confirm
-   the published tag list on Docker Hub before pinning — at the time
-   of writing the publish workflow is manual-dispatch only
-   ([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)),
-   so available tags depend on what's been cut.
+1. **Pin the image** to a released 2.x tag — `veecode/devportal:2.0.0`.
+   Same repository as the distro (`veecode/devportal`); confirm the
+   current tag on Docker Hub before pinning.
 2. **Set `VEECODE_PRESETS=recommended,veecode-theme,<your-integration>`.**
    Drop your existing `VEECODE_PROFILE=<x>` — the platform image
    ignores it.
@@ -318,7 +316,7 @@ docker run --name devportal -d -p 7007:7007 \
   -e GITHUB_AUTH_CLIENT_SECRET=… \
   -v devportal-data:/app/data \
   -v devportal-plugins:/app/dynamic-plugins-root \
-  veecode/devportal-platform:0.1.0
+  veecode/devportal:2.0.0
 ```
 
 For the GitHub stack (above) no `app-config.local.yaml` mount is needed.
@@ -347,28 +345,21 @@ full boot sequence and failure modes.
 
 ### Helm / Kubernetes
 
-A first-party Helm chart for `devportal-platform` is **not shipped
-yet** — track this in
-[`docs/ROADMAP_FEATURES.md`](./ROADMAP_FEATURES.md) and
-[`docs/ROADMAP_BACKLOG.md`](./ROADMAP_BACKLOG.md). Until then,
-operators on Kubernetes have two paths:
+A first-party Helm chart, `veecode-devportal-platform`, is **published** —
+see the DevPortal docs, "Kubernetes (Helm chart)" install guide, for the
+chart repo, values, and Postgres/PVC options. Operators on Kubernetes
+have two paths:
 
-**1. Plain manifests.** Apply
+**1. Helm chart (recommended).** Install `veecode-devportal-platform`,
+setting `VEECODE_PRESETS` and the required preset vars via the chart's
+values/secret. This is the supported production path.
+
+**2. Plain manifests.** Apply
 [`examples/deploy/k8s.yaml`](../examples/deploy/k8s.yaml) — a
 minimal Deployment + Service + two PVCs (`/app/data`,
 `/app/dynamic-plugins-root`) + an optional carry-over ConfigMap.
-It mirrors the `docker run` invocation above one-to-one, and is the
-recommended path for an operator who needs to deploy today.
-
-**2. The existing VeeCode Helm chart against the legacy images.**
-The chart targets `devportal-base` / `devportal` and stays usable
-against those images. Its `veecodeProfile:` value has no direct
-equivalent on the platform image — you'd set `VEECODE_PRESETS` via
-the chart's generic-env-vars escape hatch, but the chart's
-Backstage-specific helpers (auth-secret projection, profile-keyed
-ConfigMaps) are coupled to the `veecodeProfile:` model and won't all
-carry over cleanly. If you need a platform-aware chart soon, file an
-issue on the chart repo so the priority is visible.
+It mirrors the `docker run` invocation above one-to-one, for operators
+who prefer raw manifests over Helm.
 
 ## Validation
 
@@ -417,12 +408,12 @@ Quick browser-side checks:
 
 ## Rollback
 
-The unified image and the legacy distro image use **different image
-names** (`veecode/devportal-platform` vs `veecode/devportal`).
-Rolling back is therefore a config change, not just a tag swap:
+The unified and legacy images share the same repository
+(`veecode/devportal`), so rolling back is a tag swap plus restoring the
+legacy env model:
 
 ```diff
-- image: veecode/devportal-platform:0.1.0
+- image: veecode/devportal:2.0.0
 + image: veecode/devportal:1.3.x
   env:
 -   VEECODE_PRESETS: recommended,veecode-theme,github
@@ -445,7 +436,7 @@ This upgrade is **only** the image and configuration-surface change.
 It does not include:
 
 - **Backstage 1.50 migration.** Both the legacy 1.3.x distro and
-  `devportal-platform:0.1.x` ship on Backstage 1.49.4. The 1.50 bump
+  `veecode/devportal:2.0.x` ship on Backstage 1.49.4. The 1.50 bump
   is deferred upstream-style; see
   [ADR-010 § "Migration deferral — Backstage 1.50 bump postponed"](./adr/010-unified-image-and-presets.md).
 - **Automated config translation.** No script reads your
@@ -458,8 +449,6 @@ It does not include:
   no automatic tooling yet. Tracked in
   [`docs/ROADMAP_FEATURES.md`](./ROADMAP_FEATURES.md) §
   "Profile-to-preset customer migration tooling".
-- **A first-party Helm chart for `devportal-platform`.** Not
-  shipped today; see the § "Helm / Kubernetes" caveat above.
 - **Frontend theme change.** The `veecode-theme` preset is a
   repackage of the same palette+logos the legacy distro carried;
   the visual result is equivalent. A redesign would be a separate
