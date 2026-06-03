@@ -48,15 +48,27 @@ requires:
       required: true
       example: gpt-5.4
 
-# Package strings MUST match `dynamic-plugins.default.yaml` exactly. The
-# `dynamicRoutes`/`menuItems` pluginConfig on the frontend entry lives in
-# the default and survives the shallow per-key merge — this preset only
-# flips `disabled`.
+# Each entry is self-contained with full pluginConfig inline.
+# dynamic-plugins.default.yaml is documentation only (not in the runtime chain).
 plugins:
   - package: oci://quay.io/veecode/mcp-chat:bs_${BACKSTAGE_VERSION}!backstage-community-plugin-mcp-chat-backend
     disabled: false
   - package: oci://quay.io/veecode/mcp-chat:bs_${BACKSTAGE_VERSION}!backstage-community-plugin-mcp-chat
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-mcp-chat:
+            dynamicRoutes:
+              - path: /mcp-chat
+                importName: McpChatPage
+                menuItem:
+                  icon: chat
+                  text: MCP Chat
+            menuItems:
+              mcp-chat:
+                title: MCP Chat
+                icon: chat
 
 appConfig:
   mcpChat:

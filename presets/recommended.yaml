@@ -8,33 +8,99 @@ version: 1.0.0
 requires:
   variables: {}
 
-# These plugins ship DISABLED in dynamic-plugins.default.yaml — this preset is
-# what turns them on. Their pluginConfig (dynamicRoutes, mountPoints, RBAC
-# scope) stays in dynamic-plugins.default.yaml; install-dynamic-plugins.py
-# merges shallow per key, so an entry here only has to flip `disabled` (the
-# package name MUST match the one in dynamic-plugins.default.yaml or the merge
-# won't happen and a second copy gets installed under a different name →
-# backend crash).
+# Each entry below is self-contained: package + pluginConfig live here.
+# dynamic-plugins.default.yaml is documentation only (not in the runtime chain).
 #
 # Core chrome (global header, homepage, About, dynamic-plugins-info) is NOT
-# here — it's always-on (disabled: false in dynamic-plugins.default.yaml) and
-# not gated by any preset. See presets/README.md "Tiers".
+# here — it's always-on via dynamic-plugins.yaml. See presets/README.md "Tiers".
 plugins:
   - package: oci://${PLUGIN_REGISTRY}/rbac:bs_1.49.4!backstage-community-plugin-rbac
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-rbac:
+            dynamicRoutes:
+              - path: /rbac
+                importName: RbacPage
+                menuItem:
+                  text: RBAC
+                  textKey: menuItem.rbac
+                  icon: admin
+                config:
+                  props:
+                    width: 1500
+                    height: 800
+            appIcons:
+              - name: admin
+                importName: RbacIcon
+            menuItems:
+              rbac:
+                parent: admin
+                title: RBAC
+                titleKey: menuItem.rbac
+                icon: admin
+
   - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-tech-radar:
+            appIcons:
+              - name: techRadar
+                importName: TechRadarIcon
+            dynamicRoutes:
+              - path: /tech-radar
+                importName: TechRadarPage
+                menuItem:
+                  icon: techRadar
+                  text: Tech Radar
+                  textKey: menuItem.techRadar
+                config:
+                  props:
+                    width: 1500
+                    height: 800
+
   - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend
     disabled: false
+
   - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          devportal.marketplace-frontend:
+            appIcons:
+              - name: pluginsIcon
+                importName: PluginsIcon
+            dynamicRoutes:
+              - path: /marketplace
+                importName: DynamicExtensionsPluginRouter
+                menuItem:
+                  icon: pluginsIcon
+                  text: Marketplace
+            menuItems:
+              marketplace:
+                title: Marketplace
+                icon: pluginsIcon
+
   - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-backend
     disabled: false
+
   - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-pending-changes-dynamic
     disabled: false
-  # catalog-backend-module-extensions is preInstalled and effectively always-on
-  # (the backend feature loader picks up its bytes regardless of `disabled:`).
-  # It lives in dynamic-plugins.default.yaml with no override here.
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          devportal.pending-changes:
+            mountPoints:
+              - mountPoint: global.header/component
+                importName: PendingChangesButton
+                config:
+                  priority: 55
+                  props:
+                    pollingIntervalMs: 30000
 
 # No app-config additions — the baseline runs on app-config.yaml plus the
 # platform-level config files.

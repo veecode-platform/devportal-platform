@@ -18,13 +18,25 @@ requires:
       example: 11xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # What this preset does:
-#  - Enables the Jenkins frontend plugin (CI tab on entity pages).
+#  - Enables the Jenkins frontend plugin (CI tab on entity pages) with full
+#    pluginConfig inline. dynamic-plugins.default.yaml is documentation only.
 #  - Enables the Jenkins backend plugin (proxies build/status API calls).
-#  - Both plugins are fetched as OCI bundles at boot. The pluginConfig
-#    (mountPoints) lives in dynamic-plugins.default.yaml.
 plugins:
   - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-jenkins:
+            mountPoints:
+              - mountPoint: entity.page.ci/cards
+                importName: EntityJenkinsContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - isJenkinsAvailable
   - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend
     disabled: false
 

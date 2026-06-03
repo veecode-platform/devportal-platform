@@ -36,20 +36,25 @@ version: 1.0.0
 #  - scaffolder-mcp-extras:      execute-template, fetch-template-metadata, list-scaffolder-tasks,
 #                                get-scaffolder-task-logs, list-scaffolder-actions, dry-run-template
 #
-# The exact `pluginSources` list lives in `dynamic-plugins.default.yaml`
-# under the `mcp-actions-backend` entry — this preset only flips `disabled`.
-# (Per the schema's "shallow merge per key" rule, the entry's `pluginConfig`
-# survives the merge intact.)
+# Each entry is self-contained with full pluginConfig inline.
+# dynamic-plugins.default.yaml is documentation only (not in the runtime chain).
 
 requires:
   variables: {}
 
-# Package strings MUST match `dynamic-plugins.default.yaml` exactly, or the
-# merge installs a second copy under a different name and the backend crashes
-# on duplicate registration ("Plugin 'mcp-actions' is already registered").
 plugins:
   - package: oci://quay.io/veecode/backstage:bs_${BACKSTAGE_VERSION}!backstage-plugin-mcp-actions-backend
     disabled: false
+    pluginConfig:
+      backend:
+        actions:
+          pluginSources:
+            - mcp-actions
+            - software-catalog-mcp-extras
+            - techdocs-mcp-extras
+            - scaffolder-mcp-extras
+            - catalog
+            - scaffolder
   - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
     disabled: false
   - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras

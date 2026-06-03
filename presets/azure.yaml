@@ -28,14 +28,32 @@ requires:
 #    are STATIC in the unified devportal backend (compiled in via `backend.add(import(...))`,
 #    see packages/backend/src/index.ts). They are NOT dynamic plugins / not OCI artifacts.
 #    This preset only *configures* them — the `appConfig:` block below.
-#  - The `plugins:` list is just the dynamic UI add-ons. Each `package:` must match the
-#    (disabled) entry in dynamic-plugins.default.yaml so install-dynamic-plugins.py
-#    merges/flips `disabled` (the pluginConfig — mountPoints — lives there).
+#  - The `plugins:` list is the dynamic UI add-ons with full pluginConfig inline.
+#    dynamic-plugins.default.yaml is documentation only (not in the runtime chain).
 plugins:
-  # Azure DevOps frontend — pipeline + PR cards on entity pages (pluginConfig in dynamic-plugins.default.yaml).
   - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops
     disabled: false
-  # Azure DevOps backend (serves the frontend above).
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-azure-devops:
+            mountPoints:
+              - mountPoint: entity.page.ci/cards
+                importName: EntityAzurePipelinesContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - isAzureDevOpsAvailable
+              - mountPoint: entity.page.pull-requests/cards
+                importName: EntityAzurePullRequestsContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - isAzureDevOpsAvailable
   - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend
     disabled: false
 
