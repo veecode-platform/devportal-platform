@@ -160,8 +160,8 @@ fi
 #   3. extracts the preset's `appConfig:` into /app/app-config.preset-<name>.yaml
 #      and appends it to the backend --config list (Backstage deep-merges
 #      --config files and resolves ${VAR} natively — no manual merge here).
-# Empty/unset VEECODE_PRESETS → no preset; the image boots with just the
-# baked-in dynamic-plugins.default.yaml core (ADR-010 validation #2).
+# Empty/unset VEECODE_PRESETS → no preset; the image boots with only the
+# core plugins declared in dynamic-plugins.yaml (ADR-010 validation #2).
 PRESETS_DIR="/app/presets"
 PRESET_CONFIG_ARGS=""
 PRESET_INCLUDES=""
@@ -219,13 +219,15 @@ else
     echo "VEECODE: no presets selected (VEECODE_PRESETS unset) — core only (catalog + global header). Add 'recommended' to VEECODE_PRESETS to enable marketplace, RBAC, tech-radar."
 fi
 
-# Rebuild the includes list on the shadow on every boot: image defaults first,
-# marketplace state second, then preset fragments. The shadow is always writable
-# (we own it), so this is safe even when /app/dynamic-plugins.yaml is bind-mounted
-# read-only. The operator's top-level `plugins:` list from /app/dynamic-plugins.yaml
-# is preserved by the earlier cp, but operator-provided `includes:` are intentionally
-# replaced so both preset and no-preset boots use the same composition path.
-INCLUDES_JSON="$(printf '"%s",' dynamic-plugins.default.resolved.yaml "$DEVPORTAL_DB_PATH/extensions-install.yaml" $PRESET_INCLUDES | sed 's/,$//')"
+# Rebuild the includes list on the shadow on every boot: marketplace state first,
+# then preset fragments. dynamic-plugins.default.yaml is NOT included — it is
+# documentation only (vitrine). Core plugins live in dynamic-plugins.yaml plugins:.
+# The shadow is always writable (we own it), so this is safe even when
+# /app/dynamic-plugins.yaml is bind-mounted read-only. The operator's top-level
+# `plugins:` list from /app/dynamic-plugins.yaml is preserved by the earlier cp,
+# but operator-provided `includes:` are intentionally replaced so both preset and
+# no-preset boots use the same composition path.
+INCLUDES_JSON="$(printf '"%s",' "$DEVPORTAL_DB_PATH/extensions-install.yaml" $PRESET_INCLUDES | sed 's/,$//')"
 yq eval -i ".includes = [${INCLUDES_JSON}]" "$DP_YAML_SHADOW" || {
     echo "VEECODE: FATAL — failed to write the includes chain to $DP_YAML_SHADOW; aborting boot" >&2
     exit 78
@@ -247,27 +249,8 @@ else
     echo "VEECODE_APP_CONFIG variable not found (this is expected in non-SaaS deployments)"
 fi
 
-# ── Shadow dynamic-plugins.default.yaml for substitution ────────────
-# The image's dynamic-plugins.default.yaml is bind-mounted read-only in the
-# dev (`scripts/dev-run.sh`) and k8s paths, so the in-place sed substitutions
-# below fail silently and leave literals like ${PLUGIN_REGISTRY} in the file.
-# Result: a preset's resolved `package:` string (e.g. `oci://quay.io/veecode/rbac:…`)
-# never matches the default's still-templated entry (`oci://${PLUGIN_REGISTRY}/rbac:…`),
-# so install-dynamic-plugins.py treats them as two distinct entries — the preset
-# entry installs without the default's pluginConfig (no dynamicRoutes / menuItems /
-# mountPoints get registered), and the templated default entry is "Skipped"
-# because the literal ${PLUGIN_REGISTRY} isn't a resolvable OCI ref.
-#
-# Fix: copy default to a writable shadow. The entrypoint-owned includes chain
-# above already points the install script at that shadow. The substitution loops
-# below then operate on the shadow,
-# the shadow's resolved package strings match the preset's, the shallow per-key
-# merge wires the pluginConfig back in, and the UI gains the routes/menus.
-DEFAULT_DPD=/app/dynamic-plugins.default.yaml
-DEFAULT_DPD_SHADOW=/app/dynamic-plugins.default.resolved.yaml
-if [ -f "$DEFAULT_DPD" ]; then
-    cp -f "$DEFAULT_DPD" "$DEFAULT_DPD_SHADOW"
-fi
+# dynamic-plugins.default.yaml is NOT shadowed or included at runtime.
+# It is documentation only (vitrine). Core plugins live in dynamic-plugins.yaml.
 
 # ── Resolve ${BACKSTAGE_VERSION} in plugin OCI refs ─────────────────
 # Plugin OCI artifacts are tagged by Backstage version — `bs_<bsver>__latest`
@@ -282,7 +265,7 @@ fi
 BACKSTAGE_VERSION="${BACKSTAGE_VERSION:-$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)}"
 if [ -n "$BACKSTAGE_VERSION" ]; then
     echo "VEECODE: resolving \${BACKSTAGE_VERSION} → $BACKSTAGE_VERSION in plugin OCI refs"
-    for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" "$DEVPORTAL_DB_PATH/extensions-install.yaml" /app/preset-*-plugins.yaml; do
+    for f in "$DP_YAML_SHADOW" "$DEVPORTAL_DB_PATH/extensions-install.yaml" /app/preset-*-plugins.yaml; do
         [ -f "$f" ] || continue
         sed -i "s/\${BACKSTAGE_VERSION}/$BACKSTAGE_VERSION/g" "$f" 2>/dev/null \
           || echo "VEECODE: note — $f is read-only; \${BACKSTAGE_VERSION} left as-is there (harmless if those refs are disabled)"
@@ -297,17 +280,18 @@ fi
 # PLUGIN_REGISTRY=registry.internal/veecode. Defaults to quay.io/veecode.
 PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
 echo "VEECODE: resolving \${PLUGIN_REGISTRY} → $PLUGIN_REGISTRY in plugin OCI refs"
-for f in "$DP_YAML_SHADOW" "$DEFAULT_DPD_SHADOW" "$DEVPORTAL_DB_PATH/extensions-install.yaml" /app/preset-*-plugins.yaml; do
+for f in "$DP_YAML_SHADOW" "$DEVPORTAL_DB_PATH/extensions-install.yaml" /app/preset-*-plugins.yaml; do
     [ -f "$f" ] || continue
     sed -i "s|\${PLUGIN_REGISTRY}|$PLUGIN_REGISTRY|g" "$f" 2>/dev/null \
       || echo "VEECODE: note — $f is read-only; \${PLUGIN_REGISTRY} left as-is there (harmless if those refs are disabled)"
 done
 
 # Log one fully-resolved OCI ref so an operator can verify the substitutions
-# (PLUGIN_REGISTRY + BACKSTAGE_VERSION) actually landed in the file the install
+# (PLUGIN_REGISTRY + BACKSTAGE_VERSION) actually landed in the files the install
 # script will read. Useful for air-gapped / mirror deployments where a typo in
 # PLUGIN_REGISTRY would otherwise only surface as a skopeo error mid-install.
-_SAMPLE_REF="$(yq eval '.plugins[] | select(.package // "" | test("^oci://")) | .package' "$DEFAULT_DPD_SHADOW" 2>/dev/null | head -1)"
+_SAMPLE_REF="$(yq eval '.plugins[] | select(.package // "" | test("^oci://")) | .package' "$DP_YAML_SHADOW" 2>/dev/null | head -1)"
+[ -z "$_SAMPLE_REF" ] && _SAMPLE_REF="$(yq eval '.plugins[] | select(.package // "" | test("^oci://")) | .package' /app/preset-*-plugins.yaml 2>/dev/null | head -1)"
 [ -n "$_SAMPLE_REF" ] && echo "VEECODE: example resolved plugin ref → $_SAMPLE_REF"
 unset _SAMPLE_REF
 

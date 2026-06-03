@@ -83,9 +83,9 @@ jobs:
           # Strip the !<selector> suffix before dedup — multiple entries can share the same OCI image.
           # Drop full-line comments first: header docs may mention `oci://...` example refs that are
           # not real package values and must not be skopeo-checked.
-          mapfile -t refs < <(grep -hvE '^[[:space:]]*#' dynamic-plugins.default.yaml presets/*.yaml | grep -oE 'oci://[^!"[:space:]]+' | sort -u)
+          mapfile -t refs < <(grep -hvE '^[[:space:]]*#' dynamic-plugins.yaml presets/*.yaml | grep -oE 'oci://[^!"[:space:]]+' | sort -u)
           if [ "${#refs[@]}" -eq 0 ]; then
-            echo "No OCI refs found in dynamic-plugins.default.yaml — skipping skopeo check"
+            echo "No OCI refs found in dynamic-plugins.yaml or presets/ — skipping skopeo check"
             exit 0
           fi
           fail=0
@@ -101,7 +101,7 @@ jobs:
             fi
           done
           if [ "$fail" -ne 0 ]; then
-            echo "::error::One or more OCI refs in dynamic-plugins.default.yaml are unreachable"
+            echo "::error::One or more OCI refs in dynamic-plugins.yaml or presets/ are unreachable"
             exit 1
           fi
           echo "All OCI refs validated"

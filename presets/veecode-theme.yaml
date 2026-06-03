@@ -8,12 +8,9 @@ requires:
   variables: {}
 
 # The theme is delivered as a frontend dynamic plugin published as an OCI
-# bundle by veecode-platform/devportal-plugin-export-overlays. It ships
-# DISABLED in dynamic-plugins.default.yaml; this preset only flips `disabled`
-# to false. The package name MUST match the default entry — the install
-# script merges shallow per key, so a name mismatch installs a second copy
-# under a different name → both register the same theme id → React unmount
-# churn.
+# bundle by veecode-platform/devportal-plugin-export-overlays. This preset
+# carries the full pluginConfig inline — dynamic-plugins.default.yaml is
+# documentation only (not in the runtime chain).
 #
 # Why a SEPARATE preset (not folded into `recommended`):
 # A downstream customer that wants to swap the brand chrome creates
@@ -24,6 +21,19 @@ requires:
 plugins:
   - package: oci://${PLUGIN_REGISTRY}/veecode-theme:bs_${BACKSTAGE_VERSION}!veecode-platform-plugin-veecode-theme
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          veecode-platform.plugin-veecode-theme:
+            themes:
+              - id: light
+                title: VeeCode Light
+                variant: light
+                importName: VeecodeLightThemeProvider
+              - id: dark
+                title: VeeCode Dark
+                variant: dark
+                importName: VeecodeDarkThemeProvider
 
 # Brand assets are bundled into the image at packages/app/public/ and served
 # at root-relative URLs by the static handler in the backend. Override via

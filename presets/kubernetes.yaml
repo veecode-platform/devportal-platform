@@ -18,14 +18,34 @@ requires:
       example: eyJhbGciOiJSUzI1NiIsInR5...
 
 # What this preset does:
-#  - Enables the Kubernetes frontend plugin (Kubernetes tab on entity pages).
-#    The wrapper is pre-baked into the image; pluginConfig (mountPoints/entityTabs)
-#    lives in dynamic-plugins.default.yaml.
+#  - Enables the Kubernetes frontend plugin (Kubernetes tab on entity pages)
+#    with full pluginConfig inline. dynamic-plugins.default.yaml is documentation only.
 #  - The Kubernetes *backend* plugin is STATIC (compiled into
 #    packages/backend/src/index.ts). This preset only configures it via appConfig.
 plugins:
   - package: oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-kubernetes:
+            entityTabs:
+              - path: /kubernetes
+                title: Kubernetes
+                mountPoint: entity.page.kubernetes
+                config:
+                  if:
+                    allOf:
+                      - hasAnnotation: backstage.io/kubernetes-label-selector
+            mountPoints:
+              - mountPoint: entity.page.kubernetes/cards
+                importName: EntityKubernetesContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: backstage.io/kubernetes-label-selector
 
 appConfig:
   kubernetes:
