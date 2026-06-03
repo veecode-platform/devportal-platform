@@ -22,7 +22,7 @@ requires:
 #    pluginConfig inline. dynamic-plugins.default.yaml is documentation only.
 #  - Enables the Jenkins backend plugin (proxies build/status API calls).
 plugins:
-  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins
+  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -37,7 +37,7 @@ plugins:
                   if:
                     allOf:
                       - isJenkinsAvailable
-  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend
+  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins-backend
     disabled: false
 
 appConfig:
