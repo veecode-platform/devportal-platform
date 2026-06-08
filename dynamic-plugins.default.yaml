@@ -61,7 +61,7 @@ plugins:
                   toolTip: 'Github'
                   to: https://github.com/veecode-platform/devportal-distro
 
-  - package: oci://${PLUGIN_REGISTRY}/roadie-backstage-plugins:bs_1.48.4!roadiehq-backstage-plugin-security-insights
+  - package: oci://${PLUGIN_REGISTRY}/roadie-backstage-plugins:bs_1.49.4!roadiehq-backstage-plugin-security-insights
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -102,7 +102,7 @@ plugins:
                   if:
                     allOf:
                       - isSecurityInsightsAvailable
-  - package: oci://${PLUGIN_REGISTRY}/roadie-backstage-plugins:bs_1.48.4!roadiehq-backstage-plugin-github-insights
+  - package: oci://${PLUGIN_REGISTRY}/roadie-backstage-plugins:bs_1.49.4!roadiehq-backstage-plugin-github-insights
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -157,7 +157,7 @@ plugins:
             #         allOf:
             #           - isGithubInsightsAvailable
                       
-  - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
+  - package: oci://${PLUGIN_REGISTRY}/github:bs_1.49.4!backstage-community-plugin-github-actions
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -173,7 +173,7 @@ plugins:
                     allOf:
                       - isGithubActionsAvailable
 
-  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops
+  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.49.4!backstage-community-plugin-azure-devops
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -198,10 +198,10 @@ plugins:
                       - isAzureDevOpsAvailable
 
   # Azure DevOps backend (serves the frontend above) — enabled by presets/azure.yaml
-  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend
+  - package: oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.49.4!backstage-community-plugin-azure-devops-backend
     disabled: true
 
-  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend
+  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins-backend
     disabled: true
     # pluginConfig:
     #   jenkins:
@@ -210,7 +210,7 @@ plugins:
     #         baseUrl: ${JENKINS_URL}
     #         username: ${JENKINS_USERNAME}
     #         apiKey: ${JENKINS_TOKEN}
-  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins
+  - package: oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -226,9 +226,9 @@ plugins:
                     allOf:
                       - isJenkinsAvailable
   # SONARQUBE
-  - package: oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.48.4!backstage-community-plugin-scaffolder-backend-module-sonarqube
+  - package: oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.49.4!backstage-community-plugin-scaffolder-backend-module-sonarqube
     disabled: true
-  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube
+  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -262,7 +262,7 @@ plugins:
                 if:
                   allOf:
                   - isSonarQubeAvailable
-  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube-backend
+  - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube-backend
     disabled: true
 
   # ── Pre-installed plugins (config only) ──────────────────────────────

@@ -89,7 +89,7 @@ requires:
       docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
 
 plugins:
-  - package: oci://${PLUGIN_REGISTRY}/github-actions:bs_1.48.4!backstage-community-plugin-github-actions
+  - package: oci://${PLUGIN_REGISTRY}/github:bs_1.49.4!backstage-community-plugin-github-actions
     disabled: false
 
 appConfig:
