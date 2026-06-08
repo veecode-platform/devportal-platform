@@ -85,17 +85,17 @@ track the platform's pinned version.
 Real examples from `dynamic-plugins.default.yaml`:
 
 ```
-oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend
-oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins
-oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube
+oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins-backend
+oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins
+oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube
 oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic
 oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-backend
 ```
 
 Notice that `marketplace` uses `${BACKSTAGE_VERSION}` because that workspace
-tracks the platform pin exactly; the older community plugin bundles (`jenkins`,
-`sonarqube`, etc.) were built against `bs_1.48.4` and that tag is pinned
-literally until an explicit upgrade.
+tracks the platform pin exactly; the community plugin bundles (`jenkins`,
+`sonarqube`, etc.) are pinned literally at `bs_1.49.4` and stay on that tag
+until an explicit upgrade.
 
 ---
 

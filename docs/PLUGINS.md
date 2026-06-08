@@ -176,13 +176,13 @@ each bundle can carry several selectors that get pulled independently.
 | `oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend`                                            | recommended      |
 | `oci://${PLUGIN_REGISTRY}/veecode-theme:bs_${BACKSTAGE_VERSION}!veecode-platform-plugin-veecode-theme`                                   | `veecode-theme`  |
 | `oci://${PLUGIN_REGISTRY}/backstage:bs_1.49.4!backstage-plugin-kubernetes`                                                               | `kubernetes`     |
-| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops`                                                | `azure`          |
-| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend`                                        | `azure`          |
-| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins`                                                          | `jenkins`        |
-| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.48.4!backstage-community-plugin-jenkins-backend`                                                  | `jenkins`        |
-| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube`                                                      | `sonarqube`      |
-| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.48.4!backstage-community-plugin-sonarqube-backend`                                              | `sonarqube`      |
-| `oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.48.4!backstage-community-plugin-scaffolder-backend-module-sonarqube`  | `sonarqube`      |
+| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.49.4!backstage-community-plugin-azure-devops`                                                | `azure`          |
+| `oci://${PLUGIN_REGISTRY}/azure-devops:bs_1.49.4!backstage-community-plugin-azure-devops-backend`                                        | `azure`          |
+| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins`                                                          | `jenkins`        |
+| `oci://${PLUGIN_REGISTRY}/jenkins:bs_1.49.4!backstage-community-plugin-jenkins-backend`                                                  | `jenkins`        |
+| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube`                                                      | `sonarqube`      |
+| `oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube-backend`                                              | `sonarqube`      |
+| `oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.49.4!backstage-community-plugin-scaffolder-backend-module-sonarqube`  | `sonarqube`      |
 
 The marketplace bundle replaces the previous local `dynamic-plugins/`
 workspace pieces: `devportal-marketplace-frontend` (VeeCode's fork of
