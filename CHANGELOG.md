@@ -1,6 +1,12 @@
 # devportal-platform changelog
 
 
+## v2.1.1 (2026-06-08)
+* fix(presets): jenkins preset must use flat single-instance config (#51) (f31a4d1)
+* ci(publish): auto-promote :latest on every stable platform release (#50) (ac89cc6)
+* docs(vitrine): bump example plugin refs bs_1.48.4 -> bs_1.49.4 (#49) (eee9ac0)
+* test(smoke): assert 6 core plugins survive operator +mount override (#48) (bc18d9d)
+
 ## v2.1.0 (2026-06-03)
 * docs(migration): fix missed image ref in intro (devportal-platform:<tag>) (e682d1e)
 * docs(migration): fix stale image name/tag and Helm-chart claim (3f3d015)
