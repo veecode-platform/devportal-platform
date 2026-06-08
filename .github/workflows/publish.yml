@@ -15,10 +15,12 @@ name: Publish
 #   - skip the main-ancestry check (allow pre-release from feature branches)
 #   - get the versioned tag only; :latest is NOT updated
 #
-# :latest is opt-in for ALL releases (not just stable): it moves only on a
-# workflow_dispatch with update_latest=true. The veecode/devportal repo serves
-# both the 1.x distro line and the 2.x platform line, so :latest promotion is
-# a deliberate step, never an automatic side effect of publishing a tag.
+# :latest automatically tracks the newest STABLE 2.x release on tag push;
+# pre-releases never move it. A workflow_dispatch moves :latest only with
+# update_latest=true (so re-publishing an older version can't clobber :latest
+# backward). The veecode/devportal repo serves both the 1.x distro line and the
+# 2.x platform line: the 2.x platform line owns :latest, and the 1.x distro line
+# never publishes :latest.
 #
 # Smoke gate (amd64 only):
 #   - amd64 image is built into the local docker daemon (NOT pushed)
@@ -48,7 +50,7 @@ on:
         required: true
         type: string
       update_latest:
-        description: 'Also move :latest to this version. Default off — :latest is promoted deliberately, not on every publish (the veecode/devportal repo also serves the 1.x distro line).'
+        description: 'Also move :latest to this version on dispatch. Stable tag pushes auto-promote :latest regardless; this flag only matters for a manual re-publish of an older version (otherwise :latest stays put, so dispatch cannot clobber it backward).'
         required: false
         default: false
         type: boolean
@@ -347,16 +349,19 @@ jobs:
             "${IMAGE_NAME}:${VERSION}-amd64" \
             "${IMAGE_NAME}:${VERSION}-arm64"
 
-      # :latest is opt-in, NOT automatic. The veecode/devportal image repo
-      # serves both the 1.x distro line and the 2.x platform line, so moving
-      # :latest is a deliberate promotion (run this workflow with
-      # update_latest=true once the version is battle-tested), never a side
-      # effect of publishing a versioned tag. Tag-driven pushes never move
-      # :latest (the input is absent there). Promote without a full rebuild:
+      # :latest automatically tracks the newest STABLE 2.x release on tag push;
+      # pre-releases never move it. A workflow_dispatch moves :latest only with
+      # update_latest=true (so re-publishing an older version can't clobber
+      # :latest backward). The veecode/devportal image repo serves both the 1.x
+      # distro line and the 2.x platform line: the 2.x platform line owns
+      # :latest, and the 1.x distro line never publishes :latest. Promote a
+      # specific version on dispatch without a full rebuild:
       #   docker buildx imagetools create -t veecode/devportal:latest \
       #     veecode/devportal:<v>-amd64 veecode/devportal:<v>-arm64
-      - name: Create :latest manifest (opt-in via update_latest)
-        if: needs.validate-tag.outputs.is_prerelease == 'false' && github.event.inputs.update_latest == 'true'
+      - name: Create :latest manifest (auto on stable; opt-in on dispatch)
+        if: >-
+          needs.validate-tag.outputs.is_prerelease == 'false' &&
+          (github.event_name == 'push' || github.event.inputs.update_latest == 'true')
         run: |
           docker buildx imagetools create -t "${IMAGE_NAME}:latest" \
             "${IMAGE_NAME}:${VERSION}-amd64" \
