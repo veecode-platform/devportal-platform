@@ -106,6 +106,24 @@ DP_OVERRIDE_FIXTURE="$(pwd)/scripts/smoke/operator-dp-override.yaml"
 # the stable middle segment.
 OPERATOR_ONLY_PLUGIN='backstage-plugin-security-insights'
 
+# The 6 core plugins baked into the image (preInstalled: true in
+# dynamic-plugins.yaml). An operator override must COMPOSE with these, never
+# replace them — if any core plugin vanishes from loaded-plugins under a
+# +mount override, the includes/merge chain regressed (cf. the vitrine-only
+# refactor that dropped dynamic-plugins.default.yaml). Same matching style as
+# OPERATOR_ONLY_PLUGIN: loaded-plugins reports the resolved package name, so we
+# match on a stable middle segment. The two `about` entries use their full
+# discriminating tail (`-dynamic` vs `-backend-dynamic`) so a missing backend
+# package is not masked by the frontend one.
+CORE_PLUGINS=(
+  'plugin-veecode-homepage'
+  'plugin-veecode-global-header'
+  'backstage-plugin-about-dynamic'
+  'backstage-plugin-about-backend-dynamic'
+  'plugin-dynamic-plugins-info'
+  'backstage-plugin-catalog-backend-module-extensions'
+)
+
 if [ -n "$PRESETS_FILTER" ]; then
   IFS=';' read -r -a TESTS <<<"$PRESETS_FILTER"
 else
@@ -200,15 +218,30 @@ for combo in "${TESTS[@]}"; do
   # If it's absent, the bind-mounted dynamic-plugins.yaml was silently ignored —
   # exactly the failure mode the shadow-file fix was supposed to kill.
   if [[ "$combo" == *"+mount" ]]; then
-    if echo "$loaded_names" | grep -q "$OPERATOR_ONLY_PLUGIN"; then
-      RESULTS[$combo]="PASS (${elapsed}s, override+preset composed)"
-    else
+    if ! echo "$loaded_names" | grep -q "$OPERATOR_ONLY_PLUGIN"; then
       RESULTS[$combo]="FAIL_OVERRIDE_LOST (${elapsed}s)"
       PLUGINS_COUNT[$combo]=$count
       FAILURES=$((FAILURES + 1))
       echo "FAIL: operator override plugin '$OPERATOR_ONLY_PLUGIN' missing from loaded plugins"
       continue
     fi
+    # The override composed; now assert it didn't cost us the core plugins. A
+    # +mount override that silently drops dynamic-plugins.default.yaml from the
+    # includes chain would still pass the OPERATOR_ONLY check above while
+    # stripping every preInstalled core plugin (the exact regression a
+    # vitrine-only refactor shipped).
+    missing_core=""
+    for core in "${CORE_PLUGINS[@]}"; do
+      echo "$loaded_names" | grep -q "$core" || missing_core="$missing_core $core"
+    done
+    if [ -n "$missing_core" ]; then
+      RESULTS[$combo]="FAIL_CORE_LOST (${missing_core# })"
+      PLUGINS_COUNT[$combo]=$count
+      FAILURES=$((FAILURES + 1))
+      echo "FAIL: core plugin(s) lost under operator override:${missing_core}"
+      continue
+    fi
+    RESULTS[$combo]="PASS (${elapsed}s, override+preset composed, ${#CORE_PLUGINS[@]} core survived)"
   else
     RESULTS[$combo]="PASS (${elapsed}s)"
   fi
