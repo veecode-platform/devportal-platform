@@ -106,7 +106,7 @@ DP_OVERRIDE_FIXTURE="$(pwd)/scripts/smoke/operator-dp-override.yaml"
 # the stable middle segment.
 OPERATOR_ONLY_PLUGIN='backstage-plugin-security-insights'
 
-# The 6 core plugins baked into the image (preInstalled: true in
+# The core plugins baked into the image (preInstalled: true in
 # dynamic-plugins.yaml). An operator override must COMPOSE with these, never
 # replace them — if any core plugin vanishes from loaded-plugins under a
 # +mount override, the includes/merge chain regressed (cf. the vitrine-only
@@ -115,12 +115,20 @@ OPERATOR_ONLY_PLUGIN='backstage-plugin-security-insights'
 # match on a stable middle segment. The two `about` entries use their full
 # discriminating tail (`-dynamic` vs `-backend-dynamic`) so a missing backend
 # package is not masked by the frontend one.
+#
+# NOTE: `dynamic-plugins-info` (preInstalled too) is intentionally NOT listed
+# here. It is the plugin that SERVES /api/dynamic-plugins-info/loaded-plugins,
+# and it does not enumerate itself in its own output — so it can never appear in
+# this list, in any scenario (verified empirically against devportal:2.1.0:
+# absent in both plain `recommended` and `recommended`+override boots, while the
+# endpoint still returned the full plugin set). Its liveness is therefore already
+# proven by this endpoint responding at all; asserting on its self-report would
+# be a guaranteed false negative (this is the bug PR #48 originally shipped).
 CORE_PLUGINS=(
   'plugin-veecode-homepage'
   'plugin-veecode-global-header'
   'backstage-plugin-about-dynamic'
   'backstage-plugin-about-backend-dynamic'
-  'plugin-dynamic-plugins-info'
   'backstage-plugin-catalog-backend-module-extensions'
 )
 
