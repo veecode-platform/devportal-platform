@@ -1,4 +1,5 @@
 name: Publish
+# Part of the SaaS CI/CD pipeline (cross-repo). Full docs/runbook: https://github.com/veecode-saas-platform/customer-portal/blob/main/docs/cicd-runbook.md
 
 # Multi-arch image publish to DockerHub. Tag-driven: pushing a semver tag
 # triggers build → smoke (gates) → push → multi-arch manifest. Mirrors
