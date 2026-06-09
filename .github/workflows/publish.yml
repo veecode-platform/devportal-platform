@@ -426,3 +426,40 @@ jobs:
     steps:
       - name: Dispatch VKDR install E2E with the exact published version
         run: gh workflow run vkdr-install-e2e.yml -R "$REPO" --ref main -f image_tag="$VERSION"
+
+  notify-downstream:
+    # Event-driven version propagation: on a STABLE release, tell the SaaS
+    # instance-manager and the Helm charts that a new DevPortal image shipped, so
+    # their reconcilers run immediately instead of waiting for a daily cron.
+    # This is a leaf job (after the image is published in `manifest`) — it cannot
+    # affect the publish/release. Cross-org dispatch (veecode-platform ->
+    # veecode-saas-platform) is impossible with the default GITHUB_TOKEN, so it
+    # uses DISPATCH_TOKEN (a classic PAT, repo scope, spanning both orgs). If that
+    # secret is absent it no-ops with a warning and the reconcilers fall back to
+    # their cron — so this never breaks a release.
+    needs: [validate-tag, manifest]
+    if: needs.validate-tag.outputs.is_prerelease == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+    steps:
+      - name: Notify downstream reconcilers (platform-image-released)
+        run: |
+          set -euo pipefail
+          if [ -z "${DISPATCH_TOKEN:-}" ]; then
+            echo "::warning::DISPATCH_TOKEN not set — skipping downstream notify; reconcilers will fall back to their cron."
+            exit 0
+          fi
+          for repo in veecode-saas-platform/instance-manager veecode-platform/next-charts; do
+            if curl -fsS -X POST \
+                -H "Authorization: Bearer ${DISPATCH_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${repo}/dispatches" \
+                -d "{\"event_type\":\"platform-image-released\",\"client_payload\":{\"version\":\"${VERSION}\"}}"; then
+              echo "notified ${repo} (version=${VERSION})"
+            else
+              echo "::warning::failed to notify ${repo}"
+            fi
+          done
