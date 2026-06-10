@@ -117,22 +117,16 @@ const useStyles = makeStyles<StylesProps>()(
      * ```
      */
     pageWithoutFixHeight: {
-      // Use 100vh for the complete viewport (similar to how Backstage does it)
-      // and makes the page content part scrollable below...
-      // But instead of using 100vh on the content below,
-      // we use it here so that it includes the header.
+      // Pin the layout column to the viewport minus any above-sidebar header,
+      // as a flex column. The page content below scrolls inside `<main>` (whose
+      // height is set in `sidebarLayout`), instead of Backstage's default fixed
+      // `100vh` on `<main>` which overflows the viewport on long pages.
       '> div[class*="-sidebarLayout"]': {
-        height: '100vh',
+        height: `calc(100vh - ${Math.max(aboveSidebarHeaderHeight ?? 0, 0)}px)`,
         display: 'flex',
         flexDirection: 'column',
       },
 
-      // But we unset the Backstage default 100vh value here and use flex box
-      // to grow to the full height of the parent container.
-      '> div > main': {
-        height: 'unset',
-        flexGrow: 1,
-      },
       // This solves the same issue for techdocs, which was reported as
       // https://issues.redhat.com/browse/RHIDP-4637
       '.techdocs-reader-page > main': {
@@ -146,7 +140,13 @@ const useStyles = makeStyles<StylesProps>()(
       '& div[class*="BackstageSidebar-drawer"]': {
         top: Math.max(aboveSidebarHeaderHeight ?? 0, 0),
       },
-      '& main[class*="BackstagePage-root"]': {
+      // Class-agnostic on purpose: in the production bundle the Backstage
+      // `<main>` JSS class is minified (e.g. `jss4-1564`), so a
+      // `[class*="BackstagePage-root"]` selector never matches and the default
+      // fixed `height: 100vh` survives, breaking scroll on long pages. There is
+      // exactly one `<main>` scoped under this layout, so `& main` is safe and
+      // works in both dev (un-minified) and prod (minified).
+      '& main': {
         height: `calc(100vh - ${aboveSidebarHeaderHeight! + aboveMainContentHeaderHeight!}px)`,
       },
     },
