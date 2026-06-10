@@ -129,12 +129,13 @@ catalog:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
   rules:
-    # Plugin/Package/PluginCollection are the kinds the marketplace ("extensions") catalog uses —
-    # ingested by the catalog-backend-module-extensions provider from the plugin-catalog-index
-    # (extracted to /app/catalog-entities/extensions/ by entrypoint.sh). Without them in the
-    # allow-list the provider's entities are rejected and the marketplace "Catalog" tab is empty.
-    # NOTE: the enum value is `PluginCollection` (not `Collection`) — see ExtensionsKind in the
-    # extensions-common bundle. Using `Collection` is silently wrong; entities are not ingested.
+    # Plugin/Package/PluginCollection are the kinds the marketplace ("extensions") catalog uses.
+    # They are ingested by entity providers (ExtensionsPluginProvider / ExtensionsPackageProvider)
+    # that call applyMutation() directly — catalog.rules does not filter entity provider output.
+    # These entries matter for location-based ingestion (file/url locations) and for correctness.
+    # NOTE: the correct kind name is `PluginCollection` (enum ExtensionsKind.Collection = "PluginCollection"),
+    # not `Collection`. PluginCollection entities don't ingest today (no provider registered upstream),
+    # but the entry must be correct for when that is fixed. See docs/ROADMAP_BACKLOG.md.
     - allow: [Component, System, API, Resource, Location, User, Group, Template, Plugin, Package, PluginCollection]
   locations:
     # Local example data, file locations are relative to the backend process, typically `packages/backend`
