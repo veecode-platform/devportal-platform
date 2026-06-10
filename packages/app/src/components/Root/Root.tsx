@@ -137,7 +137,10 @@ const useStyles = makeStyles<StylesProps>()(
       textDecorationLine: 'none',
     },
     sidebarLayout: {
-      '& div[class*="BackstageSidebar-drawer"]': {
+      // Same class-agnostic rationale as `& main` below: `BackstageSidebar-drawer`
+      // is minified in production. The drawer is always the first child div of the
+      // sidebar nav, so this selector is stable and unambiguous.
+      '& nav[aria-label="sidebar nav"] > div': {
         top: Math.max(aboveSidebarHeaderHeight ?? 0, 0),
       },
       // Class-agnostic on purpose: in the production bundle the Backstage
