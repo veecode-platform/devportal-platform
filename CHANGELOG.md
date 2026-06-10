@@ -1,6 +1,13 @@
 # devportal-platform changelog
 
 
+## v2.1.2 (2026-06-10)
+* fix(ui): fix scroll and sidebar drawer broken in production bundle (#57) (4398de6)
+* docs: link to the SaaS CI/CD pipeline runbook (#55) (7e77785)
+* ci(publish): notify downstream reconcilers on stable release (kill the cron) (#54) (9ffe96f)
+* docs: bump stale bs_1.48.4 refs to bs_1.49.4 to match live default.yaml (#53) (d53c229)
+* fix(smoke): drop dynamic-plugins-info from CORE_PLUGINS (self-excludes from its own API) (#52) (916aa7e)
+
 ## v2.1.1 (2026-06-08)
 * fix(presets): jenkins preset must use flat single-instance config (#51) (f31a4d1)
 * ci(publish): auto-promote :latest on every stable platform release (#50) (ac89cc6)
