@@ -243,3 +243,42 @@ behaviour with the RHDH packaging conventions. Both layers can be used
 independently: a raw-Backstage operator who builds their own
 `dynamic-plugins.yaml` with top-level `plugins:` entries and skips
 `VEECODE_PRESETS` entirely is still using the same install pipeline.
+
+## Operator override footgun: always-on entries require their `pluginConfig`
+
+When an operator mounts their own `dynamic-plugins.yaml` (e.g., via a
+Kubernetes ConfigMap or a docker-compose bind mount), that file **fully
+replaces** the image's `/app/dynamic-plugins.yaml`. The install script
+merges per `package:` key across all files in the `includes:` chain,
+but the base file itself is replaced, not merged.
+
+This means any `preInstalled: true` entry from the image's original
+file that the operator wants to keep must be copied verbatim — **with
+its `pluginConfig:` block** — into the operator's file. Omitting the
+`pluginConfig:` silently drops any configuration that entry carried.
+
+The most dangerous entry to drop is
+`red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions`:
+
+```yaml
+- package: red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
+  preInstalled: true
+  disabled: false
+  pluginConfig:
+    extensions:
+      directory: /app/catalog-entities/extensions   # ← required for marketplace to ingest
+      installation:
+        enabled: true
+        saveToSingleFile:
+          file: ${DEVPORTAL_DB_PATH:-/app/data}/extensions-install.yaml
+```
+
+Without `extensions.directory`, the marketplace backend has no source
+directory to scan and the "Catalog" tab opens empty even though all the
+catalog YAMLs are present under `/app/catalog-entities/extensions/`.
+
+**Rule**: when mounting a custom `dynamic-plugins.yaml`, copy the
+always-on `preInstalled: true` block from
+[`dynamic-plugins.yaml`](../dynamic-plugins.yaml) in full. The
+canonical source is that file — it is the reference for what the image
+expects at boot.

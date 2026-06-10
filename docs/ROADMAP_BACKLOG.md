@@ -7,6 +7,30 @@ isn't blocking" list. The feature direction lives in
 
 ## In code
 
+### `PluginCollection` entities never ingest (upstream gap)
+
+The OCI bundle `quay.io/veecode/extensions:bs_1.49.4` ships
+`ExtensionsCollectionProvider.cjs.js` but `module.cjs.js` only
+instantiates `ExtensionsPluginProvider` and `ExtensionsPackageProvider`.
+`ExtensionsCollectionProvider` is never registered, so the provider loop
+never emits `PluginCollection` entities regardless of how many collection
+YAMLs are present under `/app/catalog-entities/extensions/collections/`.
+
+The image bakes collection YAMLs from the catalog index (see
+`Dockerfile` "Bake catalog index" block) and `app-config.yaml` lists
+`PluginCollection` in the catalog allow-list, but no entities land
+because no provider runs.
+
+**Fix path**: this must be corrected upstream in
+`devportal-plugin-export-overlays` (or whichever project publishes the
+`quay.io/veecode/extensions` OCI). When a fixed build ships, bump
+`EXTENSIONS_TAG` — no other change needed here.
+
+As a stopgap, the same `sed`-based patch approach used for the
+`/alpha → main` fallback (see "The `cbme` stopgap" below) could
+register the collection provider, but that patch would be fragile and
+is not currently applied.
+
 ### The `cbme` stopgap
 
 [`Dockerfile:217-270`](../Dockerfile) pulls

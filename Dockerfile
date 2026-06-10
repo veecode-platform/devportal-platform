@@ -163,6 +163,10 @@ VOLUME /app/data
 #
 # TODO: once quay.io/veecode/extensions:bs_1.50.0 is published, set EXTENSIONS_TAG=bs_1.50.0
 # and drop the sed patch (it self-skips if the /alpha import is absent).
+#
+# NOTE: bs_1.49.4 also omits ExtensionsCollectionProvider from module.cjs.js registration,
+# so PluginCollection entities never ingest even though the YAMLs are baked below.
+# See docs/ROADMAP_BACKLOG.md "PluginCollection entities never ingest" for the fix path.
 ARG EXTENSIONS_TAG=bs_1.49.4
 RUN set -e; \
     OCI_IMAGE="docker://quay.io/veecode/extensions:$EXTENSIONS_TAG"; \

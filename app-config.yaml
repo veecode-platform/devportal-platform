@@ -129,11 +129,13 @@ catalog:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
   rules:
-    # Plugin/Package/Collection are the kinds the marketplace ("extensions") catalog uses —
+    # Plugin/Package/PluginCollection are the kinds the marketplace ("extensions") catalog uses —
     # ingested by the catalog-backend-module-extensions provider from the plugin-catalog-index
     # (extracted to /app/catalog-entities/extensions/ by entrypoint.sh). Without them in the
     # allow-list the provider's entities are rejected and the marketplace "Catalog" tab is empty.
-    - allow: [Component, System, API, Resource, Location, User, Group, Template, Plugin, Package, Collection]
+    # NOTE: the enum value is `PluginCollection` (not `Collection`) — see ExtensionsKind in the
+    # extensions-common bundle. Using `Collection` is silently wrong; entities are not ingested.
+    - allow: [Component, System, API, Resource, Location, User, Group, Template, Plugin, Package, PluginCollection]
   locations:
     # Local example data, file locations are relative to the backend process, typically `packages/backend`
     # Consolidated into a single Location aggregator file under `examples`
