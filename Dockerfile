@@ -134,7 +134,15 @@ RUN node -e "require('better-sqlite3'); console.log('native deps OK: better-sqli
 # BackendInitializer crashes reading `.id` (e.g. the immobiliarelabs gitlab catalog
 # module, and the baked catalog-backend-module-extensions). Re-export the main entry's
 # symbols on `/alpha` for any key it no longer carries — one shim restores the 2.1.x
-# surface for every dynamic plugin, instead of patching each plugin artifact.
+# surface, instead of patching each plugin artifact.
+#
+# Scope: this patches the host copy at /app/node_modules. It covers every dynamic plugin
+# that externalizes @backstage/plugin-catalog-node to the host (a peerDependency, not a
+# bundled copy) — which is the standard dynamic-plugin export contract, and holds for all
+# plugins we ship (the baked extensions module and gitlab both declare it as a peerDep
+# with no bundled node_modules copy). A plugin that bundled its OWN catalog-node with the
+# symbol missing from /alpha would resolve that local copy first and NOT be covered; no
+# current plugin does this.
 #
 # TODO: remove once all consumed plugin builds import graduated symbols from the main
 # entry (i.e. are built against catalog-node >= 2.2.0 / Backstage 1.50+).

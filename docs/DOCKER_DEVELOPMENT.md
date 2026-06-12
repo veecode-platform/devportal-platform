@@ -111,8 +111,11 @@ documents it in detail; the short version:
 - The Dockerfile fixes this centrally with a **`/alpha` compat shim** appended to
   `node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js`: it re-exports the
   main entry's symbols on `/alpha` for any key it no longer carries. One shim covers
-  this module and every other dynamic plugin importing graduated symbols from `/alpha`
-  (e.g. the immobiliarelabs GitLab catalog module) — no per-module patching.
+  this module and every other dynamic plugin that externalizes
+  `@backstage/plugin-catalog-node` to the host (a peerDependency, not a bundled copy —
+  the standard export contract; e.g. the immobiliarelabs GitLab catalog module). No
+  per-module patching. (A plugin bundling its own catalog-node copy would resolve that
+  first and bypass the shim — none currently do.)
 
 When `quay.io/veecode/extensions:bs_1.50.0` is published by
 `devportal-plugin-export-overlays`, set `EXTENSIONS_TAG=bs_1.50.0`; once all consumed

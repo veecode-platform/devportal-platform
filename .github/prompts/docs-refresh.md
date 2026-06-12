@@ -58,11 +58,13 @@ and a tone reference, not a copy source.
    `quay.io/veecode/extensions:bs_1.49.4` via skopeo, and separately appends
    a compat shim to `node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js`
    that re-exports symbols catalog-node 2.2.0 graduated from `/alpha` to the
-   main entry. One shim covers every dynamic plugin importing those symbols
-   from `/alpha` (the baked extensions module + runtime OCI plugins); it
-   replaced the earlier per-module `sed` patch. See the shim `RUN` in the
-   Dockerfile. Any doc that touches the marketplace catalog tab or the
-   extensions OCI image should reference this; do not paper over it.
+   main entry. One shim covers every dynamic plugin that externalizes
+   `@backstage/plugin-catalog-node` to the host (peerDependency, not a bundled
+   copy — the standard export contract; the baked extensions module + gitlab
+   comply). A plugin bundling its own catalog-node copy would shadow the shim;
+   none currently do. It replaced the earlier per-module `sed` patch. See the
+   shim `RUN` in the Dockerfile. Any doc that touches the marketplace catalog
+   tab or the extensions OCI image should reference this; do not paper over it.
 
 ## Sources of truth (read these first, in order)
 

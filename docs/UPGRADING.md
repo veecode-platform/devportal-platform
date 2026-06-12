@@ -205,8 +205,11 @@ older line (the V1 distro shipped catalog-node 2.1.0) still import them from
 `BackendInitializer`. This is handled centrally by the **plugin-catalog-node
 `/alpha` compat shim** in the Dockerfile (re-exports the main entry's symbols
 on `/alpha` for any key it no longer carries), which covers every dynamic
-plugin importing graduated symbols — the baked
-`catalog-backend-module-extensions` and runtime OCI plugins alike.
+plugin that externalizes `@backstage/plugin-catalog-node` to the host (a
+peerDependency, not a bundled copy — the standard dynamic-plugin export
+contract) — the baked `catalog-backend-module-extensions` and runtime OCI
+plugins like gitlab both comply. A plugin bundling its own catalog-node copy
+would shadow the host shim; none currently do.
 
 When every consumed plugin build imports graduated symbols from the main
 entry (i.e. is built against catalog-node ≥ 2.2.0 / Backstage 1.50+):
