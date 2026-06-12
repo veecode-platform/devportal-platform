@@ -8,7 +8,8 @@
 #
 # Dynamic plugins: `dp-extract` copies the baked /app/dynamic-plugins-root/ out of the
 # image into .devrun-cache/dynamic-plugins-root/ (the complete working set — the npm
-# downloads, the marketplace catalog module already /alpha-patched, every wrapper). Edit
+# downloads and every wrapper; the catalog-node /alpha graduated-symbol fix is a shim
+# baked into the image's node_modules by the Dockerfile, not a patch on these modules). Edit
 # that directory directly (drop in a plugin dir, swap a wrapper's dist-scalprum/, etc. — or
 # point `cd dynamic-plugins && yarn build && yarn export-dynamic && yarn copy-dynamic-plugins`
 # at it), then `run` mounts it over /app/dynamic-plugins-root/. So iterating on a plugin no

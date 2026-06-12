@@ -153,18 +153,18 @@ breaks.
 
 ### Why this exists
 
-[`Dockerfile:217-270`](../Dockerfile) pulls the
-`catalog-backend-module-extensions` artifact from
+The Dockerfile pulls the `catalog-backend-module-extensions` artifact from
 `quay.io/veecode/extensions:bs_${EXTENSIONS_TAG}` because it's only
 distributed as an OCI image (no NPM publish). The artifact is built
 by [`veecode-platform/devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays)
 on a per-Backstage-version basis.
 
-The current default is `bs_1.49.4`. The Dockerfile also patches the
-`/alpha` import inside the artifact to fall back to the main
-`@backstage/plugin-catalog-node` export — this is the cbme stopgap,
-needed because the bs_1.49.4 build of the module references an alpha
-export that Backstage 1.50 graduated.
+The current default is `bs_1.49.4`. Separately, the Dockerfile applies a
+**catalog-node `/alpha` compat shim** to `node_modules` (re-exports symbols
+graduated to the main `@backstage/plugin-catalog-node` export), needed
+because the bs_1.49.4 build of the module — and other dynamic plugins —
+reference alpha exports that catalog-node 2.2.0 graduated. See § "How to
+bump (across the `/alpha` → main shift)" below.
 
 ### When to bump
 
@@ -259,9 +259,9 @@ or set `TURBO_CONCURRENCY=1` (already set in Dockerfile).
 
 **Marketplace empty after Backstage bump** — Track 3. Either the
 `EXTENSIONS_TAG` is incompatible with the new Backstage core (the
-`/alpha` patch may have stopped applying) or the catalog-index OCI
-image has not been refreshed (`CATALOG_INDEX_REFRESH=true` to
-force).
+`/alpha` compat shim no longer covers a symbol the module needs — the
+build-time shim verify would fail) or the catalog-index OCI image has
+not been refreshed (`CATALOG_INDEX_REFRESH=true` to force).
 
 **Backend crashes with "Plugin 'mcp-actions' is already registered"** —
 [`packages/backend/src/index.ts:226-229`](../packages/backend/src/index.ts).

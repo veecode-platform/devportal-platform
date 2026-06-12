@@ -138,9 +138,11 @@ RUN node -e "require('better-sqlite3'); console.log('native deps OK: better-sqli
 #
 # TODO: remove once all consumed plugin builds import graduated symbols from the main
 # entry (i.e. are built against catalog-node >= 2.2.0 / Backstage 1.50+).
-RUN ALPHA=/app/node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js; \
-    printf '\n// veecode: re-export symbols graduated from /alpha to the main entry (catalog-node 2.2.0 / BS 1.50)\n{ const __m = require("./index.cjs.js"); for (const k of Object.keys(__m)) { if (!(k in exports)) exports[k] = __m[k]; } }\n' >> "$ALPHA"; \
-    node -e "const a=require('$ALPHA'); if (!a.catalogProcessingExtensionPoint || !a.catalogProcessingExtensionPoint.id) { console.error('FATAL: catalog-node /alpha compat shim did not restore catalogProcessingExtensionPoint'); process.exit(1); } console.log('catalog-node /alpha compat shim OK: catalogProcessingExtensionPoint id=' + a.catalogProcessingExtensionPoint.id)"
+RUN set -e; \
+    ALPHA=/app/node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js; \
+    grep -qF 'veecode: re-export symbols graduated' "$ALPHA" || \
+      printf '\n// veecode: re-export symbols graduated from /alpha to the main entry (catalog-node 2.2.0 / BS 1.50)\n{ const __m = require("./index.cjs.js"); for (const k of Object.keys(__m)) { if (!(k in exports)) exports[k] = __m[k]; } }\n' >> "$ALPHA"; \
+    node -e "const a=require('$ALPHA'); const want=['catalogProcessingExtensionPoint','catalogLocationsExtensionPoint','catalogAnalysisExtensionPoint','catalogServiceRef']; const bad=want.filter(k=>!a[k]||!a[k].id); if (bad.length) { console.error('FATAL: catalog-node /alpha compat shim did not restore: '+bad.join(', ')); process.exit(1); } console.log('catalog-node /alpha compat shim OK: '+want.join(', '))"
 
 # Backend bundle
 RUN --mount=type=bind,source=packages/backend/dist/bundle.tar.gz,target=/tmp/bundle.tar.gz \

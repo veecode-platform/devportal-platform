@@ -369,6 +369,12 @@ and [`examples/deploy/k8s.yaml`](../../examples/deploy/k8s.yaml).
   `quay.io/veecode/extensions:bs_1.50.0` (or any tag whose build
   imports from the main export) is published.
 
+  _Update (2026-06): the per-module `sed` was replaced by a single
+  catalog-node `/alpha` compat shim appended to `node_modules`
+  (re-exports graduated symbols on `/alpha`), which also covers
+  runtime-loaded plugins (e.g. immobiliarelabs gitlab), not just the
+  baked cbme module. Mechanism changed; the rationale below stands._
+
 ### Risks
 
 - **Preset proliferation.** If we accept too many presets, the

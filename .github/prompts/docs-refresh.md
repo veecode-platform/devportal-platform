@@ -54,12 +54,15 @@ and a tone reference, not a copy source.
    `janus-cli package export-dynamic-plugin`. Confirm against each
    wrapper's `dynamic-plugins/wrappers/*/package.json` before claiming
    either is universal.
-8. **The `cbme` stopgap exists.** The Dockerfile pulls
-   `quay.io/veecode/extensions:bs_1.49.4` via skopeo and sed-patches
-   one file (`catalog-backend-module-extensions/dist/module.cjs.js`).
-   This is documented at length in `Dockerfile:217-264`. Any doc that
-   touches the marketplace catalog tab or the extensions OCI image
-   should reference this; do not paper over it.
+8. **The catalog-node `/alpha` compat shim exists.** The Dockerfile pulls
+   `quay.io/veecode/extensions:bs_1.49.4` via skopeo, and separately appends
+   a compat shim to `node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js`
+   that re-exports symbols catalog-node 2.2.0 graduated from `/alpha` to the
+   main entry. One shim covers every dynamic plugin importing those symbols
+   from `/alpha` (the baked extensions module + runtime OCI plugins); it
+   replaced the earlier per-module `sed` patch. See the shim `RUN` in the
+   Dockerfile. Any doc that touches the marketplace catalog tab or the
+   extensions OCI image should reference this; do not paper over it.
 
 ## Sources of truth (read these first, in order)
 
