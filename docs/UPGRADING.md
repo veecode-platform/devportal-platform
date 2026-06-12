@@ -196,18 +196,26 @@ VEECODE_PRESETS=recommended ./scripts/dev-run.sh run
 
 ### How to bump (across the `/alpha` → main shift)
 
-This is the cleanup case described in
-[`Dockerfile:245-251`](../Dockerfile). When the upstream build of
-`catalog-backend-module-extensions` no longer imports from
-`@backstage/plugin-catalog-node/alpha`:
+`@backstage/plugin-catalog-node` 2.2.0 graduated several symbols
+(`catalogProcessingExtensionPoint`, `catalogLocationsExtensionPoint`,
+`catalogAnalysisExtensionPoint`, `catalogServiceRef`) from the `/alpha`
+subpath export to the package's main entry. Dynamic plugins built against the
+older line (the V1 distro shipped catalog-node 2.1.0) still import them from
+`/alpha`, where they are now `undefined` → the catalog plugin crashes in
+`BackendInitializer`. This is handled centrally by the **plugin-catalog-node
+`/alpha` compat shim** in the Dockerfile (re-exports the main entry's symbols
+on `/alpha` for any key it no longer carries), which covers every dynamic
+plugin importing graduated symbols — the baked
+`catalog-backend-module-extensions` and runtime OCI plugins alike.
+
+When every consumed plugin build imports graduated symbols from the main
+entry (i.e. is built against catalog-node ≥ 2.2.0 / Backstage 1.50+):
 
 1. Bump `EXTENSIONS_TAG` to the new tag (e.g. `bs_1.50.0`).
-2. Remove the `sed` patch block in the Dockerfile (lines around 261–266).
-3. Also remove the analogous `ensure_cbme_patch` function in
-   [`scripts/dev-run.sh:56-69`](../scripts/dev-run.sh) — it self-skips
-   if the `/alpha` import is absent, but cleaner to delete.
-4. Verify by rebuilding and confirming the marketplace catalog still
-   loads.
+2. Remove the `plugin-catalog-node /alpha compat shim` `RUN` block in the
+   Dockerfile (the one appending to `dist/alpha.cjs.js`).
+3. Verify by rebuilding and confirming the marketplace catalog still loads
+   and any GitLab/SCM plugins still boot.
 
 ## Post-upgrade checklist
 

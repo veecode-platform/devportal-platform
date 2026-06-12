@@ -123,6 +123,25 @@ RUN --mount=type=cache,target=/opt/app-root/src/.yarn/berry/cache,sharing=locked
 # (cpu-features is optional and may be skipped; the sqlite driver is not).
 RUN node -e "require('better-sqlite3'); console.log('native deps OK: better-sqlite3 loaded')"
 
+# Backward-compat shim for dynamic plugins built against older Backstage.
+# @backstage/plugin-catalog-node 2.2.0 graduated several symbols
+# (catalogProcessingExtensionPoint, catalogLocationsExtensionPoint,
+# catalogAnalysisExtensionPoint, catalogServiceRef) from the `/alpha` subpath export
+# to the package's main entry. The V1 distro shipped catalog-node 2.1.0, whose
+# `/alpha` still carried them; dynamic plugins compiled against that line still
+# `require('@backstage/plugin-catalog-node/alpha')` and read those symbols. On 2.2.0
+# they are `undefined`, the symbol lands in a backend module's registerInit deps, and
+# BackendInitializer crashes reading `.id` (e.g. the immobiliarelabs gitlab catalog
+# module, and the baked catalog-backend-module-extensions). Re-export the main entry's
+# symbols on `/alpha` for any key it no longer carries — one shim restores the 2.1.x
+# surface for every dynamic plugin, instead of patching each plugin artifact.
+#
+# TODO: remove once all consumed plugin builds import graduated symbols from the main
+# entry (i.e. are built against catalog-node >= 2.2.0 / Backstage 1.50+).
+RUN ALPHA=/app/node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js; \
+    printf '\n// veecode: re-export symbols graduated from /alpha to the main entry (catalog-node 2.2.0 / BS 1.50)\n{ const __m = require("./index.cjs.js"); for (const k of Object.keys(__m)) { if (!(k in exports)) exports[k] = __m[k]; } }\n' >> "$ALPHA"; \
+    node -e "const a=require('$ALPHA'); if (!a.catalogProcessingExtensionPoint || !a.catalogProcessingExtensionPoint.id) { console.error('FATAL: catalog-node /alpha compat shim did not restore catalogProcessingExtensionPoint'); process.exit(1); } console.log('catalog-node /alpha compat shim OK: catalogProcessingExtensionPoint id=' + a.catalogProcessingExtensionPoint.id)"
+
 # Backend bundle
 RUN --mount=type=bind,source=packages/backend/dist/bundle.tar.gz,target=/tmp/bundle.tar.gz \
     tar xzf /tmp/bundle.tar.gz
@@ -157,12 +176,12 @@ VOLUME /app/data
 #
 # bs_1.49.4 build imports `catalogProcessingExtensionPoint` from
 # `@backstage/plugin-catalog-node/alpha`, which Backstage 1.50 graduated to the main
-# export — so on a 1.50 backend that alpha import is `undefined` and the catalog plugin
-# crashes. STOPGAP: patch the built module.cjs.js to fall back to the main export when
-# `/alpha` lacks `catalogProcessingExtensionPoint`.
+# export. That `/alpha` regression is fixed centrally by the plugin-catalog-node
+# compat shim applied to node_modules above — it covers this module and every other
+# dynamic plugin importing graduated symbols from `/alpha`, so no per-module patch is
+# needed here.
 #
-# TODO: once quay.io/veecode/extensions:bs_1.50.0 is published, set EXTENSIONS_TAG=bs_1.50.0
-# and drop the sed patch (it self-skips if the /alpha import is absent).
+# TODO: once quay.io/veecode/extensions:bs_1.50.0 is published, set EXTENSIONS_TAG=bs_1.50.0.
 #
 # NOTE: bs_1.49.4 also omits ExtensionsCollectionProvider from module.cjs.js registration,
 # so PluginCollection entities never ingest even though the YAMLs are baked below.
@@ -182,12 +201,6 @@ RUN set -e; \
     LAYER=$(jq -r '.layers[0].digest' "$TMP_OCI/manifest.json" | sed 's/sha256://'); \
     tar -xzf "$TMP_OCI/$LAYER" -C "$TMP_EXTRACT"; \
     cp -a "$TMP_EXTRACT/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions" /app/dynamic-plugins-root/; \
-    MOD=/app/dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions/dist/module.cjs.js; \
-    if grep -q "plugin-catalog-node/alpha" "$MOD"; then \
-      sed -i "s|var alpha = require('@backstage/plugin-catalog-node/alpha');|var alpha = require('@backstage/plugin-catalog-node/alpha'); if (!alpha.catalogProcessingExtensionPoint) alpha = Object.assign({}, alpha, require('@backstage/plugin-catalog-node'));|" "$MOD"; \
-      grep -q "Object.assign" "$MOD" || { echo "ERROR: catalogProcessingExtensionPoint /alpha->main patch did not apply to $MOD"; exit 1; }; \
-      echo "patched catalog-backend-module-extensions (/alpha -> main catalogProcessingExtensionPoint fallback)"; \
-    fi; \
     rm -rf "$TMP_OCI" "$TMP_EXTRACT"
 
 # Plugin install scripts + config files consumed at startup
