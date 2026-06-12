@@ -1,6 +1,6 @@
 name: mcp-chat
 description: AI Chat in-portal — surfaces the MCP toolset via a chat UI at `/mcp-chat`. Requires LLM provider + API key. Compose with `mcp`.
-version: 1.0.0
+version: 2.0.0
 
 # What this preset does:
 #  - Enables `mcp-chat` (frontend) and `mcp-chat-backend`, exposing the chat

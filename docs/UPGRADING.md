@@ -260,6 +260,34 @@ force).
 You added the MCP backend plugin both statically and via the
 dynamic-plugin yaml. Remove the static registration.
 
+## Behavior changes by image version
+
+Boot-contract changes that can affect existing deployments when the
+image tag is bumped. Check this list before rolling a new tag into an
+environment that was healthy on the previous one.
+
+### Next release (after 2.1.2)
+
+- **Preset composition dependencies are now enforced** (`requires.presets`,
+  see [`presets/SCHEMA.md`](../presets/SCHEMA.md)). Compositions that
+  previously booted with a broken runtime now refuse to boot with exit 78
+  and a corrective message:
+  - `mcp-chat` without `mcp` (chat mounted but every tool call 404'd);
+  - `ldap-ad` alone or listed before `ldap` (AD overrides silently lost).
+  Fix the `VEECODE_PRESETS` order (`mcp,mcp-chat` / `ldap,ldap-ad`).
+  `mcp-chat` and `ldap-ad` preset versions were bumped to 2.0.0 to mark
+  the contract change.
+- **Boot preflight guards** now refuse configurations that previously
+  failed late or silently: invalid `VEECODE_APP_CONFIG`, non-writable
+  `/app/data`, missing `preInstalled` plugin directories, unresolved
+  `${...}` placeholders in enabled plugin refs. A corrupted
+  `extensions-install.yaml` no longer crash-loops — it is quarantined to
+  `.bak` and recreated (selections re-sync from the database).
+- **Theme env vars removed**: `THEME_DOWNLOAD_URL`, `THEME_CUSTOM_JSON`,
+  `THEME_MERGE_JSON`, `PLATFORM_DEVPORTAL_THEME_URL` are ignored with a
+  boot WARNING (nothing read the file they wrote on V2 — ADR-011 made
+  the theme a dynamic plugin). Favicon vars still work.
+
 ## Compatibility matrix
 
 | `devportal-platform` | Backstage | Node | UBI tag                         | EXTENSIONS_TAG |
