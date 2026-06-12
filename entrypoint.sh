@@ -109,6 +109,21 @@ fi
 DEVPORTAL_DB_PATH="${DEVPORTAL_DB_PATH:-/app/data}"
 mkdir -p "$DEVPORTAL_DB_PATH"
 
+# PREFLIGHT: DEVPORTAL_DB_PATH must be a writable directory that supports
+# rename within it. The marketplace backend persists extensions-install.yaml
+# via temp-file + atomic rename, which fails (EXDEV/EROFS) at runtime on a
+# single-file bind mount or read-only volume — far from the cause. Refuse to
+# boot instead, with the same fail-fast code used for preset validation.
+if ! _PREFLIGHT_TMP="$(mktemp "$DEVPORTAL_DB_PATH/.preflight.XXXXXX" 2>/dev/null)" \
+   || ! mv "$_PREFLIGHT_TMP" "${_PREFLIGHT_TMP}.renamed" 2>/dev/null; then
+    echo "ERROR: $DEVPORTAL_DB_PATH is not a writable directory supporting rename."
+    echo "       Mount a DIRECTORY volume at $DEVPORTAL_DB_PATH — not a single-file bind, not read-only."
+    rm -f "$_PREFLIGHT_TMP" 2>/dev/null
+    exit 78
+fi
+rm -f "${_PREFLIGHT_TMP}.renamed"
+unset _PREFLIGHT_TMP
+
 # Ensure extensions-install.yaml exists for the Python install script.
 # DB is the source of truth; this file is a write-through cache the marketplace
 # backend regenerates from the DB on every change (extensions.installation.
@@ -117,6 +132,18 @@ mkdir -p "$DEVPORTAL_DB_PATH"
 # marketplace rewrites it via a temp-file + atomic rename, which fails on a
 # single-file bind mount. On first boot it does not exist yet, so create one.
 EXTENSIONS_INSTALL="$DEVPORTAL_DB_PATH/extensions-install.yaml"
+# Quarantine a corrupted file instead of letting the installer crash-loop on
+# it: install-dynamic-plugins.py reads includeContent['plugins'] and a file
+# without that list fails the boot — and since the file lives on the volume,
+# it fails EVERY boot until a human edits the volume. The DB is the source of
+# truth and the marketplace regenerates this cache on every change, so
+# resetting it loses nothing durable.
+if [ -f "$EXTENSIONS_INSTALL" ] && [ "$(yq eval '.plugins | type' "$EXTENSIONS_INSTALL" 2>/dev/null)" != "!!seq" ]; then
+    _BAK="$EXTENSIONS_INSTALL.bak.$(date +%s)"
+    echo "WARNING: $EXTENSIONS_INSTALL is corrupted (no 'plugins:' list) — quarantining to $_BAK and starting empty. Marketplace selections will be re-synced from the database."
+    mv "$EXTENSIONS_INSTALL" "$_BAK" 2>/dev/null || echo "WARNING: could not quarantine $EXTENSIONS_INSTALL; the installer may fail on it"
+    unset _BAK
+fi
 if [ ! -f "$EXTENSIONS_INSTALL" ]; then
     echo 'plugins: []' > "$EXTENSIONS_INSTALL" 2>/dev/null || (echo 'plugins: []' > /tmp/extensions-install.yaml && cp /tmp/extensions-install.yaml "$EXTENSIONS_INSTALL")
 fi
@@ -219,6 +246,13 @@ else
     echo "VEECODE: no presets selected (VEECODE_PRESETS unset) — core only (catalog + global header). Add 'recommended' to VEECODE_PRESETS to enable marketplace, RBAC, tech-radar."
 fi
 
+# Operators migrating from RHDH habitually add their own `includes:` to
+# dynamic-plugins.yaml; those are replaced below by the entrypoint-owned chain.
+# Losing them silently reads as "my plugins vanished" — warn explicitly.
+if [ -f "$DP_YAML" ] && [ "$(yq eval '.includes // [] | length' "$DP_YAML" 2>/dev/null)" -gt 0 ]; then
+    echo "VEECODE: WARNING — 'includes:' in $DP_YAML is ignored; the includes chain is entrypoint-owned (marketplace state + preset fragments). Declare extra plugins under 'plugins:' instead."
+fi
+
 # Rebuild the includes list on the shadow on every boot: marketplace state first,
 # then preset fragments. dynamic-plugins.default.yaml is NOT included — it is
 # documentation only (vitrine). Core plugins live in dynamic-plugins.yaml plugins:.
@@ -243,7 +277,19 @@ echo "VEECODE: dynamic plugin includes → $(yq eval -o=json -I=0 '.includes' "$
 # ConfigMap, so no entrypoint override is needed for dynamic-plugins.yaml.
 if [ ! -z "$VEECODE_APP_CONFIG" ]; then
     echo "VEECODE_APP_CONFIG detected, decoding into /app/app-config.saas.yaml"
-    echo "$VEECODE_APP_CONFIG" | base64 -d > /app/app-config.saas.yaml
+    # Validate at the edge: a bad value written verbatim only surfaces ~45s
+    # later as a node config-loader error naming the FILE, never this var.
+    if ! echo "$VEECODE_APP_CONFIG" | base64 -d > /app/app-config.saas.yaml 2>/dev/null; then
+        echo "ERROR: VEECODE_APP_CONFIG is not valid base64 — refusing to boot with a corrupted app-config."
+        exit 78
+    fi
+    # Backstage requires an object at the config root (multi-doc YAML is not
+    # an app-config shape, so the single-doc `type` check is intentional).
+    if [ "$(yq eval 'type' /app/app-config.saas.yaml 2>/dev/null | head -1)" != "!!map" ]; then
+        echo "ERROR: VEECODE_APP_CONFIG decoded, but the content is not a YAML object."
+        echo "       Check the value you base64-encoded — it must be an app-config YAML document."
+        exit 78
+    fi
     echo "VEECODE_APP_CONFIG expanded successfully"
 else
     echo "VEECODE_APP_CONFIG variable not found (this is expected in non-SaaS deployments)"
@@ -295,6 +341,25 @@ _SAMPLE_REF="$(yq eval '.plugins[] | select(.package // "" | test("^oci://")) | 
 [ -n "$_SAMPLE_REF" ] && echo "VEECODE: example resolved plugin ref → $_SAMPLE_REF"
 unset _SAMPLE_REF
 
+# Fail fast if an ENABLED plugin ref still carries an unresolved ${...}
+# placeholder — backstage.json was unreadable, or the ref uses a variable this
+# entrypoint does not substitute. Without this the same mistake surfaces as a
+# per-plugin skopeo error mid-install. Only `package:` refs are checked:
+# pluginConfig legitimately carries ${VAR}s that Backstage resolves at runtime.
+_UNRESOLVED=""
+for f in "$DP_YAML_SHADOW" "$DEVPORTAL_DB_PATH/extensions-install.yaml" /app/preset-*-plugins.yaml; do
+    [ -f "$f" ] || continue
+    _BAD="$(yq eval '.plugins[]? | select(.disabled != true) | .package // ""' "$f" 2>/dev/null | grep -F '${' | head -3)"
+    [ -n "$_BAD" ] && _UNRESOLVED="${_UNRESOLVED}"$'\n'"  $f: $_BAD"
+done
+if [ -n "$_UNRESOLVED" ]; then
+    echo "ERROR: unresolved \${...} placeholder(s) in enabled plugin refs:"
+    echo "$_UNRESOLVED"
+    echo "       Placeholders resolved by this entrypoint: \${BACKSTAGE_VERSION} (needs a readable /app/backstage.json) and \${PLUGIN_REGISTRY}."
+    exit 78
+fi
+unset _UNRESOLVED _BAD
+
 # ENTRYPOINT INSTALL PLUGINS
 # Point the install script at the resolved shadow — it has the preset fragments
 # wired into `includes:` and ${PLUGIN_REGISTRY}/${BACKSTAGE_VERSION} substituted.
@@ -320,7 +385,12 @@ rm -f /app/dynamic-plugins-root/install-dynamic-plugins.lock
 # Remove RHDH extensions backend AFTER install — it ships in the base image
 # and gets re-installed by install-dynamic-plugins.sh from defaults.
 # Our devportal-marketplace-backend replaces it (same pluginId "extensions").
-rm -rf /app/dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-extensions-backend 2>/dev/null
+# Logged because an operator who enables this plugin deliberately would
+# otherwise watch it install and vanish with no trace.
+if [ -d /app/dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-extensions-backend ]; then
+    echo "VEECODE: removing red-hat-developer-hub-backstage-plugin-extensions-backend — replaced by devportal-marketplace-backend (both register pluginId \"extensions\" and would conflict on /api/extensions/*)"
+    rm -rf /app/dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-extensions-backend 2>/dev/null
+fi
 if [ ! -z "$VEECODE_DOMAIN" ]; then
     echo "VEECODE_DOMAIN detected (this is expected in VeeCode SaaS deployments): $VEECODE_DOMAIN"
 else

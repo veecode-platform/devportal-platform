@@ -370,8 +370,19 @@ def install_plugin(plugin: dict, plugin_path_by_hash: dict, destination: str, sk
         print(f'\n======= Skipping disabled dynamic plugin {package}', flush=True)
         return None, {}
 
-    # Pre-installed plugins: skip installation, merge config only
+    # Pre-installed plugins: skip installation, merge config only.
+    # The bytes must already be in the destination from image build time —
+    # verify that instead of trusting it, otherwise a missing directory boots
+    # "successfully" and surfaces as missing chrome / 404s with no error.
     if plugin.get('preInstalled', False):
+        # `internal-` packages are workspace plugins compiled into the app
+        # bundle — their entry here exists only to deliver pluginConfig, so
+        # they legitimately have no directory under dynamic-plugins-root.
+        if not package.startswith('internal-') and not os.path.isdir(os.path.join(destination, package)):
+            raise InstallException(
+                f"preInstalled plugin {package} has no directory under {destination} — "
+                f"the image and the plugin inventory are out of sync, or an empty volume "
+                f"is mounted over dynamic-plugins-root")
         print(f'\n======= Using pre-installed dynamic plugin {package} (config only)', flush=True)
         return None, plugin.get('pluginConfig', {})
 
@@ -656,7 +667,12 @@ def main():
         if not isinstance(includeContent, dict):
             raise InstallException(f"{include} content must be a YAML object")
 
-        includePlugins = includeContent['plugins']
+        # .get() instead of direct access: a file missing the key (partial
+        # write, manual edit) must fail as a clear InstallException, not a
+        # bare KeyError traceback.
+        includePlugins = includeContent.get('plugins')
+        if includePlugins is None:
+            raise InstallException(f"{include} has no 'plugins' field — the file is corrupted or was partially written")
         if not isinstance(includePlugins, list):
             raise InstallException(f"content of the \'plugins\' field must be a list in {include}")
 

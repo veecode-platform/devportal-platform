@@ -33,6 +33,10 @@ run_case() {
 
   local env_args=()
   for kv in "$@"; do env_args+=( -e "$kv" ); done
+  # Optional per-case docker args (e.g. volume mounts) via EXTRA_DOCKER_ARGS;
+  # callers set it right before run_case and it is consumed (reset) here.
+  local extra_args=( ${EXTRA_DOCKER_ARGS[@]+"${EXTRA_DOCKER_ARGS[@]}"} )
+  EXTRA_DOCKER_ARGS=()
 
   echo ""
   echo "=========================================="
@@ -45,7 +49,8 @@ run_case() {
   set +e
   logs=$(docker run --rm --name "$CONTAINER" \
     -e "VEECODE_PRESETS=$presets" \
-    "${env_args[@]}" \
+    ${env_args[@]+"${env_args[@]}"} \
+    ${extra_args[@]+"${extra_args[@]}"} \
     "$IMAGE" 2>&1)
   rc=$?
   set -e
@@ -94,6 +99,22 @@ run_case preset_not_found         "naoexiste"  "not found"         "available pr
 # 3. Exclusive-group conflict — two identity presets selected. Fail-fast runs
 #    before any download or var validation; no env vars needed.
 run_case identity_exclusive_group "github-auth,keycloak" "exclusive group" "cannot be selected together"
+
+# 4. Boot preflight guards (fragility-map round 1).
+# Invalid VEECODE_APP_CONFIG must be rejected at the edge, naming the var —
+# previously it surfaced ~45s later as a node error naming only the file.
+run_case veecode_app_config_garbage "" "VEECODE_APP_CONFIG" "not valid base64" \
+  VEECODE_APP_CONFIG=garbage
+
+# A read-only (or otherwise rename-hostile) /app/data breaks the marketplace's
+# atomic rename at runtime; the preflight must refuse the boot up front.
+# (The sibling failure mode — a single FILE bind at /app/data — can't be
+# reproduced under plain docker: the daemon refuses file-over-directory before
+# the entrypoint runs. Same guard covers both.)
+_NEG_TMP_DIR="$(mktemp -d)"
+EXTRA_DOCKER_ARGS=( -v "$_NEG_TMP_DIR:/app/data:ro" )
+run_case data_path_not_writable "" "not a writable directory" "DIRECTORY volume"
+rm -rf "$_NEG_TMP_DIR"; unset _NEG_TMP_DIR
 
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 

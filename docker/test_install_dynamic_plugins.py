@@ -75,3 +75,40 @@ def test_intentional_same_ref_override_is_single_key_no_raise():
         "oci://reg/x:tag!backstage-plugin-kubernetes": _entry(),
     }
     idp.check_plugin_identity_collisions(plugins)  # no raise
+
+
+# --- install_plugin: preInstalled directory guard -----------------------------
+
+def test_preinstalled_with_directory_returns_config_only(tmp_path):
+    (tmp_path / "my-plugin").mkdir()
+    path, config = idp.install_plugin(
+        {"package": "my-plugin", "preInstalled": True, "pluginConfig": {"a": 1}},
+        {}, str(tmp_path))
+    assert path is None
+    assert config == {"a": 1}
+
+
+def test_preinstalled_without_directory_raises_naming_the_plugin(tmp_path):
+    with pytest.raises(idp.InstallException, match="my-plugin"):
+        idp.install_plugin(
+            {"package": "my-plugin", "preInstalled": True}, {}, str(tmp_path))
+
+
+def test_preinstalled_internal_workspace_plugin_is_exempt_from_dir_check(tmp_path):
+    # internal-* packages are compiled into the app bundle; their entry exists
+    # only to deliver pluginConfig and has no dir under dynamic-plugins-root.
+    path, config = idp.install_plugin(
+        {"package": "internal-plugin-dynamic-plugins-info", "preInstalled": True,
+         "pluginConfig": {"b": 2}},
+        {}, str(tmp_path))
+    assert path is None
+    assert config == {"b": 2}
+
+
+def test_disabled_preinstalled_skips_before_the_directory_check(tmp_path):
+    # disabled entries must keep short-circuiting first — an inert catalog
+    # stub without bytes on disk is not an error.
+    path, config = idp.install_plugin(
+        {"package": "absent-plugin", "preInstalled": True, "disabled": True},
+        {}, str(tmp_path))
+    assert (path, config) == (None, {})
