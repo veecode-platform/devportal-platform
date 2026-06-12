@@ -100,7 +100,11 @@ run_case preset_not_found         "naoexiste"  "not found"         "available pr
 #    before any download or var validation; no env vars needed.
 run_case identity_exclusive_group "github-auth,keycloak" "exclusive group" "cannot be selected together"
 
-# 4. Boot preflight guards (fragility-map round 1).
+# 4. Composition dependency (requires.presets) — mcp-chat without mcp must
+#    fail before var validation, naming both presets and the corrected order.
+run_case mcp_chat_missing_mcp "mcp-chat" 'requires preset "mcp"' "VEECODE_PRESETS=mcp,mcp-chat"
+
+# 5. Boot preflight guards (fragility-map round 1).
 # Invalid VEECODE_APP_CONFIG must be rejected at the edge, naming the var —
 # previously it surfaced ~45s later as a node error naming only the file.
 run_case veecode_app_config_garbage "" "VEECODE_APP_CONFIG" "not valid base64" \

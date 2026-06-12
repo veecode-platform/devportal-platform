@@ -11,6 +11,7 @@ version: semver                 # required, e.g. "1.0.0"
 exclusive_group: string         # optional; only one preset per group may be selected
 
 requires:                       # optional, default: empty
+  presets: []
   variables: {}
 
 plugins:                        # optional, default: []
@@ -49,6 +50,31 @@ Intended for categories where selecting more than one is always wrong at runtime
 Currently defined group: `identity` — shared by `github-auth`, `azure-auth`, `gitlab`,
 `keycloak`, and `ldap`. Only one identity provider can be active at boot (one `signInPage`,
 one primary auth provider). Error message names both conflicting presets and the group.
+
+## `requires.presets`
+
+List of preset names this preset depends on:
+
+```yaml
+requires:
+  presets:
+    - mcp
+```
+
+**Validation behavior at boot:** each listed preset must be selected in
+`VEECODE_PRESETS` **before** this one. Presence alone is not enough —
+list order drives the `--config` override order (later files win), so a
+dependent preset listed first would have its overrides clobbered. On
+violation the entrypoint exits 78 naming both presets and printing a
+corrected example:
+
+```
+ERROR: preset "mcp-chat" requires preset "mcp" to be selected before it.
+       Example: VEECODE_PRESETS=mcp,mcp-chat
+```
+
+Current users: `mcp-chat` (requires `mcp` — the chat backend loopbacks to
+`mcp-actions-backend`) and `ldap-ad` (requires `ldap` — override-only layer).
 
 ## `requires.variables`
 

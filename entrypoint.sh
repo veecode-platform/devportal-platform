@@ -195,6 +195,7 @@ PRESET_INCLUDES=""
 if [ -n "$VEECODE_PRESETS" ]; then
     echo "VEECODE: preset resolver — VEECODE_PRESETS=$VEECODE_PRESETS"
     MISSING_VARS=""
+    _APPLIED_PRESETS=""
 
     for preset in ${VEECODE_PRESETS//,/ }; do
         PRESET_FILE="$PRESETS_DIR/$preset.yaml"
@@ -208,6 +209,19 @@ if [ -n "$VEECODE_PRESETS" ]; then
             exit 78
         fi
         echo "VEECODE: applying preset \"$preset\""
+
+        # 0. composition dependencies (requires.presets): each listed preset
+        #    must be selected BEFORE this one — list order drives appConfig
+        #    override order (later --config files win), so presence alone is
+        #    not enough. Replaces the comment-only convention (mcp-chat→mcp,
+        #    ldap-ad→ldap) that booted clean and failed in the user's face.
+        for dep in $(yq eval '(.requires.presets // []) | .[]' "$PRESET_FILE"); do
+            if ! echo "$_APPLIED_PRESETS" | grep -qx "$dep"; then
+                echo "ERROR: preset \"$preset\" requires preset \"$dep\" to be selected before it."
+                echo "       Example: VEECODE_PRESETS=${dep},${preset}"
+                exit 78
+            fi
+        done
 
         # 1. required variables
         for var in $(yq eval '(.requires.variables // {}) | to_entries | map(select(.value.required == true)) | .[].key' "$PRESET_FILE"); do
@@ -233,7 +247,10 @@ if [ -n "$VEECODE_PRESETS" ]; then
             yq eval '.appConfig' "$PRESET_FILE" > "/app/app-config.preset-${preset}.yaml"
             PRESET_CONFIG_ARGS="$PRESET_CONFIG_ARGS --config /app/app-config.preset-${preset}.yaml"
         fi
+
+        _APPLIED_PRESETS="${_APPLIED_PRESETS}${preset}"$'\n'
     done
+    unset _APPLIED_PRESETS
 
     if [ -n "$MISSING_VARS" ]; then
         echo "ERROR: the selected preset(s) require variables that are not set:"

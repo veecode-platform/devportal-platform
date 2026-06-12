@@ -13,6 +13,12 @@ version: 1.0.0
 #  - Reuses every env var declared by `ldap` (LDAP_URL, LDAP_DN, LDAP_SECRET,
 #    LDAP_USERS_BASE_DN, LDAP_GROUPS_BASE_DN, optional LDAP_USERS_FILTER /
 #    LDAP_GROUPS_FILTER). No new required vars.
+#  - The composition order ("ldap before ldap-ad") is enforced by
+#    `requires.presets` — the resolver fails the boot (exit 78) otherwise.
+requires:
+  presets:
+    - ldap
+
 plugins: []
 
 appConfig:
