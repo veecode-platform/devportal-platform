@@ -153,18 +153,18 @@ breaks.
 
 ### Why this exists
 
-[`Dockerfile:217-270`](../Dockerfile) pulls the
-`catalog-backend-module-extensions` artifact from
+The Dockerfile pulls the `catalog-backend-module-extensions` artifact from
 `quay.io/veecode/extensions:bs_${EXTENSIONS_TAG}` because it's only
 distributed as an OCI image (no NPM publish). The artifact is built
 by [`veecode-platform/devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays)
 on a per-Backstage-version basis.
 
-The current default is `bs_1.49.4`. The Dockerfile also patches the
-`/alpha` import inside the artifact to fall back to the main
-`@backstage/plugin-catalog-node` export — this is the cbme stopgap,
-needed because the bs_1.49.4 build of the module references an alpha
-export that Backstage 1.50 graduated.
+The current default is `bs_1.49.4`. Separately, the Dockerfile applies a
+**catalog-node `/alpha` compat shim** to `node_modules` (re-exports symbols
+graduated to the main `@backstage/plugin-catalog-node` export), needed
+because the bs_1.49.4 build of the module — and other dynamic plugins —
+reference alpha exports that catalog-node 2.2.0 graduated. See § "How to
+bump (across the `/alpha` → main shift)" below.
 
 ### When to bump
 
@@ -196,18 +196,29 @@ VEECODE_PRESETS=recommended ./scripts/dev-run.sh run
 
 ### How to bump (across the `/alpha` → main shift)
 
-This is the cleanup case described in
-[`Dockerfile:245-251`](../Dockerfile). When the upstream build of
-`catalog-backend-module-extensions` no longer imports from
-`@backstage/plugin-catalog-node/alpha`:
+`@backstage/plugin-catalog-node` 2.2.0 graduated several symbols
+(`catalogProcessingExtensionPoint`, `catalogLocationsExtensionPoint`,
+`catalogAnalysisExtensionPoint`, `catalogServiceRef`) from the `/alpha`
+subpath export to the package's main entry. Dynamic plugins built against the
+older line (the V1 distro shipped catalog-node 2.1.0) still import them from
+`/alpha`, where they are now `undefined` → the catalog plugin crashes in
+`BackendInitializer`. This is handled centrally by the **plugin-catalog-node
+`/alpha` compat shim** in the Dockerfile (re-exports the main entry's symbols
+on `/alpha` for any key it no longer carries), which covers every dynamic
+plugin that externalizes `@backstage/plugin-catalog-node` to the host (a
+peerDependency, not a bundled copy — the standard dynamic-plugin export
+contract) — the baked `catalog-backend-module-extensions` and runtime OCI
+plugins like gitlab both comply. A plugin bundling its own catalog-node copy
+would shadow the host shim; none currently do.
+
+When every consumed plugin build imports graduated symbols from the main
+entry (i.e. is built against catalog-node ≥ 2.2.0 / Backstage 1.50+):
 
 1. Bump `EXTENSIONS_TAG` to the new tag (e.g. `bs_1.50.0`).
-2. Remove the `sed` patch block in the Dockerfile (lines around 261–266).
-3. Also remove the analogous `ensure_cbme_patch` function in
-   [`scripts/dev-run.sh:56-69`](../scripts/dev-run.sh) — it self-skips
-   if the `/alpha` import is absent, but cleaner to delete.
-4. Verify by rebuilding and confirming the marketplace catalog still
-   loads.
+2. Remove the `plugin-catalog-node /alpha compat shim` `RUN` block in the
+   Dockerfile (the one appending to `dist/alpha.cjs.js`).
+3. Verify by rebuilding and confirming the marketplace catalog still loads
+   and any GitLab/SCM plugins still boot.
 
 ## Post-upgrade checklist
 
@@ -251,9 +262,9 @@ or set `TURBO_CONCURRENCY=1` (already set in Dockerfile).
 
 **Marketplace empty after Backstage bump** — Track 3. Either the
 `EXTENSIONS_TAG` is incompatible with the new Backstage core (the
-`/alpha` patch may have stopped applying) or the catalog-index OCI
-image has not been refreshed (`CATALOG_INDEX_REFRESH=true` to
-force).
+`/alpha` compat shim no longer covers a symbol the module needs — the
+build-time shim verify would fail) or the catalog-index OCI image has
+not been refreshed (`CATALOG_INDEX_REFRESH=true` to force).
 
 **Backend crashes with "Plugin 'mcp-actions' is already registered"** —
 [`packages/backend/src/index.ts:226-229`](../packages/backend/src/index.ts).

@@ -21,11 +21,12 @@ corresponding branch.
 
 ## Mid term
 
-- **Drop the cbme stopgap.** When
+- **Drop the catalog-node `/alpha` compat shim.** When every consumed
+  plugin build imports graduated symbols from the main entry (i.e.
   `devportal-plugin-export-overlays` publishes
-  `quay.io/veecode/extensions:bs_1.50.0` (or whichever Backstage
-  version is next), the `/alpha → main` `sed` patch in the
-  Dockerfile can go ([`UPGRADING.md`](UPGRADING.md) § Track 3
+  `quay.io/veecode/extensions:bs_1.50.0` and the runtime OCI plugins are
+  rebuilt against catalog-node ≥ 2.2.0), the `/alpha → main` compat shim
+  in the Dockerfile can go ([`UPGRADING.md`](UPGRADING.md) § Track 3
   documents the cleanup).
 - **Tag-driven publishing.** The workflow has it commented out; flip
   on when there's a real consumer

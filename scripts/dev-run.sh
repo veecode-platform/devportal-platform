@@ -8,7 +8,8 @@
 #
 # Dynamic plugins: `dp-extract` copies the baked /app/dynamic-plugins-root/ out of the
 # image into .devrun-cache/dynamic-plugins-root/ (the complete working set — the npm
-# downloads, the marketplace catalog module already /alpha-patched, every wrapper). Edit
+# downloads and every wrapper; the catalog-node /alpha graduated-symbol fix is a shim
+# baked into the image's node_modules by the Dockerfile, not a patch on these modules). Edit
 # that directory directly (drop in a plugin dir, swap a wrapper's dist-scalprum/, etc. — or
 # point `cd dynamic-plugins && yarn build && yarn export-dynamic && yarn copy-dynamic-plugins`
 # at it), then `run` mounts it over /app/dynamic-plugins-root/. So iterating on a plugin no
@@ -44,30 +45,12 @@ CMD="${1:-run}"
 
 CACHE_DIR="$REPO/.devrun-cache"
 DP_ROOT_LOCAL="$CACHE_DIR/dynamic-plugins-root"   # if this dir exists, `run` mounts it over /app/dynamic-plugins-root
-CBME_MOD_PATH="red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions/dist/module.cjs.js"
 
-# Stopgap for catalog-backend-module-extensions: it picks up
-# catalogProcessingExtensionPoint from @backstage/plugin-catalog-node/alpha, but that
-# subpath doesn't expose the symbol in every Backstage build — when it's missing the
-# require returns undefined and the catalog plugin crashes (503 storm; marketplace
-# "Catalog" tab dead). Patch: when /alpha lacks the symbol, merge in the main export.
-# Mirrors the sed in the Dockerfile stopgap; here we extract the module from the image,
-# patch it into .devrun-cache/, and mount it over the baked copy — no rebuild. Returns
-# the patched file path on stdout, or non-zero.
-ensure_cbme_patch() {
-  mkdir -p "$CACHE_DIR"
-  local out="$CACHE_DIR/cbme-module.cjs.js" cid
-  cid="$(docker create "$IMAGE" 2>/dev/null)" || { echo "WARN: cannot create container from $IMAGE to extract the cbme module" >&2; return 1; }
-  if docker cp "$cid:/app/dynamic-plugins-root/$CBME_MOD_PATH" "$out" 2>/dev/null; then
-    docker rm "$cid" >/dev/null 2>&1 || true
-    grep -q 'Object.assign' "$out" || sed -i \
-      "s|var alpha = require('@backstage/plugin-catalog-node/alpha');|var alpha = require('@backstage/plugin-catalog-node/alpha'); if (!alpha.catalogProcessingExtensionPoint) alpha = Object.assign({}, alpha, require('@backstage/plugin-catalog-node'));|" "$out"
-    grep -q 'Object.assign' "$out" && { echo "$out"; return 0; }
-    echo "WARN: cbme /alpha patch did not apply (module shape changed?)" >&2; return 1
-  fi
-  docker rm "$cid" >/dev/null 2>&1 || true
-  echo "WARN: $CBME_MOD_PATH not present in $IMAGE — skipping marketplace patch mount" >&2; return 1
-}
+# NOTE: catalog-backend-module-extensions used to need a per-module patch here because
+# it imports catalogProcessingExtensionPoint from @backstage/plugin-catalog-node/alpha,
+# which catalog-node 2.2.0 moved to the main entry. That is now fixed centrally by the
+# /alpha compat shim baked into the image (Dockerfile), so this script no longer patches
+# the module — it runs the image as-is.
 
 mounts=(
   -v "$REPO/entrypoint.sh:/app/entrypoint.sh:ro"
@@ -110,10 +93,7 @@ case "$CMD" in
     docker rm -f "$NAME" >/dev/null 2>&1 || true
     if [ -d "$DP_ROOT_LOCAL" ]; then
       mounts+=( -v "$DP_ROOT_LOCAL:/app/dynamic-plugins-root" )
-      echo "dynamic plugins: mounting local overlay $DP_ROOT_LOCAL (skipping the cbme single-file patch — the overlay already carries it)"
-    elif cbme_patched="$(ensure_cbme_patch)"; then
-      mounts+=( -v "$cbme_patched:/app/dynamic-plugins-root/$CBME_MOD_PATH:ro" )
-      echo "marketplace: mounting patched catalog-backend-module-extensions module"
+      echo "dynamic plugins: mounting local overlay $DP_ROOT_LOCAL"
     fi
     # Operator override: bind-mount a host dynamic-plugins.yaml over the canonical
     # path. Smoke uses this to regression-test the V0.X composition fix; operators

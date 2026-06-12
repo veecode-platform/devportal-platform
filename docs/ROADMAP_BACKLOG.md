@@ -26,25 +26,37 @@ because no provider runs.
 `quay.io/veecode/extensions` OCI). When a fixed build ships, bump
 `EXTENSIONS_TAG` — no other change needed here.
 
-As a stopgap, the same `sed`-based patch approach used for the
-`/alpha → main` fallback (see "The `cbme` stopgap" below) could
-register the collection provider, but that patch would be fragile and
-is not currently applied.
+As a stopgap, a per-module patch approach (like the catalog-node `/alpha`
+compat shim) could register the collection provider, but that patch would
+be fragile and is not currently applied.
 
-### The `cbme` stopgap
+### The catalog-node `/alpha` compat shim
 
-[`Dockerfile:217-270`](../Dockerfile) pulls
-`catalog-backend-module-extensions` from
-`quay.io/veecode/extensions:bs_1.49.4` and applies a `sed` patch to
-`dist/module.cjs.js` so the `@backstage/plugin-catalog-node/alpha`
-import falls back to the main export. The same patch lives in
-[`scripts/dev-run.sh:56-69`](../scripts/dev-run.sh) for the overlay
-loop.
+The Dockerfile pulls `catalog-backend-module-extensions` from
+`quay.io/veecode/extensions:bs_1.49.4`, and separately appends a compat
+shim to `node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js`
+that re-exports symbols catalog-node 2.2.0 graduated from `/alpha` to the
+main entry (`catalogProcessingExtensionPoint` and siblings). One shim
+covers every dynamic plugin that externalizes `@backstage/plugin-catalog-node`
+to the host (peerDependency, not a bundled copy — the standard export
+contract; the baked extensions module and gitlab both comply). A plugin
+bundling its own catalog-node copy would shadow the host shim, but none
+currently do. It replaced the earlier per-module `sed` patch (and the
+`ensure_cbme_patch` in `scripts/dev-run.sh`, both removed). See the shim
+`RUN` in the Dockerfile.
 
 **Cleanup path** ([`UPGRADING.md`](UPGRADING.md) § Track 3):
-when `devportal-plugin-export-overlays` publishes a build whose
-catalog-backend-module-extensions doesn't have the `/alpha` import,
-bump `EXTENSIONS_TAG` and delete the patch.
+when every consumed plugin build imports graduated symbols from the main
+entry, bump `EXTENSIONS_TAG` and remove the shim `RUN` block.
+
+**Optional hardening** (only if we start ingesting third-party OCI plugins
+outside the export pipeline): the host shim does not cover a plugin that
+bundles its own `@backstage/plugin-catalog-node` copy with the symbol missing
+from `/alpha` (Node resolves the plugin-local copy first). All current plugins
+externalize it as a peerDependency, so this is not a live risk. A guard would
+be an image smoke that boots such a plugin and asserts
+`require('@backstage/plugin-catalog-node/alpha').catalogProcessingExtensionPoint`
+resolves from inside it.
 
 ### `customResolveDynamicPackage` error path
 

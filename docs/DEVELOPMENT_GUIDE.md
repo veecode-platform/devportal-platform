@@ -191,11 +191,12 @@ dev-local` for those.
   changes to it, bind-mount your own file via `DEVPORTAL_DP_OVERRIDE`;
   the entrypoint copies it to a writable resolved file, so a read-only
   mount works.
-- **The `cbme` `/alpha → main` patch** to
-  `catalog-backend-module-extensions/dist/module.cjs.js`. The script
-  re-applies it automatically on `run`, but only when the overlay
-  doesn't already carry a patched copy (Dockerfile:217-264 has the full
-  context).
+- **The catalog-node `/alpha` compat shim** — no longer a per-module
+  patch. It is baked into the image's
+  `node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js` by the
+  Dockerfile (re-exports symbols graduated to the main entry), so the
+  script runs the image as-is and `dp-extract` copies an unpatched module
+  that works against the shimmed host. See the shim `RUN` in the Dockerfile.
 
 ## Configuration: presets vs raw
 
@@ -300,12 +301,13 @@ yarn config set nodeLinker node-modules
 dev-local`. The image's builder stage already does this.
 
 **Marketplace "Catalog" tab is empty in `dev-run.sh`** — the
-`catalog-backend-module-extensions` `/alpha` import patch may not have
-applied. Check `./scripts/dev-run.sh logs` for the
-`"marketplace: mounting patched catalog-backend-module-extensions
-module"` line; if absent, the image you are running predates the
-stopgap or `skopeo` couldn't pull the OCI extensions image. The full
-patch context is in [`Dockerfile:217-264`](../Dockerfile).
+catalog-node `/alpha` compat shim may be missing from the image you are
+running (it predates the shim), or `skopeo` couldn't pull the OCI
+extensions image at build. The shim is verified at image build time
+(look for `catalog-node /alpha compat shim OK` in the build log); at
+runtime, confirm `node -e "require('@backstage/plugin-catalog-node/alpha').catalogProcessingExtensionPoint"`
+is defined inside the container. The full context is in the shim `RUN`
+in [`Dockerfile`](../Dockerfile).
 
 **A preset's required env var is missing** — the entrypoint exits 78
 with a clear message (`Preset "github" requires GITHUB_PAT. …`). Check
