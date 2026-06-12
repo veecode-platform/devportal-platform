@@ -167,23 +167,26 @@ VOLUME /app/data
 # NOTE: bs_1.49.4 also omits ExtensionsCollectionProvider from module.cjs.js registration,
 # so PluginCollection entities never ingest even though the YAMLs are baked below.
 # See docs/ROADMAP_BACKLOG.md "PluginCollection entities never ingest" for the fix path.
+#
+# This fetch is BUILD-FATAL on purpose: dynamic-plugins.yaml declares the module
+# preInstalled, and the boot guard in install-dynamic-plugins.py refuses to start
+# a container whose preInstalled directories are missing. A tolerated fetch
+# failure here would publish an image that can never boot — fail the build
+# instead, same contract as the catalog-index fetch below.
 ARG EXTENSIONS_TAG=bs_1.49.4
 RUN set -e; \
     OCI_IMAGE="docker://quay.io/veecode/extensions:$EXTENSIONS_TAG"; \
     TMP_OCI="$(mktemp -d)"; \
     TMP_EXTRACT="$(mktemp -d)"; \
-    if skopeo copy "$OCI_IMAGE" "dir:$TMP_OCI" 2>/dev/null; then \
-      LAYER=$(jq -r '.layers[0].digest' "$TMP_OCI/manifest.json" | sed 's/sha256://'); \
-      tar -xzf "$TMP_OCI/$LAYER" -C "$TMP_EXTRACT"; \
-      cp -a "$TMP_EXTRACT/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions" /app/dynamic-plugins-root/; \
-      MOD=/app/dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions/dist/module.cjs.js; \
-      if grep -q "plugin-catalog-node/alpha" "$MOD"; then \
-        sed -i "s|var alpha = require('@backstage/plugin-catalog-node/alpha');|var alpha = require('@backstage/plugin-catalog-node/alpha'); if (!alpha.catalogProcessingExtensionPoint) alpha = Object.assign({}, alpha, require('@backstage/plugin-catalog-node'));|" "$MOD"; \
-        grep -q "Object.assign" "$MOD" || { echo "ERROR: catalogProcessingExtensionPoint /alpha->main patch did not apply to $MOD"; exit 1; }; \
-        echo "patched catalog-backend-module-extensions (/alpha -> main catalogProcessingExtensionPoint fallback)"; \
-      fi; \
-    else \
-      echo "WARN: failed to fetch RHDH extensions OCI image $OCI_IMAGE — skipping"; \
+    skopeo copy "$OCI_IMAGE" "dir:$TMP_OCI"; \
+    LAYER=$(jq -r '.layers[0].digest' "$TMP_OCI/manifest.json" | sed 's/sha256://'); \
+    tar -xzf "$TMP_OCI/$LAYER" -C "$TMP_EXTRACT"; \
+    cp -a "$TMP_EXTRACT/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions" /app/dynamic-plugins-root/; \
+    MOD=/app/dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions/dist/module.cjs.js; \
+    if grep -q "plugin-catalog-node/alpha" "$MOD"; then \
+      sed -i "s|var alpha = require('@backstage/plugin-catalog-node/alpha');|var alpha = require('@backstage/plugin-catalog-node/alpha'); if (!alpha.catalogProcessingExtensionPoint) alpha = Object.assign({}, alpha, require('@backstage/plugin-catalog-node'));|" "$MOD"; \
+      grep -q "Object.assign" "$MOD" || { echo "ERROR: catalogProcessingExtensionPoint /alpha->main patch did not apply to $MOD"; exit 1; }; \
+      echo "patched catalog-backend-module-extensions (/alpha -> main catalogProcessingExtensionPoint fallback)"; \
     fi; \
     rm -rf "$TMP_OCI" "$TMP_EXTRACT"
 
