@@ -71,6 +71,28 @@ jobs:
             sudo apt-get update && sudo apt-get install -y skopeo
           fi
 
+      # The catalog-backend-module-extensions baked at image build (Dockerfile
+      # ARG EXTENSIONS_TAG) and the runtime refs (bs_${BACKSTAGE_VERSION} from
+      # backstage.json) are independent knobs — nothing else keeps them in
+      # sync, and the bs_1.49.4-on-1.50 stopgap patch in the Dockerfile is the
+      # scar of exactly this skew. Fail the PR when they diverge; a deliberate
+      # divergence means updating both in the same PR (and this assert if the
+      # policy itself changes).
+      - name: Assert EXTENSIONS_TAG matches backstage.json
+        run: |
+          set -e
+          BACKSTAGE_VERSION="$(jq -r .version backstage.json)"
+          EXTENSIONS_TAG="$(sed -n 's/^ARG EXTENSIONS_TAG=//p' Dockerfile | head -1)"
+          if [ -z "$EXTENSIONS_TAG" ]; then
+            echo "::error::Could not find 'ARG EXTENSIONS_TAG=' in Dockerfile"
+            exit 1
+          fi
+          if [ "$EXTENSIONS_TAG" != "bs_${BACKSTAGE_VERSION}" ]; then
+            echo "::error::Dockerfile ARG EXTENSIONS_TAG=$EXTENSIONS_TAG does not match backstage.json (expected bs_${BACKSTAGE_VERSION}). Bump both in the same PR — a stale baked extensions module breaks the catalog at runtime (see the /alpha import stopgap in the Dockerfile)."
+            exit 1
+          fi
+          echo "EXTENSIONS_TAG=$EXTENSIONS_TAG matches backstage.json ($BACKSTAGE_VERSION)"
+
       - name: Validate OCI plugin references exist
         run: |
           set -e

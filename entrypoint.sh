@@ -1,39 +1,25 @@
 #!/bin/bash
 
-# ENTRYPOINT THEME HACKING
+# ENTRYPOINT FAVICON + THEME
 
-# old chart, will remove
-if [ -n "$PLATFORM_DEVPORTAL_THEME_URL" ]; then
-    echo "Getting custom theme file from $PLATFORM_DEVPORTAL_THEME_URL"
-    curl -L -o /app/packages/app/dist/theme.json "$PLATFORM_DEVPORTAL_THEME_URL"
+# The theme.json env vars (PLATFORM_DEVPORTAL_THEME_URL, THEME_DOWNLOAD_URL,
+# THEME_CUSTOM_JSON, THEME_MERGE_JSON) were REMOVED: V2 delivers the theme as
+# a dynamic frontend plugin (ADR-011) and nothing reads
+# /app/packages/app/dist/theme.json anymore — the app dropped the
+# useLoaderTheme() fetch (see packages/app/src/components/DynamicRoot/
+# Loader.tsx). The vars silently wrote a file no code consumed. Warn loudly
+# if an operator still sets them so the intent isn't silently ignored.
+if [ -n "$PLATFORM_DEVPORTAL_THEME_URL" ] || [ -n "$THEME_DOWNLOAD_URL" ] || [ -n "$THEME_CUSTOM_JSON" ]; then
+    echo "WARNING: PLATFORM_DEVPORTAL_THEME_URL / THEME_DOWNLOAD_URL / THEME_CUSTOM_JSON are no longer supported and will be IGNORED."
+    echo "         Custom themes are dynamic frontend plugins on V2 (ADR-011) — see the veecode-theme preset for the pattern."
 fi
+
 # old chart, will remove
 if [ -n "$PLATFORM_DEVPORTAL_FAVICON" ]; then
     echo "Getting favicon.ico from $PLATFORM_DEVPORTAL_FAVICON"
     curl -L -o /app/packages/app/dist/favicon.ico "$PLATFORM_DEVPORTAL_FAVICON"
 fi
 
-# new "next" chart
-if [ -n "$THEME_DOWNLOAD_URL" ]; then
-    echo "Getting custom theme file from $THEME_DOWNLOAD_URL"
-    curl -L -o /app/packages/app/dist/theme.json "$THEME_DOWNLOAD_URL"
-elif [ -n "$THEME_CUSTOM_JSON" ]; then
-    if [ "false" = "$THEME_MERGE_JSON" ]; then
-        echo "Using custom theme JSON from THEME_CUSTOM_JSON"
-        echo "$THEME_CUSTOM_JSON" > /app/packages/app/dist/theme.json
-    else
-        echo "Merging custom theme JSON from THEME_CUSTOM_JSON"
-        TARGET_JSON="/app/packages/app/dist/theme.json"
-        TMP_JSON="$(mktemp)"
-        MERGED_JSON="$(mktemp)"
-        echo "$THEME_CUSTOM_JSON" > "$TMP_JSON"
-        # Merge env-provided JSON with the existing JSON, output as JSON
-        yq -p=json -o=json eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-            "$TARGET_JSON" "$TMP_JSON" > "$MERGED_JSON"
-        mv "$MERGED_JSON" "$TARGET_JSON"
-        rm "$TMP_JSON"
-    fi
-fi
 # new "next" chart
 if [ -n "$THEME_FAV_ICON" ]; then
     echo "Getting favicon.ico from $THEME_FAV_ICON"
