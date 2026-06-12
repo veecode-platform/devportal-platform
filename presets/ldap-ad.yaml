@@ -1,6 +1,6 @@
 name: ldap-ad
 description: Active Directory overrides for the `ldap` preset — switches the user attribute to `sAMAccountName` and remaps users/groups to AD's object classes. MUST compose with `ldap` (e.g. `VEECODE_PRESETS=ldap,ldap-ad`).
-version: 1.0.0
+version: 2.0.0
 
 # What this preset does:
 #  - This preset is an OVERRIDE-ONLY layer on top of `ldap`. It re-declares the
