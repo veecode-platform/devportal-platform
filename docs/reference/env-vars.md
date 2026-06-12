@@ -28,20 +28,19 @@ audience: [operator]
 | `RBAC_POLICY_PATH` | `app-config.production.yaml:91` | Path inside the container to the RBAC policy CSV the permission backend loads | `/app/rbac-policy.csv` |
 | `DEVPORTAL_DB_PATH` | `app-config.production.yaml:35` | Directory for the persistent per-plugin sqlite databases (one `<plugin>.sqlite` per plugin). Mount a volume here so DevPortal state — including the marketplace's installed-plugin record — survives a restart | `/app/data` |
 
-## Theme / branding (legacy chart)
+## Theme / branding
 
-> ⚠️ `THEME_CUSTOM_JSON` with `THEME_MERGE_JSON=false` currently writes to a
-> broken path in `entrypoint.sh` (double-`dist`). The merge path
-> (`THEME_MERGE_JSON=true`, default) is unaffected. Tracked as a code bug
-> separate from this reference.
+> ⚠️ The `theme.json` vars (`THEME_DOWNLOAD_URL`, `THEME_CUSTOM_JSON`,
+> `THEME_MERGE_JSON`, `PLATFORM_DEVPORTAL_THEME_URL`) were **removed**: on V2
+> nothing reads `/app/packages/app/dist/theme.json` — the app dropped the
+> `useLoaderTheme()` fetch and the theme is delivered as a dynamic frontend
+> plugin (ADR-011; see the `veecode-theme` preset). Setting them now prints a
+> boot WARNING and is otherwise ignored. The `theme.customJson` knob in the
+> chart is pending deprecation (next-charts follow-up).
 
 | Variable | Source | Purpose |
 |---|---|---|
-| `THEME_DOWNLOAD_URL` | `entrypoint.sh` | Download URL for a `theme.json` overlay |
-| `THEME_CUSTOM_JSON` | `entrypoint.sh` | Inline `theme.json` content (overrides `THEME_DOWNLOAD_URL`) |
-| `THEME_MERGE_JSON` | `entrypoint.sh` | If `false`, replace rather than merge `theme.json` |
 | `THEME_FAV_ICON` | `entrypoint.sh` | Favicon download URL |
-| `PLATFORM_DEVPORTAL_THEME_URL` | `entrypoint.sh` | Legacy chart equivalent of `THEME_DOWNLOAD_URL` |
 | `PLATFORM_DEVPORTAL_FAVICON` | `entrypoint.sh` | Legacy chart equivalent of `THEME_FAV_ICON` |
 
 ## Per-preset variables
