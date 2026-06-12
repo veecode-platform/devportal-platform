@@ -1,6 +1,17 @@
 # devportal-platform changelog
 
 
+## v2.1.3 (2026-06-12)
+* fix(catalog): central /alpha compat shim for graduated catalog-node symbols (#67) (e9a52bb)
+* chore(presets): bump mcp-chat and ldap-ad to 2.0.0; document boot-contract changes (#66) (bb0631f)
+* fix(build): make the extensions module fetch build-fatal (#65) (fa825a9)
+* chore: assert EXTENSIONS_TAG matches backstage.json in CI; remove dead theme.json path (#64) (48ef8c1)
+* feat(presets): enforce composition dependencies via requires.presets (#63) (9f1e5d3)
+* fix(boot): preflight guards for persistent state, baked inventory and operator config (#62) (0df39ef)
+* chore: fix security vulnerabilities (#59) (4d556af)
+* fix(marketplace): correct misleading catalog.rules comment after spike (77334d7)
+* fix(marketplace): correct PluginCollection kind + document extensions footguns (866c9c1)
+
 ## v2.1.2 (2026-06-10)
 * fix(ui): fix scroll and sidebar drawer broken in production bundle (#57) (4398de6)
 * docs: link to the SaaS CI/CD pipeline runbook (#55) (7e77785)
