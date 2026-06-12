@@ -130,9 +130,10 @@ sign-in + user/group sync). Compose one of each, and they can be the same
 provider (`github,github-auth`) or different (`gitlab,keycloak`). `gitlab` and
 `keycloak` are exceptions that bundle both axes for historical reasons.
 
-**Documented composition dependencies** — pairs where one preset requires another
-(today's convention is documentation-only; if this list grows beyond two pairs,
-ADR-010 calls for adding `requires.presets:` to the schema):
+**Composition dependencies** — pairs where one preset requires another, declared
+via `requires.presets:` in the dependent preset and **enforced at boot**: the
+resolver exits 78 unless the dependency is selected *before* the dependent
+preset (list order drives `--config` override order). See `SCHEMA.md`:
 
 - `mcp-chat` requires `mcp` — chat backend loopbacks to `mcp-actions-backend`.
   `VEECODE_PRESETS=mcp,mcp-chat`. `mcp` alone exposes MCP to external CLI clients.

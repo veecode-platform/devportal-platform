@@ -20,8 +20,8 @@ version: 1.0.0
 #   MCP_CHAT_API_KEY=sk-...
 #   MCP_CHAT_MODEL=gpt-5.4
 #
-# We can't enforce the dependency in YAML — the schema has no `requires.presets` —
-# so the safeguard is this comment and the README composition example.
+# The dependency is enforced by `requires.presets` below: the resolver fails
+# the boot (exit 78) unless `mcp` is selected before this preset.
 #
 # Canonical docs:
 # https://vertigobr.atlassian.net/wiki/spaces/VPI/pages/3461611522/
@@ -33,6 +33,8 @@ version: 1.0.0
 # `claude-sonnet-4-6-latest`).
 
 requires:
+  presets:
+    - mcp
   variables:
     MCP_CHAT_PROVIDER:
       description: LLM provider ID. Currently `openai` or `claude`.
