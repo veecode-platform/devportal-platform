@@ -26,7 +26,6 @@ ARG NODE_BASE_RUNTIME=registry.access.redhat.com/ubi10/nodejs-22-minimal:10.1@sh
 # Pinned versions of CLI binaries shipped in the runtime image.
 ARG YQ_VERSION=4.53.2
 ARG DECK_VERSION=1.59.1
-ARG KUBECTL_VERSION=v1.36.0
 
 # allows setting NPM registry from build arg (for mirrors / offline)
 ARG NPM_REGISTRY=https://registry.npmjs.org/
@@ -40,7 +39,6 @@ USER root
 
 ARG YQ_VERSION
 ARG DECK_VERSION
-ARG KUBECTL_VERSION
 
 # Runtime packages. NO build toolchain / *-devel: nothing compiles here.
 # `python`/`python3` symlinked to 3.12 because install-dynamic-plugins.sh
@@ -48,7 +46,7 @@ ARG KUBECTL_VERSION
 # yq fetched with curl (no wget on minimal), arch-aware.
 RUN ARCH="$(arch | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')" && \
     microdnf install -y --nodocs --setopt=install_weak_deps=0 \
-      skopeo git jq tar gzip ca-certificates \
+      skopeo jq tar gzip ca-certificates \
       python3.12 python3.12-pip && \
     microdnf clean all && rm -rf /var/cache/dnf /var/cache/yum /var/cache/libdnf5 && \
     ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
@@ -63,11 +61,6 @@ RUN ARCH=$(arch | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/') && \
     mv /tmp/deck /usr/local/bin/ && \
     chmod +x /usr/local/bin/deck && \
     rm /tmp/deck.tar.gz
-
-RUN ARCH=$(arch | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/') && \
-    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" && \
-    chmod +x kubectl && \
-    mv kubectl /usr/local/bin/
 
 # Python deps for techdocs (mkdocs)
 COPY python /opt/python
@@ -115,9 +108,23 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
     fi && \
     cp .yarnrc.yml $HOME/.yarnrc.yml
 
+# Strip non-runtime cruft from node_modules in the SAME layer as the install — a
+# later RUN would only whiteout these files, not reclaim the space. Sourcemaps
+# (*.map), docs (*.md) and test dirs are never loaded by the Node runtime or by
+# dynamic plugins (which require the host tree's .cjs.js). .bin symlinks and native
+# *.node are left untouched. Trade-off: removing *.map degrades production stack
+# traces to compiled positions (no TS line mapping).
+# NOTE: most *.d.ts are stripped, but config.d.ts and the whole typescript/ package
+# are KEPT. @backstage/config-loader runs the TypeScript compiler AT RUNTIME to read
+# each package's config schema from config.d.ts (all schema pkgs use that exact name),
+# and it needs typescript's lib.*.d.ts. Stripping those breaks boot with
+# "Cannot find global type 'Array'" / "missing Config export". Raw *.ts source is kept.
 RUN --mount=type=cache,target=/opt/app-root/src/.yarn/berry/cache,sharing=locked,uid=1001,gid=0 \
     --mount=type=cache,target=/opt/app-root/src/.yarn/berry/index,sharing=locked,uid=1001,gid=0 \
-    yarn workspaces focus --all --production
+    yarn workspaces focus --all --production && \
+    find node_modules -type f \( -name '*.map' -o -name '*.md' -o -name '*.markdown' -o -name '*.flow' \) -delete && \
+    find node_modules -type f -name '*.d.ts' ! -name 'config.d.ts' ! -path 'node_modules/typescript/*' -delete && \
+    find node_modules -type d \( -name '__tests__' -o -name '__mocks__' \) -prune -exec rm -rf {} +
 
 # Fail fast if a required native module didn't get its prebuilt binary
 # (cpu-features is optional and may be skipped; the sqlite driver is not).
@@ -154,7 +161,8 @@ RUN set -e; \
 
 # Backend bundle
 RUN --mount=type=bind,source=packages/backend/dist/bundle.tar.gz,target=/tmp/bundle.tar.gz \
-    tar xzf /tmp/bundle.tar.gz
+    tar xzf /tmp/bundle.tar.gz && \
+    find packages -type f -name '*.map' -delete
 
 # Runtime configs and policies
 COPY --chown=1001:0 examples ./examples
@@ -168,7 +176,9 @@ COPY --chown=1001:0 app-config.yaml app-config.production.yaml app-config.distro
 # install-dynamic-plugins.py expects (preInstalled:true entries in
 # dynamic-plugins.default.yaml). Everything else loads via OCI refs at boot.
 COPY --chown=1001:0 docker/download-baked-plugins.sh docker/baked-plugins.json ./docker/
-RUN ./docker/download-baked-plugins.sh /app/dynamic-plugins-root
+RUN --mount=type=cache,target=/opt/app-root/src/.npm,uid=1001,gid=0 \
+    ./docker/download-baked-plugins.sh /app/dynamic-plugins-root && \
+    find /app/dynamic-plugins-root -type f -name '*.map' -delete
 
 # Defensive: install-dynamic-plugins.py writes into this dir at boot.
 # /app/data holds the persistent sqlite database (app-config.production.yaml).
@@ -211,7 +221,8 @@ RUN set -e; \
     LAYER=$(jq -r '.layers[0].digest' "$TMP_OCI/manifest.json" | sed 's/sha256://'); \
     tar -xzf "$TMP_OCI/$LAYER" -C "$TMP_EXTRACT"; \
     cp -a "$TMP_EXTRACT/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions" /app/dynamic-plugins-root/; \
-    rm -rf "$TMP_OCI" "$TMP_EXTRACT"
+    rm -rf "$TMP_OCI" "$TMP_EXTRACT"; \
+    find /app/dynamic-plugins-root -type f -name '*.map' -delete
 
 # Plugin install scripts + config files consumed at startup
 COPY --chown=1001:0 dynamic-plugins.yaml dynamic-plugins.default.yaml /app/
