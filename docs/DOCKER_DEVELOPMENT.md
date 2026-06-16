@@ -59,8 +59,8 @@ docker build . \
 - `EXTENSIONS_TAG` — the `quay.io/veecode/extensions` OCI tag for the RHDH
   `catalog-backend-module-extensions` artifact. Defaults to `bs_1.49.4`. See
   "The `cbme` stopgap" below.
-- `YQ_VERSION`, `DECK_VERSION`, `KUBECTL_VERSION` — pinned versions for `yq`,
-  Kong `deck`, and `kubectl`. Bump independently as needed.
+- `YQ_VERSION`, `DECK_VERSION` — pinned versions for `yq` and Kong `deck`.
+  Bump independently as needed.
 
 ## What the image contains
 
@@ -91,7 +91,6 @@ Runtime binaries baked into the image alongside Node 22:
 
 - `yq` (mikefarah) — preset resolution, config edits at boot.
 - `skopeo` — pulls OCI dynamic plugin artifacts at boot.
-- `kubectl` — used by the kubernetes plugin's proxy mode.
 - `deck` (Kong) — scaffolder action for Kong gateway management.
 - `mkdocs` + the TechDocs mkdocs deps from
   [`python/requirements.txt`](../python/requirements.txt).
