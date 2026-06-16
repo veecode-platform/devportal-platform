@@ -21,7 +21,7 @@
 # (make/gcc/g++ absent, microdnf instead of dnf). The only native module
 # (better-sqlite3) installs a prebuilt binary via `yarn workspaces focus`, so
 # nothing compiles here. Pinned by digest for reproducible multi-arch builds.
-ARG NODE_BASE_RUNTIME=registry.access.redhat.com/ubi10/nodejs-22-minimal:10.1@sha256:ddd89a0893420dc94698d10325c664eb900c61c4c5eb4e839b93a0cd27f34668
+ARG NODE_BASE_RUNTIME=registry.access.redhat.com/ubi10/nodejs-22-minimal:10.2-1781563767@sha256:3069dc2634252564161f9d4bc83c3aad71774f535bdaf6da52e26ee410e4a6bd
 
 # Pinned versions of CLI binaries shipped in the runtime image.
 ARG YQ_VERSION=4.53.2
