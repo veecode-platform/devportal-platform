@@ -78,5 +78,6 @@ _(none yet)_
 - [ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset](adr/011-frontend-design-system.md)
 - [ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)](adr/012-anonymous-ubi-mirror.md)
 - [ADR-013 — Plugin catalog model: *vitrine*, selection surfaces, and the deferred unification](adr/013-plugin-catalog-model.md)
+- [ADR-014 — Stateless persistence: external Postgres + boot regeneration of `extensions-install.yaml`](adr/014-stateless-persistence-external-db.md)
 
 <!-- END adr-index -->
