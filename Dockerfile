@@ -229,6 +229,9 @@ COPY --chown=1001:0 dynamic-plugins.yaml dynamic-plugins.default.yaml /app/
 COPY --chown=1001:0 presets /app/presets
 COPY --chown=1001:0 docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
 COPY --chown=1001:0 --chmod=755 docker/install-dynamic-plugins.sh /app/install-dynamic-plugins.sh
+# ADR-014 stateless pre-step: regenerates extensions-install.yaml from the
+# external DB at boot (entrypoint.sh runs it before install-dynamic-plugins.py).
+COPY --chown=1001:0 docker/regenerate-extensions-install.js /app/regenerate-extensions-install.js
 
 # Marketplace catalog entities — bake a snapshot from the OCI catalog index so
 # every fresh container starts ready (~157KB tarball, ~220 YAMLs as of bs_1.49.4).

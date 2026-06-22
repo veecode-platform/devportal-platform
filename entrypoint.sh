@@ -298,6 +298,24 @@ else
     echo "VEECODE_APP_CONFIG variable not found (this is expected in non-SaaS deployments)"
 fi
 
+# ── STATELESS PRE-STEP (ADR-014): regenerate extensions-install.yaml from DB ──
+# When backend.database.client is pg, the operator's marketplace selections live
+# in Postgres, not on /app/data — so a fresh/ephemeral /app/data would otherwise
+# boot with no plugins. Rebuild the file from the DB NOW, before the Python
+# installer reads it (the installer runs before the Node backend, so it cannot
+# read the DB itself). No-op for SQLite/file deployments (the pre-step gates on
+# client: pg). Runs AFTER the SaaS/preset config files are written (so the
+# resolver sees the real database config) and BEFORE the ${BACKSTAGE_VERSION}/
+# ${PLUGIN_REGISTRY} substitution below (so the regenerated file gets the same
+# treatment). The script degrades internally — it never fails the boot.
+PRESTEP_CONFIG_ARGS="--config /app/app-config.yaml --config /app/app-config.production.yaml"
+[ -f /app/app-config.distro.yaml ] && PRESTEP_CONFIG_ARGS="$PRESTEP_CONFIG_ARGS --config /app/app-config.distro.yaml"
+PRESTEP_CONFIG_ARGS="$PRESTEP_CONFIG_ARGS$PRESET_CONFIG_ARGS"
+[ -f /app/app-config.local.yaml ] && PRESTEP_CONFIG_ARGS="$PRESTEP_CONFIG_ARGS --config /app/app-config.local.yaml"
+[ -f /app/app-config.saas.yaml ] && PRESTEP_CONFIG_ARGS="$PRESTEP_CONFIG_ARGS --config /app/app-config.saas.yaml"
+node /app/regenerate-extensions-install.js $PRESTEP_CONFIG_ARGS \
+  || echo "VEECODE: WARNING — stateless pre-step exited non-zero; continuing with existing $DEVPORTAL_DB_PATH/extensions-install.yaml"
+
 # dynamic-plugins.default.yaml is NOT shadowed or included at runtime.
 # It is documentation only (vitrine). Core plugins live in dynamic-plugins.yaml.
 
