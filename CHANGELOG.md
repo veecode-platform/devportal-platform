@@ -1,6 +1,10 @@
 # devportal-platform changelog
 
 
+## v2.2.0 (2026-06-22)
+* feat(boot): stateless persistence — regenerate extensions-install.yaml from external DB (ADR-014) (#78) (75baf07)
+* chore(docker): slim runtime image 2.49GB→1.59GB (-36%) (#71) (181c80d)
+
 ## v2.1.3 (2026-06-12)
 * fix(catalog): central /alpha compat shim for graduated catalog-node symbols (#67) (e9a52bb)
 * chore(presets): bump mcp-chat and ldap-ad to 2.0.0; document boot-contract changes (#66) (bb0631f)
