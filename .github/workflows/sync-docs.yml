@@ -174,7 +174,7 @@ jobs:
           print(f'Output: {result.stdout.count(chr(10))} lines')
           PYEOF
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
       - name: Parse Claude output and apply patches
         id: patch
