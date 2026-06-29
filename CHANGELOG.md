@@ -1,6 +1,9 @@
 # devportal-platform changelog
 
 
+## v2.2.1 (2026-06-26)
+* fix: bump fast-xml-parser pin 5.7.0 -> ~5.7.2 (re-sync with devportal-base #135) (#88) (1c0a467)
+
 ## v2.2.0 (2026-06-22)
 * feat(boot): stateless persistence — regenerate extensions-install.yaml from external DB (ADR-014) (#78) (75baf07)
 * chore(docker): slim runtime image 2.49GB→1.59GB (-36%) (#71) (181c80d)
