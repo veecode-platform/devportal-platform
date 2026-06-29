@@ -55,7 +55,7 @@ lines in the diff]". If you cannot name the justification, remove the hunk.
 [One block per changed file. Omit this section entirely if no patches.]
 
 #### File: {relative/path/from/repo/root.md}
-```diff
+~~~diff
 --- a/{relative/path/from/repo/root.md}
 +++ b/{relative/path/from/repo/root.md}
 @@ -{line},{count} +{line},{count} @@
@@ -63,7 +63,7 @@ lines in the diff]". If you cannot name the justification, remove the hunk.
 -stale line
 +corrected line
  context line
-```
+~~~
 
 ### PR_BODY
 [2–4 sentences: what the release changed, which docs were updated, and why.
