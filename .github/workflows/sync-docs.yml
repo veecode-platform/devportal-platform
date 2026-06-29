@@ -1,0 +1,274 @@
+name: Sync docs on release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:          # manual trigger for testing
+    inputs:
+      release_tag:
+        description: 'Release tag to simulate (e.g. v2.2.1)'
+        required: true
+      prev_tag:
+        description: 'Previous tag to diff against (e.g. v2.2.0)'
+        required: true
+
+# Prevent duplicate runs: if two releases publish quickly, let the first finish.
+concurrency:
+  group: docs-sync
+  cancel-in-progress: false
+
+# Minimal permissions — cross-repo writes use DOCS_REPO_TOKEN, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout devportal-platform
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tags
+        id: tags
+        # SECURITY: all github.event.* values are passed via env vars, not interpolated
+        # directly into the shell command, to prevent injection via tag names or inputs.
+        env:
+          EVENT_NAME:          ${{ github.event_name }}
+          INPUT_RELEASE_TAG:   ${{ github.event.inputs.release_tag }}
+          INPUT_PREV_TAG:      ${{ github.event.inputs.prev_tag }}
+          RELEASE_TAG_NAME:    ${{ github.event.release.tag_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            RELEASE_TAG="$INPUT_RELEASE_TAG"
+            PREV_TAG="$INPUT_PREV_TAG"
+          else
+            RELEASE_TAG="$RELEASE_TAG_NAME"
+            PREV_TAG=$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found — cannot compute diff. Skipping."
+            exit 0
+          fi
+
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          echo "prev_tag=$PREV_TAG"       >> $GITHUB_OUTPUT
+
+      - name: Compute release diff
+        id: diff
+        # SECURITY: tag values from step outputs are passed via env, not interpolated.
+        env:
+          RELEASE_TAG: ${{ steps.tags.outputs.release_tag }}
+          PREV_TAG:    ${{ steps.tags.outputs.prev_tag }}
+        run: |
+          git diff "$PREV_TAG..$RELEASE_TAG" > /tmp/release.diff
+          echo "Diff size: $(wc -c < /tmp/release.diff) bytes"
+
+      - name: Extract affected domains from diff
+        id: domains
+        run: |
+          DOMAINS=$(grep -oiE '\b(pvc|postgres|plugin|storage|entrypoint|preset|helm|env)\b' \
+            /tmp/release.diff | tr '[:upper:]' '[:lower:]' | sort -u | tr '\n' '|' | sed 's/|$//')
+
+          if [ -z "$DOMAINS" ]; then
+            echo "No recognized domains in diff — nothing to do."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Domains found: $DOMAINS"
+            echo "domains=$DOMAINS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout docs repo
+        if: steps.domains.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: veecode-platform/docs
+          token: ${{ secrets.DOCS_REPO_TOKEN }}
+          path: docs-repo
+
+      - name: Find affected doc files via dp-source anchors
+        id: anchors
+        if: steps.domains.outputs.skip != 'true'
+        # SECURITY: DOMAINS is already a filtered allowlist (fixed keywords only),
+        # but passing via env is still correct practice.
+        env:
+          DOMAINS: ${{ steps.domains.outputs.domains }}
+        run: |
+          # Build grep ERE pattern: pvc|postgres|...
+          PATTERN="dp-source:.*($DOMAINS)"
+
+          grep -rl "$PATTERN" docs-repo/devportal/ > /tmp/affected_files.txt 2>/dev/null || true
+
+          if [ ! -s /tmp/affected_files.txt ]; then
+            echo "No doc files matched domains '$DOMAINS' — nothing to do."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Affected files:"
+            cat /tmp/affected_files.txt
+          fi
+
+      - name: Build Claude prompt
+        if: steps.anchors.outputs.skip != 'true'
+        run: |
+          python3 - <<'PYEOF'
+          import os, pathlib
+
+          template     = pathlib.Path('.github/prompts/sync-docs.md').read_text()
+          diff_content = pathlib.Path('/tmp/release.diff').read_text()
+          affected     = [l.strip() for l in pathlib.Path('/tmp/affected_files.txt').read_text().splitlines() if l.strip()]
+
+          sections = []
+          for fpath in affected:
+              p = pathlib.Path(fpath)
+              if p.exists():
+                  rel = str(p.relative_to('docs-repo'))
+                  sections.append(f"### {rel}\n```\n{p.read_text()}\n```")
+          file_sections = "\n\n".join(sections)
+
+          rendered = (template
+              .replace('{RELEASE_TAG}',  os.environ['RELEASE_TAG'])
+              .replace('{PREV_TAG}',     os.environ['PREV_TAG'])
+              .replace('{GIT_DIFF}',     diff_content)
+              .replace('{FILE_SECTIONS}', file_sections))
+
+          pathlib.Path('/tmp/final-prompt.txt').write_text(rendered)
+          print(f"Prompt built: {len(rendered)} chars, {len(affected)} file(s)")
+          PYEOF
+        env:
+          RELEASE_TAG: ${{ steps.tags.outputs.release_tag }}
+          PREV_TAG:    ${{ steps.tags.outputs.prev_tag }}
+
+      - name: Install Claude CLI
+        if: steps.anchors.outputs.skip != 'true'
+        # Pin to a minor version floor; update intentionally when upgrading.
+        run: npm install -g @anthropic-ai/claude-code@^1
+
+      - name: Run Claude (headless)
+        if: steps.anchors.outputs.skip != 'true'
+        # SECURITY: never interpolate the prompt in a shell command — diff content
+        # could contain shell metacharacters. Use Python subprocess (no shell=True)
+        # so the prompt is passed as a raw string argument to the process.
+        run: |
+          python3 - <<'PYEOF'
+          import subprocess, pathlib, os, sys
+
+          prompt = pathlib.Path('/tmp/final-prompt.txt').read_text()
+          result = subprocess.run(
+              ['claude', '-p', prompt,
+               '--model', 'claude-sonnet-4-6',
+               '--output-format', 'text'],
+              capture_output=True, text=True,
+              env={**os.environ},
+          )
+          if result.returncode != 0:
+              print('Claude stderr:', result.stderr, file=sys.stderr)
+              sys.exit(result.returncode)
+          pathlib.Path('/tmp/claude-output.txt').write_text(result.stdout)
+          print(f'Output: {result.stdout.count(chr(10))} lines')
+          PYEOF
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Parse Claude output and apply patches
+        id: patch
+        if: steps.anchors.outputs.skip != 'true'
+        run: |
+          python3 - <<'PYEOF'
+          import re, pathlib, subprocess, sys
+
+          out = pathlib.Path('/tmp/claude-output.txt').read_text()
+
+          if out.strip() == 'NO_CHANGES_NEEDED':
+              print("Claude determined no changes are needed.")
+              sys.exit(0)
+
+          pr_body_m = re.search(r'### PR_BODY\n(.*?)(?=### UNCERTAIN|$)', out, re.DOTALL)
+          patches_m = re.search(r'### PATCHES\n(.*?)(?=### PR_BODY|$)', out, re.DOTALL)
+
+          pr_body = pr_body_m.group(1).strip() if pr_body_m else "Docs sync from devportal-platform release."
+          pathlib.Path('/tmp/pr-body.txt').write_text(pr_body)
+
+          if not patches_m or not patches_m.group(1).strip():
+              print("No PATCHES section in output — nothing to apply.")
+              sys.exit(0)
+
+          patches_text = patches_m.group(1)
+          docs_root = pathlib.Path('docs-repo').resolve()
+          applied = 0
+          for block in re.finditer(
+              r'#### File: (.+?)\n```diff\n(.*?)```',
+              patches_text, re.DOTALL
+          ):
+              rel_path  = block.group(1).strip()
+              diff_text = block.group(2)
+
+              # SECURITY: reject absolute paths and path traversal segments.
+              if pathlib.PurePosixPath(rel_path).is_absolute() or \
+                 any(seg == '..' for seg in pathlib.PurePosixPath(rel_path).parts):
+                  print(f"SECURITY: rejected suspicious path: {rel_path}")
+                  continue
+              # Confirm the resolved target stays inside docs-repo.
+              target = (docs_root / rel_path).resolve()
+              if not str(target).startswith(str(docs_root)):
+                  print(f"SECURITY: path escape detected, skipping: {rel_path}")
+                  continue
+
+              patch_file = f'/tmp/patch_{rel_path.replace("/", "_")}.patch'
+              pathlib.Path(patch_file).write_text(diff_text)
+
+              # Dry-run first: if patch cannot apply cleanly, skip rather than corrupt.
+              dry = subprocess.run(
+                  ['patch', '-p1', '--dry-run', '--input', patch_file],
+                  cwd='docs-repo', capture_output=True, text=True
+              )
+              if dry.returncode != 0:
+                  print(f"WARN: dry-run failed for {rel_path}: {dry.stderr}")
+                  continue
+
+              result = subprocess.run(
+                  ['patch', '-p1', '--input', patch_file],
+                  cwd='docs-repo', capture_output=True, text=True
+              )
+              if result.returncode != 0:
+                  print(f"WARN: patch failed for {rel_path}: {result.stderr}")
+              else:
+                  print(f"Applied patch: {rel_path}")
+                  applied += 1
+
+          if applied == 0:
+              print("No patches applied.")
+          else:
+              # Signal to next step that we have changes
+              pathlib.Path('/tmp/has_changes').write_text('true')
+          PYEOF
+
+      - name: Commit and open PR in docs repo
+        if: steps.anchors.outputs.skip != 'true'
+        # SECURITY: RELEASE_TAG from step output is passed via env, not interpolated
+        # into the shell command, to prevent injection via a crafted tag name.
+        env:
+          GH_TOKEN:    ${{ secrets.DOCS_REPO_TOKEN }}
+          RELEASE_TAG: ${{ steps.tags.outputs.release_tag }}
+        run: |
+          [ -f /tmp/has_changes ] || { echo "Nothing to commit."; exit 0; }
+
+          cd docs-repo
+          BRANCH="docs-sync/$RELEASE_TAG"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -A
+          git diff --cached --quiet && { echo "No file changes after patch."; exit 0; }
+          git commit -m "docs: sync with devportal-platform $RELEASE_TAG"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "docs: sync with release $RELEASE_TAG" \
+            --body-file /tmp/pr-body.txt \
+            --label "auto-generated/docs-sync" \
+            --repo veecode-platform/docs
