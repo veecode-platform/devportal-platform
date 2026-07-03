@@ -63,7 +63,7 @@ jinja2==3.1.6
     #   mkdocs-material
 jsbeautifier==1.15.4
     # via mkdocs-mermaid2-plugin
-markdown==3.3.7
+markdown==3.8.1
     # via
     #   -r python/requirements.in
     #   markdown-inline-graphviz-extension
@@ -148,7 +148,7 @@ pygments==2.17.2
     #   -r python/requirements.in
     #   mkdocs-material
     #   mkdocs-techdocs-core
-pymdown-extensions==10.3.1
+pymdown-extensions==10.21.3
     # via
     #   -r python/requirements.in
     #   mkdocs-material
