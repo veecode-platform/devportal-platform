@@ -51,5 +51,4 @@ typing-extensions
 urllib3>=2.7.0
 watchdog==3.0.0
 wheel
-soupsieve>=2.8.4
 wheel>=0.46.2
