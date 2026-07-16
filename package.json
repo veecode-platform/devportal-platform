@@ -92,7 +92,9 @@
     "underscore": "^1.13.8",
     "undici": "7.28.0",
     "webpack": "5.108.1",
-    "ws": "8.21.0"
+    "ws": "8.21.0",
+    "jsonata": "2.2.0",
+    "typeorm": "0.3.29"
   },
   "prettier": "@backstage/cli/config/prettier",
   "lint-staged": {
