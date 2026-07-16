@@ -163,7 +163,11 @@ class OciDownloader:
             # extract only the files in specified directory
             filesToExtract = []
             for member in tar.getmembers():
-                if not member.name.startswith(plugin_path):
+                # anchor the prefix match at a path separator: a bare startswith() also
+                # matches sibling packages whose name extends the selector (e.g. selector
+                # `!plugin-gitlab` matched `plugin-gitlab-backend/**`, installing both and
+                # letting the sibling's config gate abort the whole boot)
+                if member.name != plugin_path and not member.name.startswith(plugin_path + '/'):
                     continue
                 # zip bomb protection
                 if member.size > self.max_entry_size:
