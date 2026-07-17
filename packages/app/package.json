@@ -60,7 +60,7 @@
     "@mui/styles": "^5.15.10",
     "@mui/x-charts": "^8.6.0",
     "@react-hookz/web": "^25.2.0",
-    "@red-hat-developer-hub/backstage-plugin-theme": "^0.10.0",
+    "@red-hat-developer-hub/backstage-plugin-theme": "^0.14.10",
     "@red-hat-developer-hub/backstage-plugin-translations": "^0.0.3",
     "@red-hat-developer-hub/plugin-utils": "1.0.0",
     "@scalprum/core": "0.8.3",
