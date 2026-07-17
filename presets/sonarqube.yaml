@@ -55,8 +55,11 @@ plugins:
                       - isSonarQubeAvailable
   - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube-backend
     disabled: false
-  - package: oci://${PLUGIN_REGISTRY}/scaffolder-backend-module-sonarqube:bs_1.49.4!backstage-community-plugin-scaffolder-backend-module-sonarqube
-    disabled: false
+  # NOTE: @backstage-community/plugin-scaffolder-backend-module-sonarqube is
+  # compiled statically into the backend (packages/backend/src/index.ts) and
+  # must NOT be enabled dynamically — both registering module
+  # 'scaffolder-backend-sonarqube' for plugin 'scaffolder' crashes the boot.
+  # The static module reads the appConfig.sonarqube block below.
 
 appConfig:
   sonarqube:
