@@ -1,6 +1,6 @@
 {
   "name": "devportal-platform",
-  "version": "2.2.1",
+  "version": "2.3.0-preview",
   "private": true,
   "engines": {
     "node": "20 || 22"
