@@ -1,0 +1,20 @@
+diff --git a/dist/lib/bundler/config.cjs.js b/dist/lib/bundler/config.cjs.js
+index 6be9db87aa0c1a59e87f2667da67febbb6a84d81..bad8bb2d9bb54612a7c1ec47b20d9f21c890119a 100644
+--- a/dist/lib/bundler/config.cjs.js
++++ b/dist/lib/bundler/config.cjs.js
+@@ -125,6 +125,15 @@ async function createConfig(paths$1, options) {
+   ];
+   const withCache = yn__default.default(process.env[BUILD_CACHE_ENV_VAR], { default: false });
+   return {
++    ignoreWarnings: [
++      // @protobufjs/inquire uses an obfuscated dynamic require() to optionally
++      // load a peer at runtime; webpack emits "Critical dependency: the request
++      // of a dependency is an expression". It is benign (protobufjs by design),
++      // pulled into the app graph via @backstage/plugin-api-docs -> AsyncAPI.
++      // janus-cli 3.6.1 has no ignoreWarnings hook, so CI=true turns this
++      // benign warning fatal; scope the suppression to this exact module.
++      { module: /@protobufjs[\/\\]inquire/, message: /Critical dependency/ }
++    ],
+     cache: {
+       type: "filesystem",
+       allowCollectingMemory: true,

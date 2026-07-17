@@ -90,7 +90,7 @@
   "devDependencies": {
     "@backstage/cli": "^0.36.4",
     "@backstage/test-utils": "^1.7.20",
-    "@janus-idp/cli": "3.6.1",
+    "@janus-idp/cli": "patch:@janus-idp/cli@npm%3A3.6.1#~/.yarn/patches/@janus-idp-cli-npm-3.6.1-cf282467b1.patch",
     "@module-federation/webpack-bundler-runtime": "^0.19.1",
     "@mui/codemod": "^5.15.10",
     "@playwright/test": "^1.32.3",
