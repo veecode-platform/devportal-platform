@@ -119,6 +119,32 @@ gated by the `mcp` / `mcp-chat` presets (see
 [`presets/mcp.yaml`](../presets/mcp.yaml) +
 [`presets/mcp-chat.yaml`](../presets/mcp-chat.yaml)).
 
+## Static-only backend modules
+
+Some backend modules in the list above are compiled statically **and** also
+exist as OCI-bundled dynamic-plugin selectors upstream. If the same module is
+also enabled via a `dynamic-plugins.yaml` `plugins:` entry, Backstage's module
+registry double-registers it and boot crashes with `Module '<id>' for plugin
+'<pluginId>' is already registered`. None of the packages below are reachable
+through any shipped preset or catalog entry — this list exists purely so
+nobody hand-authors a `dynamic-plugins.yaml` entry that reaches them.
+
+| Package                                                                             | Registers                                                | Static import                       |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------ |
+| `@backstage-community/plugin-catalog-backend-module-azure-devops-annotator-processor` | `azure-devops-annotator-processor` module on `catalog`     | `packages/backend/src/index.ts:161-165` |
+| `@backstage-community/plugin-scaffolder-backend-module-azure-devops`                 | `azure-devops` module on `scaffolder`                      | `packages/backend/src/index.ts:196-198` |
+| `@backstage-community/plugin-scaffolder-backend-module-jenkins`                      | `jenkins` module on `scaffolder`                           | `packages/backend/src/index.ts:199-201` |
+| `@roadiehq/scaffolder-backend-argocd`                                                 | `scaffolder-backend-argocd` module on `scaffolder`         | `packages/backend/src/index.ts:193`     |
+| `@roadiehq/scaffolder-backend-module-aws`                                             | `scaffolder-backend-module-aws` module on `scaffolder`     | `packages/backend/src/index.ts:189`     |
+| `@roadiehq/scaffolder-backend-module-http-request`                                    | `scaffolder-backend-module-http-request` module on `scaffolder` | `packages/backend/src/index.ts:188` |
+| `@roadiehq/scaffolder-backend-module-utils`                                           | `scaffolder-backend-module-utils` module on `scaffolder`   | `packages/backend/src/index.ts:187`     |
+| `@backstage/plugin-catalog-backend-module-azure`                                      | `azure` module on `catalog`                                | `packages/backend/src/index.ts:160`     |
+| `@backstage/plugin-scaffolder-backend-module-azure`                                   | `azure` module on `scaffolder`                             | `packages/backend/src/index.ts:194`     |
+
+The last two are already called out in [`presets/azure.yaml`](../presets/azure.yaml)'s
+header comment — that preset only *configures* them via `appConfig`, it never
+lists them as dynamic `plugins:` entries.
+
 ## Static plugins (frontend)
 
 [`packages/app`](../packages/app/) wires very little statically — the
