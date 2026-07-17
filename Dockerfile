@@ -212,7 +212,7 @@ VOLUME /app/data
 # a container whose preInstalled directories are missing. A tolerated fetch
 # failure here would publish an image that can never boot — fail the build
 # instead, same contract as the catalog-index fetch below.
-ARG EXTENSIONS_TAG=bs_1.49.4
+ARG EXTENSIONS_TAG=bs_1.53.0
 RUN set -e; \
     OCI_IMAGE="docker://quay.io/veecode/extensions:$EXTENSIONS_TAG"; \
     TMP_OCI="$(mktemp -d)"; \
