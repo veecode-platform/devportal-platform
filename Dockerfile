@@ -114,16 +114,35 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
 # dynamic plugins (which require the host tree's .cjs.js). .bin symlinks and native
 # *.node are left untouched. Trade-off: removing *.map degrades production stack
 # traces to compiled positions (no TS line mapping).
-# NOTE: most *.d.ts are stripped, but config.d.ts and the whole typescript/ package
-# are KEPT. @backstage/config-loader runs the TypeScript compiler AT RUNTIME to read
-# each package's config schema from config.d.ts (all schema pkgs use that exact name),
-# and it needs typescript's lib.*.d.ts. Stripping those breaks boot with
-# "Cannot find global type 'Array'" / "missing Config export". Raw *.ts source is kept.
+# NOTE: most *.d.ts are stripped (@types/*, general libs — the bulk of the size),
+# but three groups are KEPT because @backstage/config-loader runs the TypeScript
+# compiler AT RUNTIME (strict, skipLibCheck:false) over every package's config.d.ts:
+#   1. config.d.ts itself (all schema pkgs use that exact name);
+#   2. every typescript/ package copy — top-level AND nested (config-loader@1.11
+#      wants typescript ^5.8, so yarn nests its own copy under
+#      @backstage/config-loader/node_modules/typescript; without its lib.*.d.ts
+#      boot dies with "TS2304: Cannot find name 'Array'");
+#   3. *.d.ts under the Backstage plugin scopes — since 1.53 the config.d.ts
+#      files import types from sibling packages (@backstage/types,
+#      @backstage/backend-plugin-api, ...) and the compiler follows those
+#      imports; stripping them dies with "TS7016: Could not find a declaration
+#      file for module ...". Verified empirically: image boots healthy with
+#      these kept and fails without them. Raw *.ts source is kept.
 RUN --mount=type=cache,target=/opt/app-root/src/.yarn/berry/cache,sharing=locked,uid=1001,gid=0 \
     --mount=type=cache,target=/opt/app-root/src/.yarn/berry/index,sharing=locked,uid=1001,gid=0 \
     yarn workspaces focus --all --production && \
     find node_modules -type f \( -name '*.map' -o -name '*.md' -o -name '*.markdown' -o -name '*.flow' \) -delete && \
-    find node_modules -type f -name '*.d.ts' ! -name 'config.d.ts' ! -path 'node_modules/typescript/*' -delete && \
+    find node_modules -type f -name '*.d.ts' ! -name 'config.d.ts' \
+      ! -path '*node_modules/typescript/*' \
+      ! -path 'node_modules/@backstage/*' \
+      ! -path 'node_modules/@backstage-community/*' \
+      ! -path 'node_modules/@red-hat-developer-hub/*' \
+      ! -path 'node_modules/@veecode-platform/*' \
+      ! -path 'node_modules/@janus-idp/*' \
+      ! -path 'node_modules/@immobiliarelabs/*' \
+      ! -path 'node_modules/@pagerduty/*' \
+      ! -path 'node_modules/@internal/*' \
+      -delete && \
     find node_modules -type d \( -name '__tests__' -o -name '__mocks__' \) -prune -exec rm -rf {} +
 
 # Fail fast if a required native module didn't get its prebuilt binary
