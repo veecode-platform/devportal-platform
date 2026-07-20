@@ -62,10 +62,15 @@ fi
 # backstage.json) — NOT :latest. The index's main branch tracks the *next*
 # platform release, so a :latest default would let a newer line's catalog
 # leak into stable deployments at boot (vitrine advertising bundles built
-# for a Backstage this image doesn't run). :latest remains only as legacy
-# for images older than this change. Override via CATALOG_INDEX_IMAGE.
-_BS_LINE="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)"
-CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-quay.io/veecode/plugin-catalog-index:bs_${_BS_LINE:-1.53.0}}"
+# for a Backstage this image doesn't run). Override via CATALOG_INDEX_IMAGE.
+if [ -z "${CATALOG_INDEX_IMAGE:-}" ]; then
+    _BS_LINE="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)"
+    if [ -z "$_BS_LINE" ]; then
+        echo "ERROR: Cannot derive catalog index tag: /app/backstage.json has no version."
+        exit 78
+    fi
+    CATALOG_INDEX_IMAGE="quay.io/veecode/plugin-catalog-index:bs_${_BS_LINE}"
+fi
 unset _BS_LINE
 CATALOG_DIR="/app/catalog-entities/extensions"
 PACKAGES_COUNT=$(find "$CATALOG_DIR/packages" -name '*.yaml' 2>/dev/null | wc -l)

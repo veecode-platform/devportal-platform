@@ -93,6 +93,32 @@ jobs:
           fi
           echo "EXTENSIONS_TAG=$EXTENSIONS_TAG matches backstage.json ($BACKSTAGE_VERSION)"
 
+      # Both the build-time snapshot and runtime refresh must derive their default
+      # catalog index from backstage.json. A moving :latest here can silently bake
+      # another platform line into the image, and the entrypoint will then skip its
+      # download because the catalog is already populated.
+      - name: Assert catalog index defaults follow backstage.json
+        run: |
+          set -e
+          BACKSTAGE_VERSION="$(jq -r .version backstage.json)"
+          if ! grep -qx 'ARG CATALOG_INDEX_IMAGE' Dockerfile; then
+            echo "::error::Dockerfile must leave ARG CATALOG_INDEX_IMAGE unset and derive its default from backstage.json"
+            exit 1
+          fi
+          if ! grep -Fq 'CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-quay.io/veecode/plugin-catalog-index:bs_${BACKSTAGE_VERSION}}"' Dockerfile; then
+            echo "::error::Dockerfile catalog index default must be bs_${BACKSTAGE_VERSION}"
+            exit 1
+          fi
+          if ! grep -Fq 'CATALOG_INDEX_IMAGE="quay.io/veecode/plugin-catalog-index:bs_${_BS_LINE}"' entrypoint.sh; then
+            echo "::error::entrypoint catalog index default must derive from /app/backstage.json"
+            exit 1
+          fi
+          if grep -Eq 'CATALOG_INDEX_IMAGE=.*plugin-catalog-index:latest' Dockerfile entrypoint.sh; then
+            echo "::error::Catalog index defaults must never use the moving :latest tag"
+            exit 1
+          fi
+          echo "Build-time and runtime catalog index defaults follow backstage.json"
+
       - name: Validate OCI plugin references exist
         run: |
           set -e

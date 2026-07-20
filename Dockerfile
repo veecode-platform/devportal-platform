@@ -211,20 +211,9 @@ VOLUME /app/data
 
 # Pull the marketplace's catalog-backend-module-extensions from the RHDH extensions OCI.
 # That module registers extensions.backstage.io/v1alpha1 entity kinds and ingests the
-# plugin-catalog-index into the catalog, which the marketplace queries.
-#
-# bs_1.49.4 build imports `catalogProcessingExtensionPoint` from
-# `@backstage/plugin-catalog-node/alpha`, which Backstage 1.50 graduated to the main
-# export. That `/alpha` regression is fixed centrally by the plugin-catalog-node
-# compat shim applied to node_modules above — it covers this module and every other
-# dynamic plugin importing graduated symbols from `/alpha`, so no per-module patch is
-# needed here.
-#
-# TODO: once quay.io/veecode/extensions:bs_1.50.0 is published, set EXTENSIONS_TAG=bs_1.50.0.
-#
-# NOTE: bs_1.49.4 also omits ExtensionsCollectionProvider from module.cjs.js registration,
-# so PluginCollection entities never ingest even though the YAMLs are baked below.
-# See docs/ROADMAP_BACKLOG.md "PluginCollection entities never ingest" for the fix path.
+# plugin-catalog-index into the catalog, which the marketplace queries. The tag is kept
+# explicit and CI asserts that it matches backstage.json so the baked module cannot drift
+# onto a different Backstage line.
 #
 # This fetch is BUILD-FATAL on purpose: dynamic-plugins.yaml declares the module
 # preInstalled, and the boot guard in install-dynamic-plugins.py refuses to start
@@ -253,11 +242,14 @@ COPY --chown=1001:0 --chmod=755 docker/install-dynamic-plugins.sh /app/install-d
 COPY --chown=1001:0 docker/regenerate-extensions-install.js /app/regenerate-extensions-install.js
 
 # Marketplace catalog entities — bake a snapshot from the OCI catalog index so
-# every fresh container starts ready (~157KB tarball, ~220 YAMLs as of bs_1.49.4).
-# The entrypoint's PACKAGES_COUNT guard skips the runtime download when present.
-# Operators force a refresh with CATALOG_INDEX_REFRESH=true.
-ARG CATALOG_INDEX_IMAGE=quay.io/veecode/plugin-catalog-index:latest
+# every fresh container starts ready. By default the tag is derived from
+# backstage.json, exactly like the runtime refresh path in entrypoint.sh. This is
+# deliberately not :latest: main tracks the next platform line and must not leak
+# its catalog into a stable image. Builders can still override the full image ref.
+ARG CATALOG_INDEX_IMAGE
 RUN set -e; \
+    BACKSTAGE_VERSION="$(jq -r '.version' backstage.json)"; \
+    CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-quay.io/veecode/plugin-catalog-index:bs_${BACKSTAGE_VERSION}}"; \
     mkdir -p /app/catalog-entities/extensions/plugins \
              /app/catalog-entities/extensions/packages \
              /app/catalog-entities/extensions/collections; \
