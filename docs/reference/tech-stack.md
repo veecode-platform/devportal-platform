@@ -23,4 +23,4 @@ Backstage **legacy frontend system** (`createApp` from `@backstage/app-defaults`
 
 ## Backstage version bump cadence
 
-Independent track from this repo's release cycle. See [`UPGRADING.md`](../UPGRADING.md) for the upgrade procedure and [ADR-010 § "Migration deferral — Backstage 1.50 bump postponed"](../adr/010-unified-image-and-presets.md) for why 1.50 is currently deferred.
+Independent track from this repo's release cycle. See [`UPGRADING.md`](../UPGRADING.md) for the upgrade procedure and [ADR-010 § "Migration deferral — Backstage 1.50 bump postponed"](../adr/010-unified-image-and-presets.md) for the historical deferral rationale (superseded by the 1.53.0 bump).
