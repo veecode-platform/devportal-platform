@@ -1,6 +1,17 @@
 # devportal-platform changelog
 
 
+## v2.3.0-rc.1 (2026-07-21)
+* chore(deps): bump Backstage 1.49.4 -> 1.53.0 (#120) (a0d4e48)
+* docs: document static-only backend modules that must not be dynamic (#121) (a9503a1)
+* fix(presets): drop dynamic scaffolder-backend-module-sonarqube (static collision) (#119) (aa792bd)
+* fix(dynamic-plugins): anchor OCI selector prefix match at path separator (#117) (60227dc)
+* fix(docs-sync): use CLAUDE_CODE_OAUTH_TOKEN instead of ANTHROPIC_API_KEY (a35f933)
+* fix(docs-sync): guard no-prev-tag path and switch patch delimiter to tilde (e2b45f1)
+* ci: automated docs sync workflow (claude -p, on release) (6b7f317)
+* ci: add Claude prompt template for docs sync (62f1d73)
+* fix: scope dependency resolutions for dynamic plugins (1deee73)
+
 ## v2.2.1 (2026-06-26)
 * fix: bump fast-xml-parser pin 5.7.0 -> ~5.7.2 (re-sync with devportal-base #135) (#88) (1c0a467)
 
