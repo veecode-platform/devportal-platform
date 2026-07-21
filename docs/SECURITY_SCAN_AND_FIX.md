@@ -15,9 +15,17 @@ runs:
 - **On schedule** — `0 10 * * 1-5` (10:00 UTC, weekdays).
 - **On demand** — `workflow_dispatch` with optional `image_tag` input
   (defaults to `latest`).
-- **After a successful publish** — `workflow_run` triggered by the
-  `build-backend-image` workflow's completion. The job resolves
-  `IMAGE_TAG` from `package.json` `version` in that case.
+- **After every publish** — Publish's final `trigger-security-scan` job
+  dispatches this workflow explicitly (`workflow_dispatch -f
+  image_tag=<version>`) with the exact version it just built, for both
+  prerelease and stable tags. This is not a `workflow_run` trigger:
+  GitHub suppresses `workflow_run` events for runs started by
+  GITHUB_TOKEN-authored actions, and Publish itself is started that way
+  by `release.yml`'s automated release path — a `workflow_run` listener
+  would silently miss every automated release. Explicit dispatch (which
+  IS allowed from GITHUB_TOKEN) avoids that gap and also avoids
+  resolving the version from `package.json`, which can drift from what
+  the triggering run actually published.
 
 The workflow does three things:
 

@@ -428,6 +428,32 @@ jobs:
       - name: Dispatch VKDR install E2E with the exact published version
         run: gh workflow run vkdr-install-e2e.yml -R "$REPO" --ref main -f image_tag="$VERSION"
 
+  trigger-security-scan:
+    # Explicitly dispatch the Trivy scan for the exact published version, same
+    # pattern as trigger-e2e above. security-scan.yml used to also listen for
+    # `workflow_run: workflows: ["Publish"]`, but GitHub suppresses workflow_run
+    # events for runs triggered by GITHUB_TOKEN-authored actions — and release.yml
+    # starts Publish via workflow_dispatch using GITHUB_TOKEN. So a release cut
+    # through release.yml produced a Publish run but no downstream Security Scan run
+    # (confirmed live: Publish run 29858583214, tag 2.3.0-rc.1, completed success,
+    # zero Security Scan runs triggered; a manual workflow_dispatch, run 29859953811,
+    # had to fill the gap by hand). workflow_dispatch IS allowed from GITHUB_TOKEN
+    # (that's how release.yml starts Publish itself), so we dispatch explicitly here
+    # instead of relying on workflow_run. Runs for both prerelease and stable —
+    # scanning rc images before they reach :latest is the point.
+    needs: [validate-tag, manifest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Dispatch Security Scan for the exact published version
+        run: gh workflow run security-scan.yml -R "$REPO" --ref main -f image_tag="$VERSION"
+
   notify-downstream:
     # Event-driven version propagation: on a STABLE release, tell the SaaS
     # instance-manager and the Helm charts that a new DevPortal image shipped, so
