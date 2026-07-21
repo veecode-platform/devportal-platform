@@ -9,7 +9,7 @@ audience: [operator, contributor]
 
 | Component | Version | Source of truth |
 |---|---|---|
-| Backstage | 1.49.4 | [`backstage.json`](../../backstage.json) |
+| Backstage | 1.53.0 | [`backstage.json`](../../backstage.json) |
 | Node.js | 20 or 22 (image runs Node 22 on UBI10) | [`package.json`](../../package.json) `engines` |
 | Yarn | 4.12.0 (Corepack-managed) | [`package.json`](../../package.json) `packageManager` |
 | React | 18.3.1 | [`packages/app/package.json`](../../packages/app/package.json) |
@@ -23,4 +23,4 @@ Backstage **legacy frontend system** (`createApp` from `@backstage/app-defaults`
 
 ## Backstage version bump cadence
 
-Independent track from this repo's release cycle. See [`UPGRADING.md`](../UPGRADING.md) for the upgrade procedure and [ADR-010 § "Migration deferral — Backstage 1.50 bump postponed"](../adr/010-unified-image-and-presets.md) for why 1.50 is currently deferred.
+Independent track from this repo's release cycle. See [`UPGRADING.md`](../UPGRADING.md) for the upgrade procedure and [ADR-010 § "Migration deferral — Backstage 1.50 bump postponed"](../adr/010-unified-image-and-presets.md) for the historical deferral rationale (superseded by the 1.53.0 bump).

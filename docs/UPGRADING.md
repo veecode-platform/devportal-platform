@@ -22,13 +22,13 @@ when a Backstage major lands that breaks the cbme module (see
 
 ### Current state
 
-- Pinned: **1.49.4** ([`backstage.json`](../backstage.json) and
+- Pinned: **1.53.0** ([`backstage.json`](../backstage.json) and
   resolutions in the root [`package.json`](../package.json)).
-- The 1.50 migration is **deferred** (see [`adr/011-frontend-design-system.md`](adr/011-frontend-design-system.md)
+- The New Frontend System (NFS) migration is **deferred** (see [`adr/011-frontend-design-system.md`](adr/011-frontend-design-system.md)
   § Phase 2 — gated on NFS `@public`, RHDH publishing a Scalprum→NFS
   path, and `@backstage/frontend-dynamic-feature-loader` leaving
   experimental).
-- `EXTENSIONS_TAG` currently points at `bs_1.49.4`; some wrappers
+- `EXTENSIONS_TAG` currently points at `bs_1.53.0`; some wrappers
   reference `supported-versions: 1.50.0` (Backstage CLI metadata, not
   the runtime pin).
 
@@ -159,10 +159,10 @@ distributed as an OCI image (no NPM publish). The artifact is built
 by [`veecode-platform/devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays)
 on a per-Backstage-version basis.
 
-The current default is `bs_1.49.4`. Separately, the Dockerfile applies a
+The current default is `bs_1.53.0`. Separately, the Dockerfile applies a
 **catalog-node `/alpha` compat shim** to `node_modules` (re-exports symbols
 graduated to the main `@backstage/plugin-catalog-node` export), needed
-because the bs_1.49.4 build of the module — and other dynamic plugins —
+because the bs_1.53.0 build of the module — and other dynamic plugins —
 reference alpha exports that catalog-node 2.2.0 graduated. See § "How to
 bump (across the `/alpha` → main shift)" below.
 

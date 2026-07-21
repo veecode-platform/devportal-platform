@@ -28,8 +28,8 @@ entries at runtime and merges them into the `themes` array passed to `createApp`
 The theme preset is Phase 1 of ADR-011 — validated as a POC on branch
 `feat/veecode-theme-dynamic-plugin` against a Backstage 1.50 tree, with five
 explicit pass criteria including picker replacement, no id collision, and
-CSS injection. The shipped image is on Backstage 1.49.4; the 1.50 bump is a
-separate upgrade track (see [`docs/UPGRADING.md`](../UPGRADING.md)). ADR-011
+CSS injection. The shipped image is on Backstage 1.53.0 (see
+[`docs/UPGRADING.md`](../UPGRADING.md) for the version-bump track). ADR-011
 § "Phase 2" describes the future migration to `ThemeBlueprint` once NFS core
 packages leave `@alpha`; nothing in Phase 1 blocks that later work.
 

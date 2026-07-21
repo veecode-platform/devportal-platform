@@ -9,12 +9,14 @@ isn't blocking" list. The feature direction lives in
 
 ### `PluginCollection` entities never ingest (upstream gap)
 
-The OCI bundle `quay.io/veecode/extensions:bs_1.49.4` ships
-`ExtensionsCollectionProvider.cjs.js` but `module.cjs.js` only
-instantiates `ExtensionsPluginProvider` and `ExtensionsPackageProvider`.
-`ExtensionsCollectionProvider` is never registered, so the provider loop
-never emits `PluginCollection` entities regardless of how many collection
-YAMLs are present under `/app/catalog-entities/extensions/collections/`.
+As observed in the `bs_1.49.4` build of `quay.io/veecode/extensions`
+(not yet re-verified against the `bs_1.53.0` rebuild the Dockerfile now
+pulls): the bundle ships `ExtensionsCollectionProvider.cjs.js` but
+`module.cjs.js` only instantiates `ExtensionsPluginProvider` and
+`ExtensionsPackageProvider`. `ExtensionsCollectionProvider` is never
+registered, so the provider loop never emits `PluginCollection` entities
+regardless of how many collection YAMLs are present under
+`/app/catalog-entities/extensions/collections/`.
 
 The image bakes collection YAMLs from the catalog index (see
 `Dockerfile` "Bake catalog index" block) and `app-config.yaml` lists
@@ -33,10 +35,13 @@ be fragile and is not currently applied.
 ### The catalog-node `/alpha` compat shim
 
 The Dockerfile pulls `catalog-backend-module-extensions` from
-`quay.io/veecode/extensions:bs_1.49.4`, and separately appends a compat
+`quay.io/veecode/extensions:bs_1.53.0`, and separately appends a compat
 shim to `node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js`
 that re-exports symbols catalog-node 2.2.0 graduated from `/alpha` to the
-main entry (`catalogProcessingExtensionPoint` and siblings). One shim
+main entry (`catalogProcessingExtensionPoint` and siblings). The need for
+the shim was established against the `bs_1.49.4`-era bundles and has not
+been re-verified against the `bs_1.53.0` rebuilds (the shim is inert if a
+module no longer imports from `/alpha`). One shim
 covers every dynamic plugin that externalizes `@backstage/plugin-catalog-node`
 to the host (peerDependency, not a bundled copy — the standard export
 contract; the baked extensions module and gitlab both comply). A plugin

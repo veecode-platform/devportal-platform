@@ -502,8 +502,9 @@ line lands with a Backstage 1.50 baseline (drops the ecosystem
 distance). Until then, 1.49.4 stays as the baseline and absorbs
 backported CVE fixes from Backstage 1.49.x patch releases.
 
-Tracked in [`docs/ROADMAP_FEATURES.md`](../ROADMAP_FEATURES.md) §
-"Mid term — Backstage 1.50 migration" and in the cleanup track of
+Originally tracked in [`docs/ROADMAP_FEATURES.md`](../ROADMAP_FEATURES.md) §
+"Mid term — Backstage 1.50 migration" (bullet removed once the 1.53.0
+bump shipped) and in the cleanup track of
 [`docs/UPGRADING.md`](../UPGRADING.md) § Track 3.
 
 ## Related decisions

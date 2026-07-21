@@ -1,7 +1,7 @@
 # VeeCode DevPortal — unified image + presets
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-![Backstage](https://img.shields.io/badge/Backstage-1.49.4-9BF0E1?logo=backstage)
+![Backstage](https://img.shields.io/badge/Backstage-1.53.0-9BF0E1?logo=backstage)
 
 VeeCode DevPortal is an open-source [Backstage](https://backstage.io)
 distribution. This repo ships **one image**:
@@ -22,7 +22,8 @@ to layer in.
   Federation. Plugins are fetched as OCI bundles at boot from
   [`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays);
   a few always-on chrome plugins are pulled from npm.
-- **Backstage 1.49.4** baseline. 1.50 migration deferred (see
+- **Backstage 1.53.0** baseline. The New Frontend System (NFS) migration
+  is still deferred (see
   [`docs/adr/011-frontend-design-system.md`](docs/adr/011-frontend-design-system.md)
   § Phase 2).
 

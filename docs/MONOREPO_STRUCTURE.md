@@ -41,7 +41,7 @@ fetched as OCI bundles at boot from
 ├── rbac-policy-extensions.csv
 ├── Dockerfile
 ├── entrypoint.sh
-├── backstage.json            # Pinned Backstage version (1.49.4)
+├── backstage.json            # Pinned Backstage version (1.53.0)
 ├── Makefile                  # Release targets only
 └── package.json
 ```
