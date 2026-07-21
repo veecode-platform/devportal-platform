@@ -58,7 +58,20 @@ fi
 # ENTRYPOINT DOWNLOAD CATALOG INDEX
 # Downloads the marketplace catalog entities (Plugin/Package/Collection YAMLs)
 # from the OCI catalog index image published by export-overlays.
-CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-quay.io/veecode/plugin-catalog-index:latest}"
+# Default tag is the image's OWN Backstage line (bs_<version> from
+# backstage.json) — NOT :latest. The index's main branch tracks the *next*
+# platform release, so a :latest default would let a newer line's catalog
+# leak into stable deployments at boot (vitrine advertising bundles built
+# for a Backstage this image doesn't run). Override via CATALOG_INDEX_IMAGE.
+if [ -z "${CATALOG_INDEX_IMAGE:-}" ]; then
+    _BS_LINE="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)"
+    if [ -z "$_BS_LINE" ]; then
+        echo "ERROR: Cannot derive catalog index tag: /app/backstage.json has no version."
+        exit 78
+    fi
+    CATALOG_INDEX_IMAGE="quay.io/veecode/plugin-catalog-index:bs_${_BS_LINE}"
+fi
+unset _BS_LINE
 CATALOG_DIR="/app/catalog-entities/extensions"
 PACKAGES_COUNT=$(find "$CATALOG_DIR/packages" -name '*.yaml' 2>/dev/null | wc -l)
 if [ "$PACKAGES_COUNT" -eq 0 ] || [ "${CATALOG_INDEX_REFRESH:-false}" = "true" ]; then

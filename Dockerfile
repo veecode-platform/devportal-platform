@@ -114,16 +114,35 @@ RUN yarn config set npmRegistryServer "$NPM_REGISTRY" && \
 # dynamic plugins (which require the host tree's .cjs.js). .bin symlinks and native
 # *.node are left untouched. Trade-off: removing *.map degrades production stack
 # traces to compiled positions (no TS line mapping).
-# NOTE: most *.d.ts are stripped, but config.d.ts and the whole typescript/ package
-# are KEPT. @backstage/config-loader runs the TypeScript compiler AT RUNTIME to read
-# each package's config schema from config.d.ts (all schema pkgs use that exact name),
-# and it needs typescript's lib.*.d.ts. Stripping those breaks boot with
-# "Cannot find global type 'Array'" / "missing Config export". Raw *.ts source is kept.
+# NOTE: most *.d.ts are stripped (@types/*, general libs — the bulk of the size),
+# but three groups are KEPT because @backstage/config-loader runs the TypeScript
+# compiler AT RUNTIME (strict, skipLibCheck:false) over every package's config.d.ts:
+#   1. config.d.ts itself (all schema pkgs use that exact name);
+#   2. every typescript/ package copy — top-level AND nested (config-loader@1.11
+#      wants typescript ^5.8, so yarn nests its own copy under
+#      @backstage/config-loader/node_modules/typescript; without its lib.*.d.ts
+#      boot dies with "TS2304: Cannot find name 'Array'");
+#   3. *.d.ts under the Backstage plugin scopes — since 1.53 the config.d.ts
+#      files import types from sibling packages (@backstage/types,
+#      @backstage/backend-plugin-api, ...) and the compiler follows those
+#      imports; stripping them dies with "TS7016: Could not find a declaration
+#      file for module ...". Verified empirically: image boots healthy with
+#      these kept and fails without them. Raw *.ts source is kept.
 RUN --mount=type=cache,target=/opt/app-root/src/.yarn/berry/cache,sharing=locked,uid=1001,gid=0 \
     --mount=type=cache,target=/opt/app-root/src/.yarn/berry/index,sharing=locked,uid=1001,gid=0 \
     yarn workspaces focus --all --production && \
     find node_modules -type f \( -name '*.map' -o -name '*.md' -o -name '*.markdown' -o -name '*.flow' \) -delete && \
-    find node_modules -type f -name '*.d.ts' ! -name 'config.d.ts' ! -path 'node_modules/typescript/*' -delete && \
+    find node_modules -type f -name '*.d.ts' ! -name 'config.d.ts' \
+      ! -path '*node_modules/typescript/*' \
+      ! -path 'node_modules/@backstage/*' \
+      ! -path 'node_modules/@backstage-community/*' \
+      ! -path 'node_modules/@red-hat-developer-hub/*' \
+      ! -path 'node_modules/@veecode-platform/*' \
+      ! -path 'node_modules/@janus-idp/*' \
+      ! -path 'node_modules/@immobiliarelabs/*' \
+      ! -path 'node_modules/@pagerduty/*' \
+      ! -path 'node_modules/@internal/*' \
+      -delete && \
     find node_modules -type d \( -name '__tests__' -o -name '__mocks__' \) -prune -exec rm -rf {} +
 
 # Fail fast if a required native module didn't get its prebuilt binary
@@ -192,27 +211,16 @@ VOLUME /app/data
 
 # Pull the marketplace's catalog-backend-module-extensions from the RHDH extensions OCI.
 # That module registers extensions.backstage.io/v1alpha1 entity kinds and ingests the
-# plugin-catalog-index into the catalog, which the marketplace queries.
-#
-# bs_1.49.4 build imports `catalogProcessingExtensionPoint` from
-# `@backstage/plugin-catalog-node/alpha`, which Backstage 1.50 graduated to the main
-# export. That `/alpha` regression is fixed centrally by the plugin-catalog-node
-# compat shim applied to node_modules above — it covers this module and every other
-# dynamic plugin importing graduated symbols from `/alpha`, so no per-module patch is
-# needed here.
-#
-# TODO: once quay.io/veecode/extensions:bs_1.50.0 is published, set EXTENSIONS_TAG=bs_1.50.0.
-#
-# NOTE: bs_1.49.4 also omits ExtensionsCollectionProvider from module.cjs.js registration,
-# so PluginCollection entities never ingest even though the YAMLs are baked below.
-# See docs/ROADMAP_BACKLOG.md "PluginCollection entities never ingest" for the fix path.
+# plugin-catalog-index into the catalog, which the marketplace queries. The tag is kept
+# explicit and CI asserts that it matches backstage.json so the baked module cannot drift
+# onto a different Backstage line.
 #
 # This fetch is BUILD-FATAL on purpose: dynamic-plugins.yaml declares the module
 # preInstalled, and the boot guard in install-dynamic-plugins.py refuses to start
 # a container whose preInstalled directories are missing. A tolerated fetch
 # failure here would publish an image that can never boot — fail the build
 # instead, same contract as the catalog-index fetch below.
-ARG EXTENSIONS_TAG=bs_1.49.4
+ARG EXTENSIONS_TAG=bs_1.53.0
 RUN set -e; \
     OCI_IMAGE="docker://quay.io/veecode/extensions:$EXTENSIONS_TAG"; \
     TMP_OCI="$(mktemp -d)"; \
@@ -234,11 +242,14 @@ COPY --chown=1001:0 --chmod=755 docker/install-dynamic-plugins.sh /app/install-d
 COPY --chown=1001:0 docker/regenerate-extensions-install.js /app/regenerate-extensions-install.js
 
 # Marketplace catalog entities — bake a snapshot from the OCI catalog index so
-# every fresh container starts ready (~157KB tarball, ~220 YAMLs as of bs_1.49.4).
-# The entrypoint's PACKAGES_COUNT guard skips the runtime download when present.
-# Operators force a refresh with CATALOG_INDEX_REFRESH=true.
-ARG CATALOG_INDEX_IMAGE=quay.io/veecode/plugin-catalog-index:latest
+# every fresh container starts ready. By default the tag is derived from
+# backstage.json, exactly like the runtime refresh path in entrypoint.sh. This is
+# deliberately not :latest: main tracks the next platform line and must not leak
+# its catalog into a stable image. Builders can still override the full image ref.
+ARG CATALOG_INDEX_IMAGE
 RUN set -e; \
+    BACKSTAGE_VERSION="$(jq -r '.version' backstage.json)"; \
+    CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-quay.io/veecode/plugin-catalog-index:bs_${BACKSTAGE_VERSION}}"; \
     mkdir -p /app/catalog-entities/extensions/plugins \
              /app/catalog-entities/extensions/packages \
              /app/catalog-entities/extensions/collections; \

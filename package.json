@@ -8,9 +8,9 @@
   "scripts": {
     "start": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend",
     "start-backend": "yarn workspace backend start",
-    "dev": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend --filter=app -- --config ../../app-config.yaml --config ../../app-config.dynamic-plugins.yaml",
-    "dev-local": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend --filter=app -- --config ../../app-config.yaml --config ../../app-config.local.yaml --config ../../app-config.dynamic-plugins.yaml",
-    "debug-local": "NODE_OPTIONS=\"--no-node-snapshot --inspect\" turbo run start --filter=backend -- --config ../../app-config.yaml --config ../../app-config.local.yaml --config ../../app-config.dynamic-plugins.yaml",
+    "dev": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend --filter=app -- --config ../../app-config.yaml",
+    "dev-local": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend --filter=app -- --config ../../app-config.yaml --config ../../app-config.local.yaml",
+    "debug-local": "NODE_OPTIONS=\"--no-node-snapshot --inspect\" turbo run start --filter=backend -- --config ../../app-config.yaml --config ../../app-config.local.yaml",
     "build": "turbo run build",
     "build:backend": "yarn tsc && yarn workspace backend build",
     "build:all": "yarn tsc && turbo run build",
@@ -42,7 +42,7 @@
     "better-sqlite3": "^12.2.0"
   },
   "devDependencies": {
-    "@backstage/cli": "^0.36.0",
+    "@backstage/cli": "^0.36.4",
     "@backstage/e2e-test-utils": "^0.1.2",
     "@jest/environment-jsdom-abstract": "^30.2.0",
     "@playwright/test": "^1.55.1",
