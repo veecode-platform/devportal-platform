@@ -9,7 +9,7 @@ isn't blocking" list. The feature direction lives in
 
 ### `PluginCollection` entities never ingest (upstream gap)
 
-The OCI bundle `quay.io/veecode/extensions:bs_1.49.4` ships
+The OCI bundle `quay.io/veecode/extensions:bs_1.53.0` ships
 `ExtensionsCollectionProvider.cjs.js` but `module.cjs.js` only
 instantiates `ExtensionsPluginProvider` and `ExtensionsPackageProvider`.
 `ExtensionsCollectionProvider` is never registered, so the provider loop
@@ -33,7 +33,7 @@ be fragile and is not currently applied.
 ### The catalog-node `/alpha` compat shim
 
 The Dockerfile pulls `catalog-backend-module-extensions` from
-`quay.io/veecode/extensions:bs_1.49.4`, and separately appends a compat
+`quay.io/veecode/extensions:bs_1.53.0`, and separately appends a compat
 shim to `node_modules/@backstage/plugin-catalog-node/dist/alpha.cjs.js`
 that re-exports symbols catalog-node 2.2.0 graduated from `/alpha` to the
 main entry (`catalogProcessingExtensionPoint` and siblings). One shim

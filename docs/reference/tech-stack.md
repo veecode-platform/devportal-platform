@@ -9,7 +9,7 @@ audience: [operator, contributor]
 
 | Component | Version | Source of truth |
 |---|---|---|
-| Backstage | 1.49.4 | [`backstage.json`](../../backstage.json) |
+| Backstage | 1.53.0 | [`backstage.json`](../../backstage.json) |
 | Node.js | 20 or 22 (image runs Node 22 on UBI10) | [`package.json`](../../package.json) `engines` |
 | Yarn | 4.12.0 (Corepack-managed) | [`package.json`](../../package.json) `packageManager` |
 | React | 18.3.1 | [`packages/app/package.json`](../../packages/app/package.json) |

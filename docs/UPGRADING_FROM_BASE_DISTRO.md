@@ -36,7 +36,7 @@ operator selects at runtime via `VEECODE_PRESETS`.
 | `dynamic-plugins/` workspace built inside the distro at image-build time | Plugins published separately as OCI bundles by [`devportal-plugin-export-overlays`](https://github.com/veecode-platform/devportal-plugin-export-overlays); resolved at boot via `oci://` refs |
 | Auth + integration selected via `VEECODE_PROFILE=<github\|azure\|gitlab\|keycloak\|ldap\|github-pat\|ldap-ad>` (loads one `app-config.<profile>.yaml`) | Same surfaces selected via `VEECODE_PRESETS=a,b,c` (composes). The per-integration preset is intentionally narrower than the legacy all-in-one profile — see the translation table below. |
 | Built-in VeeCode look (palette + logos imported statically in `packages/app`) | Same look opt-in via the `veecode-theme` preset (a dynamic plugin) — composable, replaceable by a customer brand |
-| Backstage 1.49.x | Backstage 1.49.4 (1.50 still deferred — see [ADR-010 § Migration deferral](./adr/010-unified-image-and-presets.md)) |
+| Backstage 1.49.x | Backstage 1.53.0 |
 
 The architectural rationale lives in
 [ADR-010 — Unified image, preset catalog, OCI dynamic plugins](./adr/010-unified-image-and-presets.md).
@@ -436,10 +436,10 @@ end-of-life or a real consumer signals otherwise.
 This upgrade is **only** the image and configuration-surface change.
 It does not include:
 
-- **Backstage 1.50 migration.** Both the legacy 1.3.x distro and
-  `veecode/devportal:2.0.x` ship on Backstage 1.49.4. The 1.50 bump
-  is deferred upstream-style; see
-  [ADR-010 § "Migration deferral — Backstage 1.50 bump postponed"](./adr/010-unified-image-and-presets.md).
+- **Backstage version track.** The legacy 1.3.x distro stays on
+  Backstage 1.49.4 (maintenance-only). `veecode/devportal:2.0.x` has
+  since moved to Backstage 1.53.0 on its own independent track; see
+  [`UPGRADING.md`](./UPGRADING.md).
 - **Automated config translation.** No script reads your
   `VEECODE_PROFILE=<x>` and emits the equivalent `VEECODE_PRESETS=…`.
   The translation is documented (this file), not code-supported,

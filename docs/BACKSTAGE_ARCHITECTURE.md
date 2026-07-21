@@ -11,7 +11,7 @@ here: pinned versions, our overrides, and where to look in code.
 
 | Component      | Version                           | Pinned in                                                               |
 | -------------- | --------------------------------- | ----------------------------------------------------------------------- |
-| Backstage core | **1.49.4**                        | [`backstage.json`](../backstage.json) + root `package.json` resolutions |
+| Backstage core | **1.53.0**                        | [`backstage.json`](../backstage.json) + root `package.json` resolutions |
 | Backstage CLI  | `^0.36.0`                         | root + backend + app `package.json`                                     |
 | Node.js        | 20 or 22 (engines); image runs 22 | root `package.json` `engines.node`, Dockerfile `NODE_BASE`              |
 | React          | 18.3.1                            | root `package.json` `resolutions`                                       |

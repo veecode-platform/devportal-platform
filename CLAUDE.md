@@ -22,7 +22,7 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
 - docs/MONOREPO_STRUCTURE.md - Yarn 4 root workspace; dynamic plugins now consumed as OCI bundles
 - docs/DEVELOPMENT_GUIDE.md - Local dev: `yarn dev-local` (Node loop) vs `scripts/dev-run.sh` (image overlay)
 - docs/DOCKER_DEVELOPMENT.md - Unified image build, build-args, the `cbme` stopgap
-- docs/BACKSTAGE_ARCHITECTURE.md - Pinned versions (1.49.4) + how the static + dynamic backend wire together
+- docs/BACKSTAGE_ARCHITECTURE.md - Pinned versions (1.53.0) + how the static + dynamic backend wire together
 - docs/DYNAMIC_PLUGINS_ARCHITECTURE.md - Scalprum + MF runtime; rhdh-cli vs janus-cli; authoring gotchas
 - docs/PLUGINS.md - Static + internal + dynamic plugin inventory; what each preset enables
 - docs/CONFIGURATION_GUIDE.md - Preset path + raw Backstage path; app-config layering at boot

@@ -57,7 +57,7 @@ docker build . \
   `https://registry.npmjs.org/`. If you point this at a private registry, the
   Dockerfile adds the host to Yarn's `unsafeHttpWhitelist` automatically.
 - `EXTENSIONS_TAG` — the `quay.io/veecode/extensions` OCI tag for the RHDH
-  `catalog-backend-module-extensions` artifact. Defaults to `bs_1.49.4`. See
+  `catalog-backend-module-extensions` artifact. Defaults to `bs_1.53.0`. See
   "The `cbme` stopgap" below.
 - `YQ_VERSION`, `DECK_VERSION` — pinned versions for `yq` and Kong `deck`.
   Bump independently as needed.
@@ -101,7 +101,7 @@ This bites if you bump `EXTENSIONS_TAG` blindly. [`Dockerfile`](../Dockerfile)
 documents it in detail; the short version:
 
 - The marketplace's catalog provider (`catalog-backend-module-extensions`)
-  is pulled from `quay.io/veecode/extensions:bs_1.49.4` via skopeo.
+  is pulled from `quay.io/veecode/extensions:bs_1.53.0` via skopeo.
 - That build was compiled for Backstage 1.49.x and imports
   `catalogProcessingExtensionPoint` from `@backstage/plugin-catalog-node/alpha`.
   catalog-node 2.2.0 graduated it (and a few sibling symbols) to the main

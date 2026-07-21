@@ -32,9 +32,6 @@ corresponding branch.
   on when there's a real consumer
   ([`RELEASE_CYCLE.md`](RELEASE_CYCLE.md) § "Switching to
   tag-driven").
-- **Backstage 1.50 migration.** Pinned at 1.49.4 today. The bump is
-  not gated on anything in this repo — gated on confidence about the
-  cbme module and any RHDH-shell changes.
 
 ## Long term
 
