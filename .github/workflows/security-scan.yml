@@ -9,16 +9,10 @@ on:
         description: 'Image tag to scan'
         required: false
         default: 'latest'
-  workflow_run:
-    workflows: ["Publish"]
-    types: [completed]
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
     timeout-minutes: 60
     permissions:
       contents: write
@@ -41,12 +35,6 @@ jobs:
       - name: Install trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
-
-      - name: Resolve image tag from publish
-        if: github.event_name == 'workflow_run'
-        run: |
-          VERSION=$(grep '"version"' package.json | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-          echo "IMAGE_TAG=$VERSION" >> "$GITHUB_ENV"
 
       - name: Read prompt file
         id: read-prompt

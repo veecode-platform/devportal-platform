@@ -112,16 +112,6 @@ The `publish.yml` workflow is `workflow_dispatch`-only by design
 This is fine for the current cadence. Tag-driven publishing should
 land before the project starts shipping to external consumers.
 
-### Security scan referenced workflow doesn't exist
-
-[`.github/workflows/security-scan.yml:13`](../.github/workflows/security-scan.yml)
-triggers on `workflow_run` from the `build-backend-image` workflow,
-which **does not exist** in this repo. The trigger is dead code; the
-scheduled cron and manual dispatch paths work.
-
-Either rename the trigger to `Publish` (the actual workflow name) or
-remove the `workflow_run` block.
-
 ### No GitHub Release object on publish
 
 `publish.yml` pushes the image but doesn't create a GitHub Release

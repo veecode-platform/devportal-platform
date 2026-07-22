@@ -64,6 +64,13 @@ Tag-driven (or manual-dispatch fallback). The pipeline:
    auto-generated notes, and attaches the SBOM as release assets.
 9. **`trigger-e2e`** — dispatches the VKDR install E2E with the exact
    `<version>` this run built (see below).
+10. **`trigger-security-scan`** — dispatches
+    [`security-scan.yml`](../.github/workflows/security-scan.yml) with the
+    exact `<version>` this run built, for both prerelease and stable tags.
+    Same rationale as `trigger-e2e`: explicit `workflow_dispatch` rather than
+    a `workflow_run` listener, because `workflow_run` never fires for a
+    Publish run started by `GITHUB_TOKEN` (i.e. every automated release cut
+    via `release.yml`) — see [`docs/SECURITY_SCAN_AND_FIX.md`](SECURITY_SCAN_AND_FIX.md).
 
 If Publish succeeds, the image is live at:
 
