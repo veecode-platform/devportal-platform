@@ -35,6 +35,7 @@ platformdirs==3.11.0
 pluggy==1.5.0
 pygments==2.17.2
 pymdown-extensions==10.3.1
+soupsieve>=2.8.4
 python-dateutil>=2.9.0.post0
 python-slugify==8.0.4
 pyyaml-env-tag==0.1
