@@ -70,6 +70,7 @@ jobs:
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
+      backstage_version: ${{ steps.resolve.outputs.backstage_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -127,8 +128,20 @@ jobs:
             fi
           fi
 
+          # 6. Backstage version this image is built against. Read from source,
+          # never a literal — it becomes an OCI label and the value Drydock
+          # cross-checks its BumpRun against. The image tag (a DevPortal
+          # version) says nothing about Backstage; these are two axes.
+          BACKSTAGE_VERSION="$(jq -r .version backstage.json)"
+          if ! echo "${BACKSTAGE_VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+            echo "::error::backstage.json version (${BACKSTAGE_VERSION}) is not in expected semver shape."
+            exit 1
+          fi
+          echo "Backstage version — ${BACKSTAGE_VERSION}"
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
+          echo "backstage_version=${BACKSTAGE_VERSION}" >> "$GITHUB_OUTPUT"
 
   build-amd64-test:
     needs: validate-tag
@@ -136,6 +149,7 @@ jobs:
     timeout-minutes: 35
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
+      BACKSTAGE_VERSION: ${{ needs.validate-tag.outputs.backstage_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -164,6 +178,10 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-amd64-test
+          labels: |
+            io.veecode.devportal.backstage-version=${{ env.BACKSTAGE_VERSION }}
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,scope=amd64,mode=max
 
@@ -185,6 +203,7 @@ jobs:
     timeout-minutes: 40
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
+      BACKSTAGE_VERSION: ${{ needs.validate-tag.outputs.backstage_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -218,6 +237,10 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-arm64
+          labels: |
+            io.veecode.devportal.backstage-version=${{ env.BACKSTAGE_VERSION }}
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=arm64
           cache-to: type=gha,scope=arm64,mode=max
 
@@ -335,6 +358,8 @@ jobs:
     needs: [validate-tag, push-amd64, build-arm64]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      digest: ${{ steps.create.outputs.digest }}
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       IS_PRERELEASE: ${{ needs.validate-tag.outputs.is_prerelease }}
@@ -345,10 +370,18 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Create versioned manifest
+        id: create
         run: |
           docker buildx imagetools create -t "${IMAGE_NAME}:${VERSION}" \
             "${IMAGE_NAME}:${VERSION}-amd64" \
             "${IMAGE_NAME}:${VERSION}-arm64"
+
+          # The manifest-list digest is what makes the image immutable, and it is
+          # what Drydock anchors a BumpRun on. Empty is tolerated: notify-drydock
+          # warns and skips rather than failing the release.
+          DIGEST="$(docker buildx imagetools inspect "${IMAGE_NAME}:${VERSION}" | awk '/^Digest:/ {print $2; exit}')"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "manifest digest — ${DIGEST:-<unavailable>}"
 
       # :latest automatically tracks the newest STABLE 2.x release on tag push;
       # pre-releases never move it. A workflow_dispatch moves :latest only with
@@ -464,3 +497,49 @@ jobs:
               echo "::warning::failed to notify ${repo}"
             fi
           done
+
+  notify-drydock:
+    # Announce the published image to the Drydock Bump Factory, which anchors a
+    # BumpRun on this exact manifest digest (drydock ADR-0009). Deliberately NOT
+    # folded into notify-downstream, for two reasons:
+    #   1. It must fire for PRE-RELEASES. The Factory's target images are RCs, so
+    #      the is_prerelease=false guard on notify-downstream would silence the
+    #      only announcements that matter here.
+    #   2. It uses workflow_dispatch (Actions:write on drydock only), not
+    #      repository_dispatch (which would need Contents:write — a token able to
+    #      push code into drydock). Narrower blast radius for a leaf notifier.
+    # Like notify-downstream this is a leaf job that can never fail a release: a
+    # missing secret or a failed call warns and exits 0.
+    needs: [validate-tag, manifest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      BACKSTAGE_VERSION: ${{ needs.validate-tag.outputs.backstage_version }}
+      DIGEST: ${{ needs.manifest.outputs.digest }}
+      GH_TOKEN: ${{ secrets.DRYDOCK_DISPATCH_TOKEN }}
+    steps:
+      - name: Dispatch Drydock reconcile with the exact published digest
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::DRYDOCK_DISPATCH_TOKEN not set — skipping Drydock notify."
+            exit 0
+          fi
+          if [ -z "${DIGEST:-}" ]; then
+            echo "::warning::manifest digest unavailable — skipping Drydock notify."
+            exit 0
+          fi
+
+          IMAGE="${IMAGE_NAME}:${VERSION}@${DIGEST}"
+          if gh workflow run drydock-reconcile.yaml \
+              -R veecode-platform/veecode-drydock \
+              --ref main \
+              -f operation=start \
+              -f backstage-version="${BACKSTAGE_VERSION}" \
+              -f image="${IMAGE}"; then
+            echo "notified drydock (backstage=${BACKSTAGE_VERSION} image=${IMAGE})"
+          else
+            echo "::warning::failed to notify drydock"
+          fi
