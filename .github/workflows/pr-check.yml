@@ -78,6 +78,18 @@ jobs:
       # scar of exactly this skew. Fail the PR when they diverge; a deliberate
       # divergence means updating both in the same PR (and this assert if the
       # policy itself changes).
+      #
+      # The release-candidate form `bs_<version>-rc.<sha>` is accepted, and has to be:
+      # `extensions` is one of the overlays fleet's OWN workspaces, so the bundle at a
+      # new Backstage version does not exist until a Drydock bump run publishes its
+      # candidate. Requiring the bare release tag here made the first bump to any new
+      # version impossible — the image needed a bundle only the run produces, and the
+      # run needed the image. The RC suffix is what breaks that cycle.
+      #
+      # The Backstage line still has to match; only the suffix is free, and only in the
+      # shape of a commit sha. A STABLE platform tag additionally requires the bare
+      # release tag — asserted in publish.yml's validate-tag, which is where the tag is
+      # known (a PR check cannot see it).
       - name: Assert EXTENSIONS_TAG matches backstage.json
         run: |
           set -e
@@ -87,11 +99,19 @@ jobs:
             echo "::error::Could not find 'ARG EXTENSIONS_TAG=' in Dockerfile"
             exit 1
           fi
-          if [ "$EXTENSIONS_TAG" != "bs_${BACKSTAGE_VERSION}" ]; then
-            echo "::error::Dockerfile ARG EXTENSIONS_TAG=$EXTENSIONS_TAG does not match backstage.json (expected bs_${BACKSTAGE_VERSION}). Bump both in the same PR — a stale baked extensions module breaks the catalog at runtime (see the /alpha import stopgap in the Dockerfile)."
+          # The version is compared as a STRING, never interpolated into a regex: a
+          # prerelease version like 1.54.0-next.0 is full of dots, and every one of them
+          # would be a wildcard. Only the candidate suffix is matched as a pattern, and
+          # only in the shape of a commit sha, so `-rc.anything` cannot slip through.
+          if [ "$EXTENSIONS_TAG" = "bs_${BACKSTAGE_VERSION}" ]; then
+            echo "EXTENSIONS_TAG=$EXTENSIONS_TAG matches backstage.json ($BACKSTAGE_VERSION)"
+          elif echo "$EXTENSIONS_TAG" | grep -qE -- '-rc\.[0-9a-f]{7,40}$' \
+            && [ "${EXTENSIONS_TAG%-rc.*}" = "bs_${BACKSTAGE_VERSION}" ]; then
+            echo "EXTENSIONS_TAG=$EXTENSIONS_TAG is a candidate on the $BACKSTAGE_VERSION line — a stable platform tag will require bs_${BACKSTAGE_VERSION}"
+          else
+            echo "::error::Dockerfile ARG EXTENSIONS_TAG=$EXTENSIONS_TAG does not match backstage.json (expected bs_${BACKSTAGE_VERSION}, or bs_${BACKSTAGE_VERSION}-rc.<sha> while a Drydock bump run is in flight). Bump both in the same PR — a stale baked extensions module breaks the catalog at runtime (see the /alpha import stopgap in the Dockerfile)."
             exit 1
           fi
-          echo "EXTENSIONS_TAG=$EXTENSIONS_TAG matches backstage.json ($BACKSTAGE_VERSION)"
 
       # Both the build-time snapshot and runtime refresh must derive their default
       # catalog index from backstage.json. A moving :latest here can silently bake
