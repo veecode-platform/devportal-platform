@@ -139,6 +139,35 @@ jobs:
           fi
           echo "Backstage version — ${BACKSTAGE_VERSION}"
 
+          # 7. A stable release may not bake a release-CANDIDATE extensions bundle.
+          #
+          # pr-check.yml accepts `bs_<version>-rc.<sha>` on purpose: `extensions` is
+          # one of the overlays fleet's own workspaces, so the bundle at a new
+          # Backstage version only exists once a Drydock bump run has published its
+          # candidate. Without that allowance the first image on any new version could
+          # never be built, and the run that produces the bundle could never get the
+          # image it verifies against.
+          #
+          # That allowance ends here. A candidate tag names a tree nobody has accepted
+          # yet; a stable platform release must bake the bundle the run's FINAL gate
+          # proved, under its release name. Re-tagging is what makes that cheap — the
+          # run moves `bs_<version>` onto the accepted candidate's digest, so by the
+          # time a stable tag is cut the bare tag exists and resolves to byte-identical
+          # content.
+          #
+          # Pre-release platform tags are exempt: they never move :latest, and they are
+          # how a bump run gets a runtime to verify against in the first place.
+          EXTENSIONS_TAG="$(sed -n 's/^ARG EXTENSIONS_TAG=//p' Dockerfile | head -1)"
+          if [ "${IS_PRERELEASE}" = "false" ]; then
+            case "${EXTENSIONS_TAG}" in
+              *-rc.*)
+                echo "::error::stable release ${VERSION} bakes a candidate extensions bundle (EXTENSIONS_TAG=${EXTENSIONS_TAG}). Wait for the Drydock run to merge and re-tag, then set it to bs_${BACKSTAGE_VERSION} — a stable image must reference an accepted bundle, not a candidate."
+                exit 1
+                ;;
+            esac
+          fi
+          echo "Extensions bundle — ${EXTENSIONS_TAG} (prerelease=${IS_PRERELEASE})"
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
           echo "backstage_version=${BACKSTAGE_VERSION}" >> "$GITHUB_OUTPUT"
