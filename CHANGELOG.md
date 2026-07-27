@@ -1,6 +1,11 @@
 # devportal-platform changelog
 
 
+## v2.3.0-rc.2 (2026-07-27)
+* feat(publish): label the image and announce it to Drydock (#138) (983738c)
+* fix(ci): dispatch security-scan explicitly from Publish, drop workflow_run (#129) (074ad8b)
+* docs: fix stale Backstage 1.49.4 strings after 1.53.0 bump (#127) (45efb8b)
+
 ## v2.3.0-rc.1 (2026-07-21)
 * chore(deps): bump Backstage 1.49.4 -> 1.53.0 (#120) (a0d4e48)
 * docs: document static-only backend modules that must not be dynamic (#121) (a9503a1)
