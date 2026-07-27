@@ -33,7 +33,7 @@
     "prettier:fix": "prettier --ignore-unknown --write ."
   },
   "dependencies": {
-    "@backstage/core-components": "^0.18.12",
+    "@backstage/core-components": "^0.18.13-next.0",
     "@backstage/core-plugin-api": "^1.12.8",
     "@backstage/theme": "^0.7.3",
     "@material-table/core": "3.2.5",
@@ -48,9 +48,9 @@
   },
   "devDependencies": {
     "@backstage/cli": "^0.36.4",
-    "@backstage/core-app-api": "^1.20.3",
-    "@backstage/dev-utils": "^1.1.25",
-    "@backstage/test-utils": "^1.7.20",
+    "@backstage/core-app-api": "^1.20.4-next.0",
+    "@backstage/dev-utils": "^1.1.26-next.0",
+    "@backstage/test-utils": "^1.7.21-next.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@testing-library/jest-dom": "6.8.0",
     "@testing-library/react": "14.3.1",
