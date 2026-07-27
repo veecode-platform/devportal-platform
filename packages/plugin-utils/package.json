@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@backstage/cli": "^0.36.4",
-    "@backstage/test-utils": "^1.7.20",
+    "@backstage/test-utils": "^1.7.21-next.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@testing-library/dom": "9.3.4",
     "@testing-library/jest-dom": "6.8.0",
