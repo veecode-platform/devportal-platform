@@ -71,6 +71,12 @@ jobs:
       version: ${{ steps.resolve.outputs.version }}
       is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
       backstage_version: ${{ steps.resolve.outputs.backstage_version }}
+      # The version the FLEET's bundles are tagged with. Equals backstage_version for a
+      # release; carries the candidate suffix for a candidate build. See step 8.
+      fleet_version: ${{ steps.resolve.outputs.fleet_version }}
+      # Explicit catalog-index ref for a candidate build; empty for a release, which
+      # leaves the Dockerfile's backstage.json-derived default in place. See step 9.
+      catalog_index_image: ${{ steps.resolve.outputs.catalog_index_image }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -168,9 +174,46 @@ jobs:
           fi
           echo "Extensions bundle — ${EXTENSIONS_TAG} (prerelease=${IS_PRERELEASE})"
 
+          # 8. The version the FLEET's bundles are tagged with, which is not always the
+          # Backstage version.
+          #
+          # Every plugin ref in dynamic-plugins.yaml and presets/ is written as
+          # `bs_${BACKSTAGE_VERSION}`, resolved at boot by entrypoint.sh from that
+          # variable, falling back to backstage.json. For a normal release the two are
+          # the same. For a CANDIDATE build they are not: the release tags do not exist
+          # yet — a bump run's RETAG_RELEASE creates them after its PR merges, which is
+          # after the gate passes, which needs this image. Smoking such an image against
+          # backstage.json makes every plugin install fail on a tag nobody has published,
+          # and install-dynamic-plugins.py treats that as fatal.
+          #
+          # So it is derived from EXTENSIONS_TAG, already the single source of truth for
+          # which bundle set this image is built against. Emitted for both cases rather
+          # than only for candidates: for a release it equals BACKSTAGE_VERSION, so the
+          # consumers have one code path and the value is always explicit.
+          FLEET_VERSION="${BACKSTAGE_VERSION}"
+          case "${EXTENSIONS_TAG}" in
+            *-rc.*) FLEET_VERSION="${EXTENSIONS_TAG#bs_}" ;;
+          esac
+          echo "Fleet bundle version — ${FLEET_VERSION}"
+
+          # 9. And the catalog index to bake, for the same reason.
+          #
+          # The Dockerfile defaults it to plugin-catalog-index:bs_<backstage.json>, and
+          # that fetch is build-fatal on purpose. On a candidate build the release tag
+          # does not exist, so the ref has to name the candidate index — which the
+          # overlays publish now produces under the same suffix. Left empty for a
+          # release so the Dockerfile's own default stands.
+          CATALOG_INDEX_IMAGE=""
+          case "${EXTENSIONS_TAG}" in
+            *-rc.*) CATALOG_INDEX_IMAGE="quay.io/veecode/plugin-catalog-index:bs_${FLEET_VERSION}" ;;
+          esac
+          echo "Catalog index override — ${CATALOG_INDEX_IMAGE:-(none, Dockerfile default)}"
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
           echo "backstage_version=${BACKSTAGE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "fleet_version=${FLEET_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "catalog_index_image=${CATALOG_INDEX_IMAGE}" >> "$GITHUB_OUTPUT"
 
   build-amd64-test:
     needs: validate-tag
@@ -204,6 +247,10 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          # Empty on a release build, which is the same as not passing it: the
+          # Dockerfile falls back to its backstage.json-derived default.
+          build-args: |
+            CATALOG_INDEX_IMAGE=${{ needs.validate-tag.outputs.catalog_index_image }}
           platforms: linux/amd64
           load: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-amd64-test
@@ -263,6 +310,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          build-args: |
+            CATALOG_INDEX_IMAGE=${{ needs.validate-tag.outputs.catalog_index_image }}
           platforms: linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-arm64
@@ -301,6 +350,12 @@ jobs:
         preset: ${{ fromJson(needs.gen-matrix.outputs.presets) }}
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
+      # Boot the fleet at the tag this image was BUILT against. entrypoint.sh reads
+      # this variable (falling back to backstage.json) to resolve every
+      # `bs_${BACKSTAGE_VERSION}` plugin ref, and dev-run.sh already forwards it into
+      # the container — so a candidate image smokes against its candidate bundles
+      # instead of release tags that do not exist yet.
+      BACKSTAGE_VERSION: ${{ needs.validate-tag.outputs.fleet_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -335,6 +390,12 @@ jobs:
     timeout-minutes: 10
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
+      # Boot the fleet at the tag this image was BUILT against. entrypoint.sh reads
+      # this variable (falling back to backstage.json) to resolve every
+      # `bs_${BACKSTAGE_VERSION}` plugin ref, and dev-run.sh already forwards it into
+      # the container — so a candidate image smokes against its candidate bundles
+      # instead of release tags that do not exist yet.
+      BACKSTAGE_VERSION: ${{ needs.validate-tag.outputs.fleet_version }}
     steps:
       - uses: actions/checkout@v4
 

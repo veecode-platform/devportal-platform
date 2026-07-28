@@ -63,8 +63,16 @@ fi
 # platform release, so a :latest default would let a newer line's catalog
 # leak into stable deployments at boot (vitrine advertising bundles built
 # for a Backstage this image doesn't run). Override via CATALOG_INDEX_IMAGE.
+#
+# The line honours ${BACKSTAGE_VERSION} first, exactly like the OCI-ref resolution
+# further down does. Without that, a CANDIDATE image asks for the RELEASE tag
+# bs_<version> — created only after a bump run's PR merges, so it cannot exist
+# while the run is still proving that image. Today the build bakes the candidate
+# index, so this path is only reached with CATALOG_INDEX_REFRESH=true or an empty
+# bake; the asymmetry was still a trap, since one derivation honoured the override
+# and the other silently did not.
 if [ -z "${CATALOG_INDEX_IMAGE:-}" ]; then
-    _BS_LINE="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)"
+    _BS_LINE="${BACKSTAGE_VERSION:-$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /app/backstage.json 2>/dev/null | head -1)}"
     if [ -z "$_BS_LINE" ]; then
         echo "ERROR: Cannot derive catalog index tag: /app/backstage.json has no version."
         exit 78

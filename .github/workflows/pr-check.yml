@@ -147,6 +147,29 @@ jobs:
             echo "::error::Could not read BACKSTAGE_VERSION from backstage.json"
             exit 1
           fi
+
+          # A CANDIDATE build resolves the fleet at the candidate. Same rule the
+          # EXTENSIONS_TAG assert above already follows, applied to the other refs.
+          #
+          # Otherwise every `bs_${BACKSTAGE_VERSION}` ref points at a RELEASE tag that
+          # cannot exist yet: those are created by a bump run's RETAG_RELEASE, which
+          # runs after its PR merges, which happens after the gate passes, which needs
+          # this image. The same circularity as the baked extensions module, one level
+          # down.
+          #
+          # `EXTENSIONS_TAG` is the single source of truth for which bundle set the
+          # image is built against, so the version — candidate suffix included — is
+          # just that tag without its `bs_` prefix. Nothing new is introduced and
+          # nothing is hardcoded: `entrypoint.sh` already honours
+          # `${BACKSTAGE_VERSION:-<backstage.json>}` and `dev-run.sh` already forwards
+          # the variable into the container.
+          EXTENSIONS_TAG="$(sed -n 's/^ARG EXTENSIONS_TAG=//p' Dockerfile | head -1)"
+          case "$EXTENSIONS_TAG" in
+            *-rc.*)
+              export BACKSTAGE_VERSION="${EXTENSIONS_TAG#bs_}"
+              echo "candidate build — resolving fleet refs at \${BACKSTAGE_VERSION}=$BACKSTAGE_VERSION"
+              ;;
+          esac
           export PLUGIN_REGISTRY="${PLUGIN_REGISTRY:-quay.io/veecode}"
           # Strip the !<selector> suffix before dedup — multiple entries can share the same OCI image.
           # Drop full-line comments first: header docs may mention `oci://...` example refs that are
