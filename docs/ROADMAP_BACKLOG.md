@@ -152,6 +152,11 @@ high-value test surfaces are bare:
 - `install-dynamic-plugins.py` — installs / merges / re-emits config
   and the integration is observable but the script itself is
   untested in this repo.
+- `docker/regenerate-extensions-install.js` (ADR-014 boot pre-step) — its
+  pure transforms have unit tests
+  (`docker/test_regenerate_extensions_install.js`, `node --test`), but the
+  boot-path integration (real Postgres → file → installer) is verified only
+  by a manual spike, not in CI. Same gap as `install-dynamic-plugins.py`.
 
 Adding a small `tests/preset-resolver.bats` (or similar) for the
 boot-time invariants (missing required var → exit 78; preset chain

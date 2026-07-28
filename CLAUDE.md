@@ -39,6 +39,7 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
   - ADR-011: Frontend design system — VeeCode theme as a dynamic plugin and a preset
   - ADR-012: Pull UBI from the anonymous mirror (`registry.access.redhat.com`)
   - ADR-013: Plugin catalog model — *vitrine*, selection surfaces, deferred unification
+  - ADR-014: Stateless persistence — external Postgres + boot regeneration of `extensions-install.yaml`
 - presets/README.md + presets/SCHEMA.md - The preset model itself (tiers, requires.variables, composition)
 
 **Doc discipline.** Every claim in these docs is verified against this repo's code at the time of writing. Do not infer behavior from `devportal-base` or `devportal-distro` — if a fact isn't backed by code here, it isn't true here. When in doubt, re-verify against the current code.

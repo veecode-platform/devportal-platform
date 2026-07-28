@@ -270,7 +270,13 @@ For reference, the most-touched keys in
   APIs.
 - `backend.database` — defaults to in-memory SQLite (dev). For
   production, set `client: pg` and a connection. The image bakes in
-  the `pg` driver.
+  the `pg` driver. **With `client: pg`, DevPortal boots fully stateless**
+  — no PVC for `/app/data` is required. A boot pre-step
+  (`docker/regenerate-extensions-install.js`) regenerates
+  `extensions-install.yaml` from the `marketplace_installations` table
+  before plugins install, so the operator's marketplace selections
+  survive a volume-less pod. This is the recommended production path —
+  see [ADR-014](./adr/014-stateless-persistence-external-db.md).
 - `auth.environment` — `development` or `production`. The shipped
   `app-config.yaml` is `development`; an integration preset sets it
   to `production` if appropriate.

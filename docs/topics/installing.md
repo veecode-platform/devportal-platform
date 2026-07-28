@@ -51,11 +51,22 @@ VEECODE_PRESETS=recommended,veecode-theme
 pending-changes widget. `veecode-theme` applies the VeeCode brand
 palette and logos. Open `http://localhost:7007` to see the result.
 
-### Why volumes matter
+### Persistence: two paths
 
-`docker-compose.yml` declares two named volumes that are not optional
-in practice — they make every restart cheap and preserve the operator's
-state across upgrades:
+**Production (recommended) — external Postgres, stateless.** Set
+`backend.database.client: pg` and point it at a Postgres instance. The
+operator's marketplace selections then live in Postgres, not on disk, and
+DevPortal boots **without any persistent volume**: a boot pre-step
+(`docker/regenerate-extensions-install.js`) rebuilds `extensions-install.yaml`
+from the database before the plugin installer runs, so a fresh `/app/data`
+recovers every selection on the next boot. Both directories below collapse to
+pure caches you can drop. This removes the AZ-pinned-volume failure class —
+see [ADR-014](../adr/014-stateless-persistence-external-db.md).
+
+**Local / single-node — SQLite, volumes.** With the default SQLite database,
+the two named volumes `docker-compose.yml` declares are not optional in
+practice — they make every restart cheap and preserve the operator's state
+across upgrades:
 
 - `dp-data` (mounted at `/app/data`) — Backstage SQLite databases plus
   `extensions-install.yaml` (the marketplace's write-through state).
@@ -64,7 +75,7 @@ state across upgrades:
 - `dp-plugins` (mounted at `/app/dynamic-plugins-root`) — the OCI
   plugin bundles that `install-dynamic-plugins.py` downloads at boot.
   Without it, every restart re-fetches every enabled plugin from
-  `quay.io` (~60–90s).
+  `quay.io` (~60–90s). This is a cache in either path.
 
 The legacy `docker run` flow predates these volumes; it still works but
 sacrifices restart speed and marketplace persistence. Compose is the
@@ -119,7 +130,17 @@ If a required variable is missing, or the selected presets violate an
 exclusive group, you will see an `ERROR:` line with exit 78 at this
 point instead (see "Common boot failures" below).
 
-**2. Plugin installation**
+**2. DB pre-step — Postgres deployments only** (`docker/regenerate-extensions-install.js`)
+
+When `backend.database.client: pg`, this step connects to Postgres,
+reads the operator's marketplace selections from the
+`marketplace_installations` table, and rewrites
+`/app/data/extensions-install.yaml` so the installer below sees the live
+selections even on a fresh, volume-less `/app/data`. It is a no-op for
+SQLite, and degrades on any error (logs a warning and continues with the
+existing file) — it never blocks boot.
+
+**3. Plugin installation**
 
 `install-dynamic-plugins.py` runs next and calls `skopeo copy` to pull
 each enabled plugin's OCI bundle from `quay.io/veecode` (or your
@@ -132,7 +153,7 @@ configured `PLUGIN_REGISTRY`). You will see lines like:
 
 The number of lines scales with how many presets you enabled.
 
-**3. Healthcheck**
+**4. Healthcheck**
 
 Once Backstage is up, verify with:
 
@@ -144,7 +165,7 @@ This typically returns `OK` (HTTP 200) within 90 seconds of
 `docker compose up -d`. If it times out, check
 `docker compose logs devportal` for errors.
 
-**4. Inspect loaded plugins**
+**5. Inspect loaded plugins**
 
 The `dynamic-plugins-info` backend plugin exposes a
 `/api/dynamic-plugins-info/loaded-plugins` endpoint. It requires a

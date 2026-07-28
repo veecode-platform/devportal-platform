@@ -5,12 +5,18 @@
 #   docker compose up -d
 #   docker compose logs -f devportal
 #
-# The two named volumes are what make restart cheap:
+# This file uses the default SQLite database, where the two named volumes make
+# restart cheap:
 #   dp-data     — Backstage SQLite databases + marketplace state (extensions-install.yaml).
 #                 Without this, every restart wipes the catalog cache and marketplace installs.
 #   dp-plugins  — downloaded OCI plugin bundles. Without this, every restart re-fetches all
 #                 plugins from quay.io (~60–90s). With it, only changed or new plugins are
 #                 fetched on restart.
+#
+# Production path (recommended): set backend.database.client: pg and point it at an
+# external Postgres. DevPortal then boots STATELESS — neither volume is required. A boot
+# pre-step (docker/regenerate-extensions-install.js) rebuilds extensions-install.yaml from
+# the database before plugins install. See docs/adr/014-stateless-persistence-external-db.md.
 #
 # Plugin override loop (platform-installer persona):
 #   1. Edit dynamic-plugins.yaml in this directory (template ships empty).

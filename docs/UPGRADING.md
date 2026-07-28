@@ -277,6 +277,24 @@ Boot-contract changes that can affect existing deployments when the
 image tag is bumped. Check this list before rolling a new tag into an
 environment that was healthy on the previous one.
 
+### Release 2.2.0
+
+- **Stateless persistence (ADR-014).** A boot pre-step
+  (`docker/regenerate-extensions-install.js`) was added to the image. When
+  `backend.database.client: pg`, it regenerates `extensions-install.yaml`
+  from the `marketplace_installations` table before the plugin installer
+  runs. **Effect on existing deployments:** none unless you opt into
+  stateless — SQLite deployments are unaffected (the pre-step is a no-op),
+  and pg deployments that keep their `/app/data` volume keep working. The
+  new capability is that a pg deployment can now drop **both** PVCs and run
+  fully stateless (pod schedules in any AZ, self-recovers). This is the
+  recommended production path. See
+  [ADR-014](./adr/014-stateless-persistence-external-db.md) and the
+  [stateless Postgres deploy guide](./how-to/deploy-stateless-postgres.md).
+- Cold boot of a stateless pod re-pulls plugin bundles (~60–90s) and depends
+  on the OCI registry being reachable; mirror `PLUGIN_REGISTRY` for
+  air-gapped sites.
+
 ### Next release (after 2.1.2)
 
 - **Preset composition dependencies are now enforced** (`requires.presets`,

@@ -79,8 +79,9 @@ and runtime tooling under `/app/`:
 ├── app-config.distro.yaml
 ├── dynamic-plugins.yaml
 ├── dynamic-plugins.default.yaml
-├── data/extensions-install.yaml             # Marketplace install state; persistent volume
+├── data/extensions-install.yaml             # Marketplace install state; written by marketplace (SQLite) or regenerated at boot from Postgres (pg, stateless)
 ├── rbac-policy.csv                          # rbac-policy-extensions.csv appended at build time
+├── regenerate-extensions-install.js         # Boot pre-step (ADR-014): regenerates data/extensions-install.yaml from Postgres (pg only; no-op for SQLite)
 ├── install-dynamic-plugins.py
 ├── install-dynamic-plugins.sh
 ├── entrypoint.sh

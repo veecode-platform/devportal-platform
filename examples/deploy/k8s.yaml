@@ -1,10 +1,18 @@
 # DevPortal — minimal Kubernetes reference deployment.
 #
-# This is an ADAPTABLE EXAMPLE, not a production manifest. It mirrors the
-# docker-compose.yml in this directory:
+# This is an ADAPTABLE EXAMPLE, not a production manifest. It shows the SQLite
+# path and mirrors the docker-compose.yml in this directory:
 #   - one PVC for state (/app/data)
 #   - one PVC for the plugin bundle cache (/app/dynamic-plugins-root)
 #   - an optional ConfigMap mounted as /app/app-config.local.yaml
+#
+# STATELESS (recommended for production): set backend.database.client: pg with an
+# external Postgres. Then DELETE both PersistentVolumeClaim resources and their
+# volumes/volumeMounts below — the pod becomes stateless, schedules in any AZ, and
+# self-recovers. A boot pre-step (docker/regenerate-extensions-install.js) rebuilds
+# extensions-install.yaml from the database at each boot.
+# See docs/adr/014-stateless-persistence-external-db.md and
+# docs/how-to/deploy-stateless-postgres.md.
 #
 # Apply:
 #   kubectl apply -f k8s.yaml

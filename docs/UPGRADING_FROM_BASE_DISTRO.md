@@ -281,7 +281,16 @@ your own `<company>-theme` preset and **replace** (not compose with)
    useful for chart-managed deployments). Both load after the preset
    configs (see the `Config file precedence` comment block in
    [`entrypoint.sh`](../entrypoint.sh)), so your overrides win.
-5. **Mount the two state volumes.** The image expects:
+5. **Mount the two state volumes** (SQLite path). The image expects:
+
+   > **Postgres / stateless path (recommended):** if you set
+   > `backend.database.client: pg`, skip this step entirely — neither
+   > volume is required. The marketplace state lives in Postgres and a
+   > boot pre-step (`docker/regenerate-extensions-install.js`) regenerates
+   > `extensions-install.yaml` from the database before the installer runs,
+   > so a volume-less `/app/data` recovers all selections on the next boot.
+   > See [ADR-014](./adr/014-stateless-persistence-external-db.md).
+
    - `/app/data` — directory volume carrying the Backstage SQLite
      databases (one file per plugin) and `extensions-install.yaml` (the
      marketplace's write-through cache; the per-plugin SQLite DB is the
@@ -361,6 +370,12 @@ minimal Deployment + Service + two PVCs (`/app/data`,
 `/app/dynamic-plugins-root`) + an optional carry-over ConfigMap.
 It mirrors the `docker run` invocation above one-to-one, for operators
 who prefer raw manifests over Helm.
+
+> **Stateless (recommended).** With `backend.database.client: pg`, both
+> PVCs are optional — drop them and the pod schedules in any AZ and
+> self-recovers like V1 did. See
+> [ADR-014](./adr/014-stateless-persistence-external-db.md) and the
+> [stateless Postgres deploy guide](./how-to/deploy-stateless-postgres.md).
 
 ## Validation
 

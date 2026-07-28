@@ -278,6 +278,19 @@ roles) — `rbac-policy-extensions.csv` is appended at image build time
 to add marketplace-specific permissions
 ([`Dockerfile:189-190`](../Dockerfile)). See [`RBAC.md`](RBAC.md).
 
+## Persistence
+
+`backend.database` defaults to in-memory SQLite (dev). For production,
+set `client: pg` against an external Postgres — the `pg` driver is baked
+into the image. With Postgres, DevPortal runs **fully stateless**: all
+durable state (catalog, marketplace selections, scaffolder history) lives
+in the database, and a boot pre-step
+(`docker/regenerate-extensions-install.js`) regenerates
+`extensions-install.yaml` from the `marketplace_installations` table
+before the plugin installer runs, so no PVC is required for `/app/data`.
+This is the recommended production path — see
+[ADR-014](./adr/014-stateless-persistence-external-db.md).
+
 ## Search
 
 Backed by Postgres-based search backend

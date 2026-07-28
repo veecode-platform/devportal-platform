@@ -25,6 +25,11 @@ given deployment_ layer, see [`presets/README.md`](../presets/README.md).
 │       dynamic-plugins.default.resolved.yaml,                       │
 │       extensions-install.yaml, and the preset fragments.           │
 │  2. Resolve ${BACKSTAGE_VERSION} in any OCI refs (sed in place).   │
+│  2b.[pg only] regenerate-extensions-install.js (ADR-014):          │
+│       - read marketplace_installations from external Postgres      │
+│       - rewrite extensions-install.yaml from the DB so a stateless │
+│         /app/data recovers the operator's selections               │
+│       - no-op for SQLite; degrades on error, never blocks boot     │
 │  3. Run install-dynamic-plugins.sh /app/dynamic-plugins-root       │
 │     ↓                                                              │
 │     install-dynamic-plugins.py:                                    │

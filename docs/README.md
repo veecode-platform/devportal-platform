@@ -54,7 +54,7 @@ What this image deliberately does NOT ship:
 
 ## How-to recipes
 
-_(none yet)_
+- [deploy-stateless-postgres](how-to/deploy-stateless-postgres.md): Deploy DevPortal V2 fully stateless against external Postgres — no PersistentVolumeClaim, pod schedules in any AZ and self-recovers.
 
 <!-- END how-to-index -->
 

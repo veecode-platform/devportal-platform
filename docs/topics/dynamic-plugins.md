@@ -139,7 +139,18 @@ What happens between `docker start` and Backstage accepting requests:
    `sed` rewrites the registry variable across the same file set. Default is
    `quay.io/veecode`.
 
-5. **`install-dynamic-plugins.sh`** (`entrypoint.sh`): invokes the
+5. **DB pre-step — Postgres only** (`docker/regenerate-extensions-install.js`,
+   `entrypoint.sh`): when `backend.database.client === 'pg'`, connects to
+   Postgres, reads the `marketplace_installations` table (schema discovered
+   via `information_schema`, so it works for both `pluginDivisionMode: database`
+   and `schema`), and regenerates `extensions-install.yaml` so the installer
+   below sees the operator's live selections even on a fresh, volume-less
+   `/app/data`. No-op for SQLite. Degrades on any error (logs a warning, leaves
+   the existing file) and never blocks boot. This is what makes a Postgres
+   deployment fully stateless — see
+   [ADR-014](../adr/014-stateless-persistence-external-db.md).
+
+6. **`install-dynamic-plugins.sh`** (`entrypoint.sh`): invokes the
    Python install script against `/app/dynamic-plugins-root`. For each enabled
    entry the script calls `skopeo copy` to pull the OCI bundle, extracts the
    selector package, and merges the entry's `pluginConfig:` into
@@ -149,11 +160,11 @@ What happens between `docker start` and Backstage accepting requests:
    differently for 2 dynamic plugins") and abort startup. Pre-installed
    entries skip the pull; only their `pluginConfig:` is merged.
 
-6. **Backend boot**: the Node.js backend starts. Backstage reads
+7. **Backend boot**: the Node.js backend starts. Backstage reads
    `app-config.dynamic-plugins.yaml` to discover mount points, dynamic routes,
    and RBAC scopes for each installed plugin.
 
-7. **Loaded plugins endpoint**: once the backend is up, loaded plugins are
+8. **Loaded plugins endpoint**: once the backend is up, loaded plugins are
    surfaced at `/api/dynamic-plugins-info/loaded-plugins` (backed by the
    `internal-plugin-dynamic-plugins-info` pre-installed plugin).
 
