@@ -74,6 +74,9 @@ jobs:
       # The version the FLEET's bundles are tagged with. Equals backstage_version for a
       # release; carries the candidate suffix for a candidate build. See step 8.
       fleet_version: ${{ steps.resolve.outputs.fleet_version }}
+      # Explicit catalog-index ref for a candidate build; empty for a release, which
+      # leaves the Dockerfile's backstage.json-derived default in place. See step 9.
+      catalog_index_image: ${{ steps.resolve.outputs.catalog_index_image }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -193,10 +196,24 @@ jobs:
           esac
           echo "Fleet bundle version — ${FLEET_VERSION}"
 
+          # 9. And the catalog index to bake, for the same reason.
+          #
+          # The Dockerfile defaults it to plugin-catalog-index:bs_<backstage.json>, and
+          # that fetch is build-fatal on purpose. On a candidate build the release tag
+          # does not exist, so the ref has to name the candidate index — which the
+          # overlays publish now produces under the same suffix. Left empty for a
+          # release so the Dockerfile's own default stands.
+          CATALOG_INDEX_IMAGE=""
+          case "${EXTENSIONS_TAG}" in
+            *-rc.*) CATALOG_INDEX_IMAGE="quay.io/veecode/plugin-catalog-index:bs_${FLEET_VERSION}" ;;
+          esac
+          echo "Catalog index override — ${CATALOG_INDEX_IMAGE:-(none, Dockerfile default)}"
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
           echo "backstage_version=${BACKSTAGE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "fleet_version=${FLEET_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "catalog_index_image=${CATALOG_INDEX_IMAGE}" >> "$GITHUB_OUTPUT"
 
   build-amd64-test:
     needs: validate-tag
@@ -230,6 +247,10 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          # Empty on a release build, which is the same as not passing it: the
+          # Dockerfile falls back to its backstage.json-derived default.
+          build-args: |
+            CATALOG_INDEX_IMAGE=${{ needs.validate-tag.outputs.catalog_index_image }}
           platforms: linux/amd64
           load: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-amd64-test
@@ -289,6 +310,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          build-args: |
+            CATALOG_INDEX_IMAGE=${{ needs.validate-tag.outputs.catalog_index_image }}
           platforms: linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}-arm64
