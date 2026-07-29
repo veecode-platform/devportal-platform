@@ -1,0 +1,15 @@
+app:
+  packageName: app-next
+  packages: all
+
+catalog:
+  locations:
+    - type: file
+      target: ../../packages/app-next/fixtures/kubernetes-control.yaml
+
+kubernetes:
+  serviceLocatorMethod:
+    type: multiTenant
+  clusterLocatorMethods:
+    - type: config
+      clusters: []

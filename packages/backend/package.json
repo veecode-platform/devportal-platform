@@ -86,6 +86,7 @@
     "@veecode-platform/backstage-plugin-ldap-auth-backend": "^1.2.0",
     "@veecode-platform/plugin-scaffolder-backend-module-kong": "^1.1.0",
     "app": "link:../app",
+    "app-next": "link:../app-next",
     "better-sqlite3": "^12.0.0",
     "global-agent": "^3.0.0",
     "pg": "^8.11.3",

@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: nfs-kubernetes-control
+  description: NFS Gate 0.5 Kubernetes control entity
+  annotations:
+    backstage.io/kubernetes-id: nfs-kubernetes-control
+    backstage.io/kubernetes-namespace: default
+spec:
+  type: service
+  lifecycle: experimental
+  owner: admins

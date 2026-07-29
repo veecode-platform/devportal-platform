@@ -9,6 +9,7 @@
     "start": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend",
     "start-backend": "yarn workspace backend start",
     "dev": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend --filter=app -- --config ../../app-config.yaml",
+    "dev-next": "ENABLE_STANDARD_MODULE_FEDERATION=true NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend --filter=app-next -- --config ../../app-config.yaml --config ../../app-config.nfs.yaml",
     "dev-local": "NODE_OPTIONS=--no-node-snapshot turbo run start --filter=backend --filter=app -- --config ../../app-config.yaml --config ../../app-config.local.yaml",
     "debug-local": "NODE_OPTIONS=\"--no-node-snapshot --inspect\" turbo run start --filter=backend -- --config ../../app-config.yaml --config ../../app-config.local.yaml",
     "build": "turbo run build",
