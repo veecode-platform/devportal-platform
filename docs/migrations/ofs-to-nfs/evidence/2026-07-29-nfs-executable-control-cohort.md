@@ -11,11 +11,11 @@ promotion was opened
 
 | Item | Value |
 | --- | --- |
-| Platform checkout at execution | `5ba96fe9f841fb67e418f93bdc3b08d9ef5cfae8` |
+| Platform checkout at execution | `07bc64bc6ca1e7893107e403c8a1a64b1902d8f1` |
 | Drydock checkout at execution | `85696627913f8b275efe17ef158072d92ae28d20` |
 | Export-overlays checkout | `19d46fbad8c37bd78ad317ccc929d01994f0528f` |
 | Local NFS image | `veecode/devportal-nfs:2.3.0-rc.2-nfs-local` |
-| Local image digest | `sha256:95ec84b11971d1f373df607a414f11efe924848874e9050c6b5f16383751836f` |
+| Local image digest | `sha256:86f73805e35f4a9fc400f9d4a0da5071f6e2ea401f60466046d591d21c081325` |
 | Publication state | local tag only; no push and no mutable-pointer movement |
 
 The image digest identifies the locally built image used by Gate 0, Gate 1 and
@@ -41,7 +41,7 @@ The following passed against the isolated NFS path:
   `scripts/build-local-nfs-image.sh --skip-build` (the pinned base and the
   script's `--no-cache` option provide the reproducibility boundary);
 - image inspection showing only the versioned local tag and image ID
-  `sha256:95ec84b11971d1f373df607a414f11efe924848874e9050c6b5f16383751836f`.
+  `sha256:86f73805e35f4a9fc400f9d4a0da5071f6e2ea401f60466046d591d21c081325`.
 
 The container was started with `app-config.nfs.yaml` selected through the NFS
 entrypoint. It returned:
@@ -118,9 +118,9 @@ DRYDOCK_FRONTEND_SYSTEM=nfs BUNDLE_TAG_OVERRIDE=bs_1.53.0 \
 DRYDOCK_NFS_FACTS_DIR=/tmp/nfs-control-cohort/facts \
 DRYDOCK_METADATA_WARNINGS_DIR=/home/gio/devportal/devportal-platform/docs/migrations/ofs-to-nfs/evidence/fixtures/nfs-control-cohort \
 IMAGE=veecode/devportal-nfs:2.3.0-rc.2-nfs-local \
-DRYDOCK_NAME=nfs-control-batch-rerun4 \
-DRYDOCK_OUT_DIR=/tmp/nfs-control-cohort-rerun4/out \
-DRYDOCK_REPORT_DIR=/tmp/nfs-control-cohort-rerun4/report \
+DRYDOCK_NAME=nfs-control-batch-rerun5 \
+DRYDOCK_OUT_DIR=/tmp/nfs-control-cohort-rerun5/out \
+DRYDOCK_REPORT_DIR=/tmp/nfs-control-cohort-rerun5/report \
 rtk ./harness/batch/run-batch.sh /tmp/nfs-control-cohort/overlays \
   kubernetes,github-workflows,marketplace,veecode-theme,github-auth
 ```
@@ -129,11 +129,11 @@ The command was run from the Drydock checkout root
 `/home/gio/devportal/veecode-drydock`.
 
 The run used no normalizer, revision, Factory or repair step. It produced five
-case report directories under `/tmp/nfs-control-cohort-rerun4/report` and the
+case report directories under `/tmp/nfs-control-cohort-rerun5/report` and the
 same frozen raw matrix
 [`matrix-report.md`](fixtures/nfs-control-cohort/matrix-report.md). A search
-of `/tmp/nfs-control-cohort-rerun4/report` and
-`/tmp/nfs-control-cohort-rerun4/out` found no `author-example` fallback.
+of `/tmp/nfs-control-cohort-rerun5/report` and
+`/tmp/nfs-control-cohort-rerun5/out` found no `author-example` fallback.
 
 The current artifacts and source provenance were:
 
