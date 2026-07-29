@@ -11,15 +11,22 @@ promotion was opened
 
 | Item | Value |
 | --- | --- |
-| Platform checkout at execution | `c5c404a1bfb29741cb96d8406bd7ed99e798f4ca` |
+| Platform checkout at execution | `5ba96fe9f841fb67e418f93bdc3b08d9ef5cfae8` |
 | Drydock checkout at execution | `85696627913f8b275efe17ef158072d92ae28d20` |
 | Export-overlays checkout | `19d46fbad8c37bd78ad317ccc929d01994f0528f` |
 | Local NFS image | `veecode/devportal-nfs:2.3.0-rc.2-nfs-local` |
-| Local image digest | `sha256:6337b556c3b253602d510bb37afcd274920a066719291e27b36226e15ff89c35` |
+| Local image digest | `sha256:95ec84b11971d1f373df607a414f11efe924848874e9050c6b5f16383751836f` |
 | Publication state | local tag only; no push and no mutable-pointer movement |
 
 The image digest identifies the locally built image used by Gate 0, Gate 1 and
 the Drydock batch. The OFS Dockerfile and OFS image were not modified.
+
+The source tree used for the image and browser run is the commit above. The
+correction removes `@backstage/plugin-kubernetes` from `app-next`, replaces the
+NFS `app.packages: all` setting with an explicit catalog include, and records
+the static-discovery and successful MF-response assertions in the browser
+smoke. This supersedes the earlier local run whose provenance pointed at
+`c5c404a`.
 
 ## Gate 0 — shell boot and selection
 
@@ -33,23 +40,39 @@ The following passed against the isolated NFS path:
 - isolated versioned image build through
   `scripts/build-local-nfs-image.sh --skip-build` (the pinned base and the
   script's `--no-cache` option provide the reproducibility boundary);
-- image inspection showing only the versioned local tag.
+- image inspection showing only the versioned local tag and image ID
+  `sha256:95ec84b11971d1f373df607a414f11efe924848874e9050c6b5f16383751836f`.
 
 The container was started with `app-config.nfs.yaml` selected through the NFS
 entrypoint. It returned:
 
 - `GET /.backstage/health/v1/readiness` → HTTP `200`, `{"status":"ok"}`;
-- `GET /.backstage/dynamic-features/remotes` → HTTP `200`, `[]` with the
-  intentionally empty default dynamic-plugin file;
+- the default image run returned HTTP `200`, `[]` from
+  `/.backstage/dynamic-features/remotes` with no dynamic overlay;
+- the Gate 1 fixture run returned HTTP `200` from
+  `/.backstage/dynamic-features/remotes` with the mounted Kubernetes remote;
 - the backend log explicitly selected
   `/app/packages/app-next/dist` for static app content.
 
 This is Gate 0 for the NFS arm only. It does not establish VeeCode shell
 parity.
 
-## Gate 1 — Kubernetes static reference
+## Static host boundary
 
-The Kubernetes reference fixture is
+The current OFS source was audited before selecting the NFS subset. Its
+`packages/app/src/App.tsx` statically mounts only
+`@internal/plugin-dynamic-plugins-info`; the catalog and other Backstage core
+packages in `AppBase` are host capabilities used by the existing route shell,
+not the customer plugin fleet. The NFS control intentionally keeps only the
+catalog capability needed by the fixture route. `app-config.nfs.yaml` uses an
+explicit `app.packages.include` entry for it, and `app-next` has no Kubernetes
+dependency. The legacy internal plugin, VeeCode shell branding and route
+parity are outside this minimal control slice; no claim of exact OFS shell
+parity is made here.
+
+## Gate 1 — Kubernetes dynamic reference
+
+The catalog entity fixture is
 `packages/app-next/fixtures/kubernetes-control.yaml`. The positive probe used
 the current artifact
 `oci://quay.io/veecode/backstage:bs_1.53.0!backstage-plugin-kubernetes`.
@@ -66,18 +89,24 @@ The container returned readiness `200` and exposed:
 
 The manifest endpoint returned a valid Module Federation manifest with
 `backstage__plugin_kubernetes`, a `remoteEntry`, and `.`/`alpha` exports. The
-browser probe `scripts/smoke-nfs-browser.mjs` exited `0` and asserted all of
-the following:
+corrected browser probe `scripts/smoke-nfs-browser.mjs` exited `0` and
+reported `staticDiscovery` as two catalog module records, with no
+`@backstage/plugin-kubernetes`. It asserted all of the following:
 
 - the guest entry completed;
-- the dynamic-feature remotes endpoint was requested;
-- the Module Federation manifest and `remoteEntry.js` were requested;
+- the dynamic-feature remotes endpoint was requested and advertised
+  `@backstage/plugin-kubernetes-dynamic`;
+- the dynamic-feature endpoint, Module Federation manifest and `remoteEntry.js`
+  returned successful HTTP responses;
+- catalog was present in static discovery and Kubernetes was absent from it;
 - the Kubernetes reference entity rendered `Your Clusters` / `No Kubernetes
   resources`;
 - no page or console errors were observed.
 
-This proves loader installation, remotes discovery, MF loading and one
-fixture-backed Kubernetes surface. There is no live cluster-connectivity
+Because the host static discovery contains catalog only, the Kubernetes
+surface cannot be supplied by the removed static Kubernetes dependency. This
+proves loader installation, remotes discovery, MF asset loading and one
+fixture-backed Kubernetes surface. It is not a live cluster-connectivity
 claim.
 
 ## Cohort execution
@@ -89,9 +118,9 @@ DRYDOCK_FRONTEND_SYSTEM=nfs BUNDLE_TAG_OVERRIDE=bs_1.53.0 \
 DRYDOCK_NFS_FACTS_DIR=/tmp/nfs-control-cohort/facts \
 DRYDOCK_METADATA_WARNINGS_DIR=/home/gio/devportal/devportal-platform/docs/migrations/ofs-to-nfs/evidence/fixtures/nfs-control-cohort \
 IMAGE=veecode/devportal-nfs:2.3.0-rc.2-nfs-local \
-DRYDOCK_NAME=nfs-control-batch \
-DRYDOCK_OUT_DIR=/tmp/nfs-control-cohort/out \
-DRYDOCK_REPORT_DIR=/tmp/nfs-control-cohort/report \
+DRYDOCK_NAME=nfs-control-batch-rerun4 \
+DRYDOCK_OUT_DIR=/tmp/nfs-control-cohort-rerun4/out \
+DRYDOCK_REPORT_DIR=/tmp/nfs-control-cohort-rerun4/report \
 rtk ./harness/batch/run-batch.sh /tmp/nfs-control-cohort/overlays \
   kubernetes,github-workflows,marketplace,veecode-theme,github-auth
 ```
@@ -100,10 +129,11 @@ The command was run from the Drydock checkout root
 `/home/gio/devportal/veecode-drydock`.
 
 The run used no normalizer, revision, Factory or repair step. It produced five
-case report directories and the frozen raw matrix
+case report directories under `/tmp/nfs-control-cohort-rerun4/report` and the
+same frozen raw matrix
 [`matrix-report.md`](fixtures/nfs-control-cohort/matrix-report.md). A search
-of `/tmp/nfs-control-cohort/report` and `/tmp/nfs-control-cohort/out` found no
-`author-example` fallback.
+of `/tmp/nfs-control-cohort-rerun4/report` and
+`/tmp/nfs-control-cohort-rerun4/out` found no `author-example` fallback.
 
 The current artifacts and source provenance were:
 
@@ -133,10 +163,16 @@ in the report.
 
 ## OFS control
 
-The existing OFS container was stopped only to release the host port while the
-NFS probes ran, then restarted without image or Dockerfile changes. Its
-readiness endpoint returned HTTP `200` with `{"status":"ok"}` on port `7007`
-after restoration. No OFS publication or promotion was performed.
+The existing OFS container was stopped temporarily to release the host port
+while the NFS probes and batch windows ran, then restarted without image or
+Dockerfile changes. Its readiness endpoint returned HTTP `200` with
+`{"status":"ok"}` on port `7007` after restoration. No OFS publication or
+promotion was performed.
+
+The shared backend bundle still physically carries `packages/app-next` because
+the backend workspace links that bundled package. That is a build-size/content
+coupling noted for a future artifact-separation slice; it does not activate
+app-next in the OFS runtime, whose Dockerfile and config path were unchanged.
 
 ## Decision at checkpoint
 

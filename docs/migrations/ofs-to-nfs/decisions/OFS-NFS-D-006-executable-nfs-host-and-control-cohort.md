@@ -21,10 +21,12 @@ scenarios and real runtime defects remain distinguishable.
 1. `app-next` uses `@backstage/frontend-dynamic-feature-loader@0.1.14` and
    configures `dynamicFrontendFeaturesLoader()` through `createApp()`. Its
    static frontend discovery is explicitly limited by `app-config.nfs.yaml` to
-   `@backstage/plugin-catalog`, which is part of the current OFS host baseline.
-   Kubernetes is not a host dependency; Gate 1 loads the current Kubernetes
-   artifact as a dynamic remote. The shell stays stock and minimal: VeeCode
-   branding, header, theme and navigation are outside this slice.
+   `@backstage/plugin-catalog`, a host capability used by the current OFS
+   catalog route. This is not a wholesale port of the OFS shell's static route
+   dependencies: the legacy internal plugin, VeeCode branding, header, theme
+   and navigation remain outside this slice. Kubernetes is not a host
+   dependency; Gate 1 loads the current Kubernetes artifact as a dynamic
+   remote.
 2. The NFS image is built through the separate `Dockerfile.nfs` and
    `scripts/build-local-nfs-image.sh` path. It packages the compiled
    `packages/app-next/dist`, includes `app-config.nfs.yaml`, enables
@@ -53,6 +55,10 @@ scenarios and real runtime defects remain distinguishable.
 
 - The NFS substrate is independently buildable, selectable and observable
   without changing OFS.
+- The backend bundle remains a shared build input and can physically contain
+  `app-next` for the unchanged OFS Dockerfile; this is a known artifact-size
+  coupling, not activation of the NFS host in OFS. Full artifact separation is
+  deferred to a separate slice.
 - The NFS host does not inherit `app.packages: all`: adding a frontend package
   to `app-next` alone is not permission to make it host-static. The explicit
   `app.packages.include` list is the reviewable boundary for the small static
