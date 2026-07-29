@@ -18,6 +18,21 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 let guestSignIn = false;
 
+const waitForResponse = predicate =>
+  page
+    .waitForResponse(predicate, { timeout: 15_000 })
+    .catch(() => null);
+
+const remotesResponsePromise = waitForResponse(response =>
+  response.url().includes('/.backstage/dynamic-features/remotes'),
+);
+const manifestResponsePromise = waitForResponse(response =>
+  response.url().includes('mf-manifest.json'),
+);
+const remoteEntryResponsePromise = waitForResponse(response =>
+  response.url().includes('remoteEntry.js'),
+);
+
 page.on('request', request => requests.push(request.url()));
 page.on('pageerror', error => pageErrors.push(String(error)));
 page.on('console', message => {
@@ -27,20 +42,65 @@ page.on('console', message => {
 let navigationError;
 try {
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1500);
   const enterButton = page.getByRole('button', { name: /^enter$/i }).first();
-  if (await enterButton.count()) {
+  const guestButtonVisible = await enterButton
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (guestButtonVisible) {
     await enterButton.click();
+    await page.waitForFunction(
+      () => !document.body?.innerText.includes('Enter as a Guest User.'),
+      undefined,
+      { timeout: 10_000 },
+    );
     guestSignIn = true;
-    await page.waitForTimeout(2500);
   }
   await page.goto(`${baseUrl}${entityPath}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(5000);
+  await page.waitForFunction(
+    () =>
+      document.body?.innerText.includes('Your Clusters') ||
+      document.body?.innerText.includes('No Kubernetes resources'),
+    undefined,
+    { timeout: 15_000 },
+  );
 } catch (error) {
   navigationError = String(error);
 }
 
 const bodyText = await page.locator('body').innerText().catch(() => '');
+const staticDiscovery = await page
+  .evaluate(() => {
+    const discovered = window['__@backstage/discovered__'];
+    return Array.isArray(discovered?.modules)
+      ? discovered.modules.map(module => module.name)
+      : [];
+  })
+  .catch(() => []);
+const [remotesResponse, manifestResponse, remoteEntryResponse] =
+  await Promise.all([
+    remotesResponsePromise,
+    manifestResponsePromise,
+    remoteEntryResponsePromise,
+  ]);
+const responseSucceeded = response => Boolean(response?.ok());
+const remotesFetch = await page
+  .evaluate(async () => {
+    const response = await fetch('/.backstage/dynamic-features/remotes');
+    return {
+      ok: response.ok,
+      remotes: response.ok ? await response.json() : [],
+    };
+  })
+  .catch(() => ({ ok: false, remotes: [] }));
+const remotes = Array.isArray(remotesFetch.remotes)
+  ? remotesFetch.remotes
+  : [];
+const kubernetesRemoteAdvertised = Array.isArray(remotes)
+  ? remotes.some(remote =>
+      String(remote.packageName ?? '').includes('plugin-kubernetes'),
+    )
+  : false;
 fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
 await page.screenshot({ path: screenshotPath, fullPage: true });
 await browser.close();
@@ -61,12 +121,25 @@ const result = {
     moduleFederationRemoteEntryRequested: requests.some(url =>
       url.includes('remoteEntry.js'),
     ),
+    loaderRemotesResponseOk:
+      remotesFetch.ok && responseSucceeded(remotesResponse),
+    moduleFederationManifestLoaded: responseSucceeded(manifestResponse),
+    moduleFederationRemoteEntryLoaded: responseSucceeded(remoteEntryResponse),
+    kubernetesRemoteAdvertised,
+    catalogStaticallyDiscovered: staticDiscovery.includes(
+      '@backstage/plugin-catalog',
+    ),
+    kubernetesStaticallyAbsent: !staticDiscovery.includes(
+      '@backstage/plugin-kubernetes',
+    ),
     kubernetesReferenceRendered:
       bodyText.includes('Your Clusters') ||
       bodyText.includes('No Kubernetes resources'),
     pageErrors: pageErrors.length === 0,
     consoleErrors: consoleErrors.length === 0,
   },
+  staticDiscovery,
+  remotes,
   navigationError,
   pageErrors,
   consoleErrors,
@@ -77,8 +150,14 @@ console.log(JSON.stringify(result, null, 2));
 
 const requiredChecks = [
   'loaderRemotesRequested',
+  'loaderRemotesResponseOk',
+  'kubernetesRemoteAdvertised',
   'moduleFederationManifestRequested',
+  'moduleFederationManifestLoaded',
   'moduleFederationRemoteEntryRequested',
+  'moduleFederationRemoteEntryLoaded',
+  'catalogStaticallyDiscovered',
+  'kubernetesStaticallyAbsent',
   'kubernetesReferenceRendered',
   'pageErrors',
   'consoleErrors',

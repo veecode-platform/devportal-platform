@@ -19,19 +19,24 @@ scenarios and real runtime defects remain distinguishable.
 ## Decision
 
 1. `app-next` uses `@backstage/frontend-dynamic-feature-loader@0.1.14` and
-   configures `dynamicFrontendFeaturesLoader()` through `createApp()`. The
-   shell stays stock and minimal: VeeCode branding, header, theme and
-   navigation are outside this slice.
+   configures `dynamicFrontendFeaturesLoader()` through `createApp()`. Its
+   static frontend discovery is explicitly limited by `app-config.nfs.yaml` to
+   `@backstage/plugin-catalog`, which is part of the current OFS host baseline.
+   Kubernetes is not a host dependency; Gate 1 loads the current Kubernetes
+   artifact as a dynamic remote. The shell stays stock and minimal: VeeCode
+   branding, header, theme and navigation are outside this slice.
 2. The NFS image is built through the separate `Dockerfile.nfs` and
    `scripts/build-local-nfs-image.sh` path. It packages the compiled
    `packages/app-next/dist`, includes `app-config.nfs.yaml`, enables
    `ENABLE_STANDARD_MODULE_FEDERATION`, and selects `app-next` explicitly.
    The path is local/CI-only for this decision: it creates a versioned local
    tag, does not push, and does not move `latest` or another protected pointer.
-3. Gate 1 uses the Kubernetes reference as a static catalog fixture and may
-   mount the current Kubernetes OCI artifact as the positive dynamic-plugin
-   control. A live Kubernetes cluster is not required for Gate 1 and is not
-   claimed by it.
+3. Gate 1 uses the Kubernetes reference as a static catalog fixture and mounts
+   the current Kubernetes OCI artifact as the positive dynamic-plugin control.
+   The browser evidence must show the Kubernetes remote advertised and loaded,
+   while the static discovery list must contain catalog and exclude Kubernetes.
+   A live Kubernetes cluster is not required for Gate 1 and is not claimed by
+   it.
 4. The cohort runs in Drydock `nfs` mode against the unchanged current
    artifacts. No pre-porting, normalizer, revision, Factory repair or
    automatic repair is part of the measurement. Each case receives one of
@@ -48,9 +53,14 @@ scenarios and real runtime defects remain distinguishable.
 
 - The NFS substrate is independently buildable, selectable and observable
   without changing OFS.
-- Gate 1 proves a reference plugin can be discovered and rendered in the
-  minimal shell, including the remotes endpoint and Module Federation assets;
-  it does not prove VeeCode shell parity or cluster connectivity.
+- The NFS host does not inherit `app.packages: all`: adding a frontend package
+  to `app-next` alone is not permission to make it host-static. The explicit
+  `app.packages.include` list is the reviewable boundary for the small static
+  host subset; other frontend features remain dynamic.
+- Gate 1 proves that a reference plugin can be advertised, loaded and rendered
+  as a remote in the minimal shell; the browser also proves that Kubernetes is
+  absent from the host's static discovery list. It does not prove VeeCode shell
+  parity or cluster connectivity.
 - The current cohort exposes the real migration boundary. Existing metadata
   still describes OFS mount points/themes and does not declare the NFS
   composition consumed by the host. Four cases therefore remain coverage or

@@ -1,7 +1,12 @@
 app:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
   packageName: app-next
-  packages: all
+  # Keep the NFS host's statically discovered frontend set explicit. The
+  # catalog is the only current NFS host feature carried over from the OFS
+  # baseline; dynamic fleet plugins arrive through the feature loader below.
+  packages:
+    include:
+      - '@backstage/plugin-catalog'
 
 backend:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
