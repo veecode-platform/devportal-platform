@@ -1,0 +1,26 @@
+# Gate 1 probe only. This is a current published bs_1.53.0 artifact, not a
+# ported source package and not part of the default NFS image inventory.
+plugins:
+  - package: oci://quay.io/veecode/backstage:bs_1.53.0!backstage-plugin-kubernetes
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-kubernetes:
+            entityTabs:
+              - path: /kubernetes
+                title: Kubernetes
+                mountPoint: entity.page.kubernetes
+                config:
+                  if:
+                    allOf:
+                      - hasAnnotation: backstage.io/kubernetes-id
+            mountPoints:
+              - mountPoint: entity.page.kubernetes/cards
+                importName: EntityKubernetesContent
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: backstage.io/kubernetes-id

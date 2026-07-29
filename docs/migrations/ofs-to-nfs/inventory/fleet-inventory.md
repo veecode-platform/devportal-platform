@@ -108,20 +108,22 @@ Each fleet row should capture:
 | `configContract` | Shared integrations, presets and plugin-owned config |
 | `requiredHostFeatures` | Shell APIs, providers, routes or backend modules needed |
 | `observedMode` | `ofs`, `nfs`, `ab` or `not-observed` |
-| `status` | `unknown`, `source-ready`, `artifact-ready`, `runtime-verified`, `broken`, `gap`, `unsupported`, `requires-port`, `blocked`, `config-scenario`, `escalated`, `no-report` |
+| `status` | `unknown`, `source-ready`, `artifact-ready`, `runtime-verified`, `broken`, `coverage-gap`, `unsupported`, `requires-port`, `blocked`, `config-scenario`, `escalated`, `no-report` |
 | `evidence` | Exact run, screenshot/DOM, logs, profile and digests |
 
-## First control rows
+## Control cohort — 2026-07-29
 
 | Case | Current evidence | Initial status |
 | --- | --- | --- |
-| Kubernetes reference | Backstage alpha plugin; local NFS shell discovered its route and entity extension | `runtime-verified` for shell discovery only; no cluster proof |
-| `github-workflows` | Source has `createFrontendPlugin`, entity blueprints and `./alpha`; overlay still declares `mountPoints` | `source-ready`, NFS artifact not yet runtime-verified |
-| Marketplace frontend | Source has page/nav/translation/API blueprints; package currently lacks an explicit `./alpha` export; overlay still declares legacy routes | `blocked` pending export/discovery decision |
-| VeeCode theme | Current artifact is wired through legacy `themes`; source audit found no NFS alpha export | `requires-port` |
-| `github` + `github-auth` | Composed preset/config contract; `github-auth` is not an isolated frontend plugin | `config-scenario`, frontend result pending |
+| Kubernetes reference | Current `bs_1.53.0` artifact was discovered and rendered against the static `app-next` fixture; no live cluster | `runtime-verified` |
+| `github-workflows` | Current artifact loaded and exposed a dynamic remote, but metadata has no NFS composition and the Drydock claim name misses the `-dynamic` suffix | `coverage-gap` |
+| Marketplace frontend | Current artifact loaded only its root export; metadata still describes legacy routes and has no explicit NFS alpha surface | `requires-port` |
+| VeeCode theme | Current artifact loaded only its root export; the contract is still OFS `themes` (`light`/`dark`) | `requires-port` |
+| `github` + `github-auth` | GitHub frontend artifact loaded, while `github-auth` remains a configuration-only preset (`plugins: []`) | `config-scenario` |
 
-These five rows are a control cohort, not a fleet readiness percentage.
+These five rows are a control cohort, not a fleet readiness percentage. The
+case-level evidence and raw Drydock verdicts are frozen in the
+[2026-07-29 executable checkpoint](../evidence/2026-07-29-nfs-executable-control-cohort.md).
 
 ## Classification rules
 

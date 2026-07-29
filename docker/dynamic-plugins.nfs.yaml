@@ -1,0 +1,4 @@
+# Intentionally empty: Gate 0 proves the app-next host and the backend service
+# without importing an OFS plugin inventory. A smoke or Drydock run can mount a
+# generated dynamic-plugins.yaml at /app/dynamic-plugins.yaml.
+plugins: []

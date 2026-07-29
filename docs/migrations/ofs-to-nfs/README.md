@@ -1,6 +1,6 @@
 # OFS → NFS migration
 
-Status: decision baseline recorded; implementation in progress
+Status: first executable NFS host and five-case control cohort recorded; production migration not approved
 
 This directory is the canonical documentation boundary for the VeeCode
 DevPortal migration from the Old Frontend System (OFS) to the New Frontend
@@ -45,6 +45,9 @@ the control cohort in
 [`research/2026-07-28-ofs-nfs-control-cohort.md`](research/2026-07-28-ofs-nfs-control-cohort.md),
 and the Drydock boundary in
 [`veecode-drydock/findings/31-drydock-mechanism-and-nfs-boundary.md`](../../../../veecode-drydock/findings/31-drydock-mechanism-and-nfs-boundary.md).
+The first executable NFS host, Gate 0/1 results and the unchanged-artifact
+control cohort are frozen in
+[`evidence/2026-07-29-nfs-executable-control-cohort.md`](evidence/2026-07-29-nfs-executable-control-cohort.md).
 
 ## Decision register
 
@@ -55,6 +58,7 @@ and the Drydock boundary in
 | [OFS-NFS-D-003](decisions/OFS-NFS-D-003-compatibility-boundary.md) | Compatibility helpers are a tactical boundary, not the strategy | Accepted |
 | [OFS-NFS-D-004](decisions/OFS-NFS-D-004-all-in-moderate.md) | All-in moderate fleet follow-through | Accepted |
 | [OFS-NFS-D-005](decisions/OFS-NFS-D-005-drydock-migration-cycle.md) | Drydock follows the OFS → NFS migration cycle | Accepted direction |
+| [OFS-NFS-D-006](decisions/OFS-NFS-D-006-executable-nfs-host-and-control-cohort.md) | First executable NFS host and honest control cohort | Accepted for executable slice |
 
 ## Working documents
 
@@ -67,6 +71,8 @@ and the Drydock boundary in
 - [Current OFS baseline](architecture/baseline-ofs.md)
 - [Open questions](open-questions.md)
 - [2026-07-29 control-cohort evidence snapshot](evidence/2026-07-29-control-cohort.md)
+- [2026-07-29 executable NFS host and control cohort](evidence/2026-07-29-nfs-executable-control-cohort.md)
+- [Frozen raw Drydock matrix](evidence/fixtures/nfs-control-cohort/matrix-report.md)
 
 ## Deliberately not decisions yet
 
@@ -87,6 +93,6 @@ product prioritization close them:
 4. Run the full fleet inventory in the declared NFS mode.
 5. Resolve the remaining questions with evidence and product priorities.
 
-Documentation expansion should stop at this point unless a new evidence class
-or decision boundary appears. The next substantial work is runtime validation
-and Drydock implementation, not another layer of migration prose.
+The next substantial work is a human-selected port or coverage slice. It must
+retain the current image/artifact provenance and must not silently turn this
+checkpoint into an automatic repair or production promotion.

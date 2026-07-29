@@ -1,6 +1,6 @@
 # Migration modes and gates
 
-Status: proposed execution contract
+Status: executed through Gate 1; Gate 4 control cohort recorded; later gates remain pending
 
 ## Modes
 
@@ -43,18 +43,21 @@ Required evidence:
 - app package selected by configuration;
 - exact image/config commit when containerized.
 
-The local `app-next` experiment has passed this gate as a development slice.
-It is not a production-image graduation.
+The isolated image and container passed this gate on 2026-07-29. The exact
+image, config, readiness response and build evidence are recorded in the
+[executable NFS checkpoint](../evidence/2026-07-29-nfs-executable-control-cohort.md).
+This remains a local/CI slice, not a production-image graduation.
 
 ### Gate 1 — NFS positive reference
 
 Question: can the NFS shell discover and render one known NFS plugin without
 manual shell wiring?
 
-The Kubernetes alpha plugin is the reference control. The current fixture
-proved discovery, entity extension registration and the Kubernetes route in a
-local shell without a real cluster. Cluster connectivity remains outside this
-gate.
+The Kubernetes alpha plugin is the reference control. The 2026-07-29 run
+proved discovery, entity extension registration, Module Federation loading and
+the Kubernetes route in a local shell without a real cluster. Cluster
+connectivity remains outside this gate. See the
+[executable NFS checkpoint](../evidence/2026-07-29-nfs-executable-control-cohort.md).
 
 ### Gate 2 — VeeCode plugin slice
 
@@ -84,10 +87,13 @@ checkpoint. A shell boot alone does not pass this gate.
 Question: does the observation model cover the main migration surfaces before
 we touch the complete fleet?
 
-The cohort is documented in
-[`research/2026-07-28-ofs-nfs-control-cohort.md`](../research/2026-07-28-ofs-nfs-control-cohort.md).
-Each case must produce a truthful result, including explicit unsupported or
-coverage-gap outcomes.
+The cohort was executed on 2026-07-29 with the current artifacts and no
+pre-porting or automatic repair. The five report directories and the exact
+matrix are documented in the
+[executable NFS checkpoint](../evidence/2026-07-29-nfs-executable-control-cohort.md)
+and its [frozen matrix](../evidence/fixtures/nfs-control-cohort/matrix-report.md).
+Each case has a truthful classification, including runtime verification,
+requires-port, configuration-scenario or coverage-gap outcomes.
 
 ### Gate 5 — Full-fleet NFS census
 

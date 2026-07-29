@@ -17,6 +17,7 @@
     "build:all": "yarn tsc && turbo run build",
     "build-image": "yarn workspace backend build-image",
     "build-local-image": "./scripts/build-local-image.sh",
+    "build-local-nfs-image": "./scripts/build-local-nfs-image.sh",
     "tsc": "turbo run tsc",
     "tsc:full": "tsc --skipLibCheck false --incremental false",
     "clean": "turbo run clean",

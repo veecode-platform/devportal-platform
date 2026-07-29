@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@backstage/frontend-defaults": "0.5.0",
+    "@backstage/frontend-dynamic-feature-loader": "0.1.14",
     "@backstage/plugin-catalog": "2.0.1",
     "@backstage/plugin-kubernetes": "0.12.17",
     "@backstage/ui": "0.13.1",

@@ -1,11 +1,17 @@
 app:
+  baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
   packageName: app-next
   packages: all
+
+backend:
+  baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
+  cors:
+    origin: ${NFS_BASE_URL:-http://localhost:7007}
 
 catalog:
   locations:
     - type: file
-      target: ../../packages/app-next/fixtures/kubernetes-control.yaml
+      target: ${NFS_KUBERNETES_FIXTURE:-../../packages/app-next/fixtures/kubernetes-control.yaml}
 
 kubernetes:
   serviceLocatorMethod:

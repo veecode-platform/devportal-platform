@@ -1,0 +1,67 @@
+# OFS-NFS-D-006 — Executable NFS host and control cohort
+
+Status: accepted for the first executable slice
+
+Date: 2026-07-29
+
+## Context
+
+The migration needs an executable NFS arm before any VeeCode shell or plugin
+port is attempted. The target is Backstage `1.53.0`; the first host is the
+minimal `app-next` shell. The existing OFS Dockerfile and runtime remain the
+control arm and must not be changed as part of this slice.
+
+The five-case cohort is deliberately a control measurement, not a readiness
+percentage. It must run with the current published artifacts and current
+overlay metadata, so that missing NFS declarations, configuration-only
+scenarios and real runtime defects remain distinguishable.
+
+## Decision
+
+1. `app-next` uses `@backstage/frontend-dynamic-feature-loader@0.1.14` and
+   configures `dynamicFrontendFeaturesLoader()` through `createApp()`. The
+   shell stays stock and minimal: VeeCode branding, header, theme and
+   navigation are outside this slice.
+2. The NFS image is built through the separate `Dockerfile.nfs` and
+   `scripts/build-local-nfs-image.sh` path. It packages the compiled
+   `packages/app-next/dist`, includes `app-config.nfs.yaml`, enables
+   `ENABLE_STANDARD_MODULE_FEDERATION`, and selects `app-next` explicitly.
+   The path is local/CI-only for this decision: it creates a versioned local
+   tag, does not push, and does not move `latest` or another protected pointer.
+3. Gate 1 uses the Kubernetes reference as a static catalog fixture and may
+   mount the current Kubernetes OCI artifact as the positive dynamic-plugin
+   control. A live Kubernetes cluster is not required for Gate 1 and is not
+   claimed by it.
+4. The cohort runs in Drydock `nfs` mode against the unchanged current
+   artifacts. No pre-porting, normalizer, revision, Factory repair or
+   automatic repair is part of the measurement. Each case receives one of
+   `runtime-verified`, `broken`, `requires-port`, `config-scenario` or
+   `coverage-gap`.
+5. The raw Drydock report, container logs and manual browser evidence are all
+   retained. A harness coverage result is not rewritten as a plugin failure,
+   and an `R1-OK` row with an NFS coverage cause is not treated as NFS
+   readiness.
+6. The cohort ends at a human evidence checkpoint. Merge, publication,
+   promotion and repair selection remain human actions.
+
+## Consequences
+
+- The NFS substrate is independently buildable, selectable and observable
+  without changing OFS.
+- Gate 1 proves a reference plugin can be discovered and rendered in the
+  minimal shell, including the remotes endpoint and Module Federation assets;
+  it does not prove VeeCode shell parity or cluster connectivity.
+- The current cohort exposes the real migration boundary. Existing metadata
+  still describes OFS mount points/themes and does not declare the NFS
+  composition consumed by the host. Four cases therefore remain coverage or
+  porting work, while the GitHub plus `github-auth` case remains a composed
+  configuration scenario.
+- The initial image and browser artifacts are local evidence only. This
+  decision does not graduate the NFS arm to production or authorize an image
+  publication.
+
+## Evidence
+
+The execution record, image digest, exact raw matrix and case classifications
+are frozen in
+[`2026-07-29-nfs-executable-control-cohort.md`](../evidence/2026-07-29-nfs-executable-control-cohort.md).

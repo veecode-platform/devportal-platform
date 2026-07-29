@@ -1,7 +1,8 @@
 # Gate 0.5 control cohort — evidence snapshot
 
 **Date:** 2026-07-29
-**Status:** partial; NFS runtime execution is not yet available
+**Status:** historical pre-runtime snapshot; superseded for current execution
+by [the executable NFS checkpoint](2026-07-29-nfs-executable-control-cohort.md)
 **Scope:** provenance, artifact resolution and Drydock target-planning boundary
 **Containers started:** no
 **Production state changed:** no

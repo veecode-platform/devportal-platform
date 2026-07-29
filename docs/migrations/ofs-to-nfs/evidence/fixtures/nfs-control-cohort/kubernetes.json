@@ -1,0 +1,10 @@
+{
+  "workspace": "kubernetes",
+  "warnings": [
+    {
+      "kind": "missing-metadata",
+      "packageName": "@backstage/plugin-kubernetes",
+      "message": "The Kubernetes reference is supplied by app-next as a static Gate 1 control; the current export overlay has no package metadata to declare it as a Drydock NFS subject."
+    }
+  ]
+}
