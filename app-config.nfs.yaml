@@ -1,12 +1,13 @@
 app:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
   packageName: app-next
-  # Keep the NFS host's statically discovered frontend set explicit. Catalog is
-  # the only static capability needed by this control's fixture route; the
-  # dynamic fleet is configured by app-next/src/App.tsx and loaded at runtime.
+  # Keep the NFS host's statically discovered frontend set explicit. Catalog and
+  # the upstream global header are selected here; the dynamic fleet is
+  # configured by app-next/src/App.tsx and loaded at runtime.
   packages:
     include:
       - '@backstage/plugin-catalog'
+      - '@red-hat-developer-hub/backstage-plugin-global-header'
 
 backend:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
