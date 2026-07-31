@@ -35,13 +35,14 @@ platformdirs==3.11.0
 pluggy==1.5.0
 pygments==2.17.2
 pymdown-extensions==10.3.1
+soupsieve>=2.8.4
 python-dateutil>=2.9.0.post0
 python-slugify==8.0.4
 pyyaml-env-tag==0.1
 pyyaml==6.0.1
 regex==2023.12.25
 requests==2.33.1
-setuptools
+setuptools>=83.0.0
 setuptools_scm<8.0
 six==1.16.0
 text-unidecode==1.3
