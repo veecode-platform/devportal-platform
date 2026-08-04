@@ -5,7 +5,7 @@
 # its baked plugin/catalog layers. The host and its app-next artefact are
 # selected explicitly at runtime by app-config.nfs.yaml.
 
-ARG NODE_BASE_RUNTIME=registry.access.redhat.com/ubi10/nodejs-22-minimal:10.1@sha256:ddd89a0893420dc94698d10325c664eb900c61c4c5eb4e839b93a0cd27f34668
+ARG NODE_BASE_RUNTIME=registry.access.redhat.com/ubi10/nodejs-22-minimal:10.2-1785373147@sha256:a2a29192d6f52e76f514fe8f763752c7e3c97110b1e3903b07d21cb11a49ccc1
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 
 FROM ${NODE_BASE_RUNTIME}
