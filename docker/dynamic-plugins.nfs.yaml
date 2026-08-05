@@ -28,3 +28,30 @@ plugins:
 
   - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.53.0!backstage-community-plugin-tech-radar-backend
     disabled: false
+
+  - package: oci://${PLUGIN_REGISTRY}/rbac:bs_1.53.0!backstage-community-plugin-rbac
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-rbac:
+            dynamicRoutes:
+              - path: /rbac
+                importName: RbacPage
+                menuItem:
+                  text: RBAC
+                  textKey: menuItem.rbac
+                  icon: admin
+                config:
+                  props:
+                    width: 1500
+                    height: 800
+            appIcons:
+              - name: admin
+                importName: RbacIcon
+            menuItems:
+              rbac:
+                parent: admin
+                title: RBAC
+                titleKey: menuItem.rbac
+                icon: admin
