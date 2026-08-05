@@ -1,5 +1,11 @@
 import { createExtensionTester, renderInTestApp } from '@backstage/frontend-test-utils';
-import { ApiBlueprint, storageApiRef, toastApiRef, useApi } from '@backstage/frontend-plugin-api';
+import {
+  ApiBlueprint,
+  pluginHeaderActionsApiRef,
+  storageApiRef,
+  toastApiRef,
+  useApi,
+} from '@backstage/frontend-plugin-api';
 import { scmAuthApiRef, scmIntegrationsApiRef } from '@backstage/integration-react';
 import { visitsApiRef } from '@backstage/plugin-home';
 import { appApisModule } from './App';
@@ -20,6 +26,8 @@ function ApiProbe() {
   // Registered by this app's apis.ts / appApisModule:
   const visits = useApi(visitsApiRef);
   const toast = useApi(toastApiRef);
+  // Not one of T4.6's named refs, but a hard blocker for T4.3 — see apis.ts.
+  const pluginHeaderActions = useApi(pluginHeaderActionsApiRef);
   const oidcAuth = useApi(oidcAuthApiRef);
   const auth0Auth = useApi(auth0AuthApiRef);
   const samlAuth = useApi(samlAuthApiRef);
@@ -30,6 +38,8 @@ function ApiProbe() {
     storage: typeof storage.forBucket === 'function',
     visits: typeof visits.save === 'function' && typeof visits.list === 'function',
     toast: typeof toast.post === 'function',
+    pluginHeaderActions:
+      Array.isArray(pluginHeaderActions.getPluginHeaderActions('app')),
     oidcAuth:
       typeof oidcAuth.getAccessToken === 'function' &&
       typeof oidcAuth.getBackstageIdentity === 'function',
@@ -57,12 +67,12 @@ describe('app-next mandatory APIs resolve', () => {
       storage: true,
       visits: true,
       toast: true,
+      pluginHeaderActions: true,
       oidcAuth: true,
       auth0Auth: true,
       samlAuth: true,
     });
   });
-
 });
 
 describe('toastApi bridges to alertApiRef (@backstage/plugin-app default)', () => {

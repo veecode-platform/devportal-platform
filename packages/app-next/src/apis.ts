@@ -5,6 +5,7 @@ import {
   discoveryApiRef,
   identityApiRef,
   oauthRequestApiRef,
+  pluginHeaderActionsApiRef,
   storageApiRef,
   toastApiRef,
 } from '@backstage/frontend-plugin-api';
@@ -48,6 +49,34 @@ export const toastApi = ApiBlueprint.make({
           // AlertApi has no per-alert handle; alerts auto-dismiss on their own.
           return { close: () => {} };
         },
+      }),
+    }),
+});
+
+// pluginHeaderActionsApiRef is not one of T4.6's named refs, but it turned out to be
+// a hard blocker for T4.3: node_modules/@backstage/frontend-plugin-api/dist/blueprints/
+// PageBlueprint.esm.js calls useApi(pluginHeaderActionsApiRef) unconditionally in
+// every branch of its factory, so with no provider NO PageBlueprint-based page can
+// render at all (confirmed: catalogPage and catalogEntityPage both threw
+// "No implementation available for apiRef{core.plugin-header-actions}" until this was
+// added). No installed package registers a default for it — the pinned
+// @backstage/plugin-app@0.3.5 (pulled in by the tuple-fixed
+// @backstage/frontend-defaults@0.5.0) predates it.
+// PluginHeaderActionBlueprint.attachTo targets an extension id of
+// "api:<pluginId>/plugin-header-actions" with an "actions" input, i.e. the real
+// upstream shape is an aggregator that collects PluginHeaderActionBlueprint
+// contributions per plugin. Nothing in this task's scope contributes one, so this is
+// deliberately the minimal unblocking default (always zero actions), not that
+// aggregator — named 'plugin-header-actions' so a future aggregator replacing this
+// slots into the same extension id if/when something needs to contribute actions.
+export const pluginHeaderActionsApi = ApiBlueprint.make({
+  name: 'plugin-header-actions',
+  params: defineParams =>
+    defineParams({
+      api: pluginHeaderActionsApiRef,
+      deps: {},
+      factory: () => ({
+        getPluginHeaderActions: () => [],
       }),
     }),
 });
@@ -151,6 +180,7 @@ export const samlAuthApi = ApiBlueprint.make({
 
 export const apis = [
   toastApi,
+  pluginHeaderActionsApi,
   visitsApi,
   oidcAuthApi,
   auth0AuthApi,
