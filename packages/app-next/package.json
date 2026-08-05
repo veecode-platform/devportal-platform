@@ -26,6 +26,7 @@
     "@backstage/plugin-catalog": "2.0.1",
     "@backstage/plugin-catalog-graph": "0.6.6",
     "@backstage/plugin-home": "0.9.8",
+    "@backstage/plugin-scaffolder": "1.38.1",
     "@backstage/ui": "0.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
