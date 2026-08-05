@@ -417,7 +417,7 @@ plugins:
                 variant: dark
                 importName: VeecodeDarkThemeProvider
 
-  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.53.0!backstage-community-plugin-tech-radar
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
     pluginConfig:
       dynamicPlugins:
@@ -437,7 +437,7 @@ plugins:
                   props:
                     width: 1500
                     height: 800
-  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.53.0!backstage-community-plugin-tech-radar-backend
     disabled: true   # recommended-tier (gated by presets/recommended.yaml)
 
   # ABOUT plugin

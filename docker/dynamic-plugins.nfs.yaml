@@ -1,4 +1,30 @@
-# Intentionally empty: Gate 0 proves the app-next host and the backend service
-# without importing an OFS plugin inventory. A smoke or Drydock run can mount a
-# generated dynamic-plugins.yaml at /app/dynamic-plugins.yaml.
-plugins: []
+# Tech Radar (FE + BE) seeds the NFS boot inventory — this is no longer
+# intentionally empty. Gate 0 now proves the app-next host and the backend
+# service against a real dynamic-plugin install, not just the bare host/
+# backend wiring. A smoke or Drydock run can still mount a generated
+# dynamic-plugins.yaml at /app/dynamic-plugins.yaml to override this file
+# entirely (see docker/entrypoint.nfs.sh — it prefers that path when present).
+plugins:
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.53.0!backstage-community-plugin-tech-radar
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-tech-radar:
+            appIcons:
+              - name: techRadar
+                importName: TechRadarIcon
+            dynamicRoutes:
+              - path: /tech-radar
+                importName: TechRadarPage
+                menuItem:
+                  icon: techRadar
+                  text: Tech Radar
+                  textKey: menuItem.techRadar
+                config:
+                  props:
+                    width: 1500
+                    height: 800
+
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.53.0!backstage-community-plugin-tech-radar-backend
+    disabled: false

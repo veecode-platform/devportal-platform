@@ -41,7 +41,7 @@ plugins:
                 titleKey: menuItem.rbac
                 icon: admin
 
-  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.53.0!backstage-community-plugin-tech-radar
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -62,7 +62,7 @@ plugins:
                     width: 1500
                     height: 800
 
-  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.49.4!backstage-community-plugin-tech-radar-backend
+  - package: oci://${PLUGIN_REGISTRY}/tech-radar:bs_1.53.0!backstage-community-plugin-tech-radar-backend
     disabled: false
 
   - package: oci://${PLUGIN_REGISTRY}/marketplace:bs_${BACKSTAGE_VERSION}!devportal-marketplace-frontend-dynamic
