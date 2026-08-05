@@ -12,6 +12,9 @@ const {
   parseConfigTargets,
   pgClientConfig,
   rowsToPlugins,
+  splitOciRef,
+  refWithDigest,
+  repoWithoutTag,
 } = require('./regenerate-extensions-install.js');
 
 test('parseConfigTargets collects repeated --config paths in order', () => {
@@ -166,4 +169,79 @@ test('rowsToPlugins backfills package from package_name when config_yaml omits i
   ]);
   assert.equal(plugins[0].package, 'oci://from-pk');
   assert.deepEqual(plugins[0].pluginConfig, { a: 1 });
+});
+
+// --- OCI reference rewriting (T1.3 / D-G8) --------------------------------
+//
+// refWithDigest had no coverage at all, which is how the port bug below shipped.
+// The registry-with-a-port case is not hypothetical: any private registry
+// (registry.internal:5000, localhost:5556 in the item-5 rig) hits it.
+
+test('repoWithoutTag drops the tag from a plain registry/path:tag', () => {
+  assert.equal(repoWithoutTag('quay.io/veecode/todo:bs_1.53.0'), 'quay.io/veecode/todo');
+});
+
+test('repoWithoutTag keeps a registry PORT while dropping the tag', () => {
+  assert.equal(
+    repoWithoutTag('registry.internal:5000/veecode/todo:bs_1.53.0'),
+    'registry.internal:5000/veecode/todo',
+  );
+});
+
+test('repoWithoutTag leaves a ref with a port and no tag untouched', () => {
+  assert.equal(repoWithoutTag('localhost:5556/t13/todo'), 'localhost:5556/t13/todo');
+});
+
+test('repoWithoutTag leaves a ref with neither port nor tag untouched', () => {
+  assert.equal(repoWithoutTag('quay.io/veecode/todo'), 'quay.io/veecode/todo');
+});
+
+test('repoWithoutTag strips an existing digest', () => {
+  assert.equal(
+    repoWithoutTag('quay.io/veecode/todo@sha256:' + 'a'.repeat(64)),
+    'quay.io/veecode/todo',
+  );
+});
+
+test('splitOciRef separates image from selector at the bang', () => {
+  assert.deepEqual(splitOciRef('oci://quay.io/veecode/todo:bs_1.53.0!pkg-name'), {
+    image: 'oci://quay.io/veecode/todo:bs_1.53.0',
+    selector: 'pkg-name',
+  });
+});
+
+test('splitOciRef returns null for a non-oci ref or a ref with no selector', () => {
+  assert.equal(splitOciRef('npm-package-name'), null);
+  assert.equal(splitOciRef('oci://quay.io/veecode/todo:bs_1.53.0'), null);
+});
+
+test('refWithDigest pins a tagged ref to a digest, preserving the selector', () => {
+  const digest = 'sha256:' + 'b'.repeat(64);
+  assert.equal(
+    refWithDigest('oci://quay.io/veecode/todo:bs_1.53.0!backstage-community-plugin-todo', digest),
+    `oci://quay.io/veecode/todo@${digest}!backstage-community-plugin-todo`,
+  );
+});
+
+// The regression this fixes: first-colon splitting collapsed the whole reference
+// to the hostname, so the emitted ref pointed at a repository that does not exist.
+test('refWithDigest preserves a registry PORT and the repository path', () => {
+  const digest = 'sha256:' + 'c'.repeat(64);
+  assert.equal(
+    refWithDigest('oci://localhost:5556/t13/todo:movingtag!fake-plugin', digest),
+    `oci://localhost:5556/t13/todo@${digest}!fake-plugin`,
+  );
+});
+
+test('refWithDigest re-pins a ref that already carries a digest', () => {
+  const old = 'sha256:' + 'd'.repeat(64);
+  const fresh = 'sha256:' + 'e'.repeat(64);
+  assert.equal(
+    refWithDigest(`oci://registry.internal:5000/veecode/todo@${old}!pkg`, fresh),
+    `oci://registry.internal:5000/veecode/todo@${fresh}!pkg`,
+  );
+});
+
+test('refWithDigest leaves a non-OCI package name alone', () => {
+  assert.equal(refWithDigest('some-npm-package', 'sha256:' + 'f'.repeat(64)), 'some-npm-package');
 });

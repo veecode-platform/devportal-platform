@@ -229,8 +229,26 @@ function splitOciRef(ref) {
 function refWithDigest(ref, digest) {
   const parts = splitOciRef(ref);
   if (!parts) return ref;
-  const repo = parts.image.replace(/^oci:\/\//, '').split('@')[0].split(':')[0];
+  const repo = repoWithoutTag(parts.image.replace(/^oci:\/\//, ''));
   return `oci://${repo}@${digest}!${parts.selector}`;
+}
+
+// Drop the tag (and any digest already present) from `registry[:port]/path/repo[:tag]`,
+// keeping everything else byte-for-byte.
+//
+// Splitting on the FIRST colon is wrong and was: in OCI reference grammar a colon
+// before the first `/` is a REGISTRY PORT, and only a colon after the last `/`
+// delimits a tag. `quay.io/veecode/todo:bs_1.53.0` has exactly one colon, so
+// first-colon and last-colon agree and the bug stayed invisible — but
+// `registry.internal:5000/veecode/todo:bs_1.53.0` collapsed to `registry.internal`,
+// losing the port AND the repository path, and the installer would then fetch a
+// reference that does not exist. Found by the T1.3 item-5 moving-tag test, whose
+// disposable registry runs on localhost:5556.
+function repoWithoutTag(image) {
+  const withoutDigest = image.split('@')[0];
+  const lastSlash = withoutDigest.lastIndexOf('/');
+  const lastColon = withoutDigest.lastIndexOf(':');
+  return lastColon > lastSlash ? withoutDigest.slice(0, lastColon) : withoutDigest;
 }
 
 // Resolve an OCI ref to its manifest digest, once, via the skopeo already present
@@ -509,4 +527,11 @@ if (require.main === module) {
 }
 
 // Exported for unit tests (the pure transforms have no I/O).
-module.exports = { parseConfigTargets, pgClientConfig, rowsToPlugins };
+module.exports = {
+  parseConfigTargets,
+  pgClientConfig,
+  rowsToPlugins,
+  splitOciRef,
+  refWithDigest,
+  repoWithoutTag,
+};
