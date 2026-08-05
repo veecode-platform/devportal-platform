@@ -31,6 +31,14 @@ app:
       - '@backstage/plugin-catalog-graph'
       - '@backstage/plugin-scaffolder'
       - '@backstage/plugin-techdocs'
+      # T4.8. Verified from the published tarball before adding it: 0.9.5's
+      # exports map declares
+      #   "./alpha": { "backstage": "@backstage/FrontendPlugin", ... }
+      # so it is NFS-shaped and the CLI will discover it, and its alpha
+      # registers page:user-settings plus three SubPageBlueprint sub-pages —
+      # "General", "Authentication Providers", "Feature Flags". Upstream
+      # delivers all three; nothing is ported from RHDH.
+      - '@backstage/plugin-user-settings'
 
 backend:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
