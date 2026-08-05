@@ -88,6 +88,16 @@ if unresolved:
     sys.exit(78)
 PY
 
+# Clear a stale install lock — parity with entrypoint.sh:411-416, which the NFS
+# path was missing. install-dynamic-plugins.py keeps its lock inside
+# /app/dynamic-plugins-root/; when that directory is on a persistent volume, a
+# SIGKILL or OOM skips the atexit cleanup and leaves the lock behind. The next
+# boot then hangs forever, not fails: wait_for_lock_release
+# (install-dynamic-plugins.py:591-597) is `while True: sleep(1)` with no
+# timeout and no maximum attempts. At boot nothing else holds the lock, so
+# removing it here is safe.
+rm -f /app/dynamic-plugins-root/install-dynamic-plugins.lock
+
 python3.12 /app/install-dynamic-plugins.py /app/dynamic-plugins-root
 
 CONFIG_ARGS=(
