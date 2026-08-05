@@ -127,13 +127,26 @@ record(
 // afterwards "/" is the authenticated home and the sign-in card is gone.
 const preSignInText = await bodyText();
 const rootText = preSignInText;
-const gitlabVisible = /gitlab/i.test(rootText);
+// Which provider to expect, by its rendered card title. Parameterised because
+// signIn.tsx reads the `signInPage` config key and picks from a five-provider
+// map — asserting one hardcoded provider is exactly the hole that let the
+// GitLab-only regression ship. Note microsoft's title renders as "Azure".
+const expectedProvider = process.env.NFS_SHELL_SIGNIN_PROVIDER ?? 'GitLab';
+const allProviderTitles = ['GitHub', 'GitLab', 'Azure', 'Keycloak'];
+const providerVisible = new RegExp(expectedProvider, 'i').test(rootText);
+// The discriminating half: no other provider on the page. Without it, a page
+// rendering all four would satisfy any single expectation.
+const leaked = allProviderTitles.filter(
+  title =>
+    title.toLowerCase() !== expectedProvider.toLowerCase() &&
+    new RegExp(`\\b${title}\\b`, 'i').test(rootText),
+);
 const guestVisible = /guest/i.test(rootText);
 const signInShot = await shot('02-signin');
 record(
   'signIn',
-  gitlabVisible ? 'present' : 'absent',
-  `GitLab provider on the sign-in page: ${gitlabVisible}; guest offered: ${guestVisible}; shot=${signInShot}`,
+  providerVisible && leaked.length === 0 ? 'present' : 'absent',
+  `expected=${expectedProvider} visible=${providerVisible} leakedOtherProviders=${JSON.stringify(leaked)} guestOffered=${guestVisible} shot=${signInShot}`,
 );
 
 // Sign in as guest when the page offers it. Everything past this point needs an
