@@ -30,6 +30,11 @@
 #   docker compose config | grep 'source:' | grep -c '/docker/'
 # Base file: 3. With this override: 0.
 
+# Note there is deliberately NO static-backend-plugin-ids.json mount here either:
+# the candidate must carry its own, copied in by Dockerfile.nfs. If the guard
+# degrades to its WARNING during a candidate run, that is a real finding about the
+# image, not something to paper over with a bind mount.
+
 services:
   devportal:
     volumes: !override

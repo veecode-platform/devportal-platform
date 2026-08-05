@@ -566,8 +566,45 @@ def check_backend_plugin_id_collisions(dynamicPluginsRoot: str):
     existing plugin's backend rather than registering their own (several
     catalog modules all target pluginId "catalog" with no conflict), so they
     are excluded too. `disabled` entries never get a directory, so they are
-    implicitly excluded — there is nothing to opt them out of here."""
+    implicitly excluded — there is nothing to opt them out of here.
+
+    The host's STATICALLY compiled backend plugins count as occupants too. They
+    are read from static-backend-plugin-ids.json when that file is present and
+    seeded into the map before any directory is examined, so a dynamic plugin
+    claiming e.g. `kubernetes` is refused here instead of at boot. That matters
+    because Backstage's own duplicate detection, in
+    BackendInitializer#enumerateRegistrations, DELETES the whole pluginId slot
+    when the second registration throws — so BOTH plugins fail to initialize,
+    and the default onPluginBootFailure ('abort') takes the entire backend down.
+    packages/backend/src/index.ts:230-233 records exactly that happening for
+    mcp-actions. When the file is absent the check degrades to dynamic-vs-dynamic
+    only, which is the historical behavior and what the OFS path gets."""
     owner_by_plugin_id = {}  # pluginId -> first backend-plugin directory seen for it
+
+    static_ids_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), 'static-backend-plugin-ids.json')
+    if os.path.isfile(static_ids_path):
+        try:
+            with open(static_ids_path, 'r') as f:
+                static_ids = json.load(f).get('staticBackendPluginIds') or []
+        except (json.JSONDecodeError, OSError) as e:
+            # A malformed file must not be read as "the host registers nothing",
+            # because that silently reopens the collision this check closes.
+            raise InstallException(
+                f"could not read {static_ids_path}: {e}. It declares which backend "
+                f"pluginIds the host already occupies; refusing to install against "
+                f"an unknown static set rather than let a collision through.")
+        for static_plugin_id in static_ids:
+            owner_by_plugin_id[static_plugin_id] = 'the host itself (statically compiled)'
+        print(
+            f"\n======= Reserved {len(static_ids)} pluginId(s) the host registers statically",
+            flush=True)
+    else:
+        print(
+            "\n======= WARNING: static-backend-plugin-ids.json not found — comparing "
+            "dynamic plugins against each other only, not against the host's static ones",
+            flush=True)
+
     for dir_name in sorted(os.listdir(dynamicPluginsRoot)):
         dir_path = os.path.join(dynamicPluginsRoot, dir_name)
         if not os.path.isdir(dir_path):
@@ -591,9 +628,23 @@ def check_backend_plugin_id_collisions(dynamicPluginsRoot: str):
             continue
 
         if plugin_id in owner_by_plugin_id:
+            incumbent = owner_by_plugin_id[plugin_id]
+            if incumbent == 'the host itself (statically compiled)':
+                # Different remedy: you cannot switch the host off with
+                # `disabled: true`, and leaving both in place does not mean "the
+                # static one wins" — Backstage would drop BOTH and abort the boot.
+                raise InstallException(
+                    f"'{dir_name}' registers backend pluginId '{plugin_id}', but this "
+                    f"image already registers it STATICALLY (compiled into "
+                    f"packages/backend/src/index.ts). Loading both does not make one "
+                    f"of them win: Backstage detects the duplicate, drops both, and "
+                    f"the backend aborts. Either remove the static "
+                    f"backend.add(import(...)) for pluginId '{plugin_id}' from "
+                    f"index.ts in the SAME rollout that enables this dynamic plugin, "
+                    f"or set disabled: true on this entry.")
             raise InstallException(
                 f"Two backend plugins both register pluginId '{plugin_id}': "
-                f"'{owner_by_plugin_id[plugin_id]}' and '{dir_name}'. Backstage "
+                f"'{incumbent}' and '{dir_name}'. Backstage "
                 f"can only mount one backend per pluginId — disable one of the "
                 f"two entries (disabled: true) or remove it from the plugin "
                 f"inventory.")

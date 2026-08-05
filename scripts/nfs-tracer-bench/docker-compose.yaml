@@ -86,6 +86,11 @@ services:
       # tree's copy had the same md5 (4c760c738e46...), i.e. no edit was reaching
       # the container. Keep every file the boot path executes on this list.
       - ../../docker/install-dynamic-plugins.py:/app/install-dynamic-plugins.py:ro
+      # The installer resolves this next to its own __file__, so overlaying the
+      # script without the JSON makes the static-pluginId guard degrade to a
+      # WARNING and quietly stop guarding anything. Exactly the shape of the
+      # defect above: the boot path was overlaid, one of its inputs was not.
+      - ../../docker/static-backend-plugin-ids.json:/app/static-backend-plugin-ids.json:ro
     healthcheck:
       # NOT /api/healthcheck: on this image that route requires auth and answers
       # 401, so it can never turn the container healthy. The Backstage readiness
