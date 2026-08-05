@@ -63,6 +63,9 @@ services:
       # That is the whole integration surface — no image rebuild, no code change.
       - ./config/app-config.bench.yaml:/app/app-config.local.yaml:ro
       - ./fixtures/marketplace-tracer.yaml:/app/bench/marketplace-tracer.yaml:ro
+      # G1b: an executable Template for the shell smoke. The repo's own examples
+      # all end in publish:github, so none of them can be run on the bench.
+      - ./fixtures/g1b-shell-template.yaml:/app/bench/g1b-shell-template.yaml:ro
       # Written by bench.sh on every `up`. entrypoint.nfs.sh:10-14 prefers this
       # path over the image's empty dynamic-plugins.nfs.yaml. It declares the
       # local catalog module when artifacts/ has one, otherwise `plugins: []`.

@@ -42,3 +42,8 @@ catalog:
       target: /app/bench/marketplace-tracer.yaml
     - type: file
       target: ${NFS_KUBERNETES_FIXTURE:-/app/packages/app-next/fixtures/kubernetes-control.yaml}
+    # G1b: the executable Template the shell smoke drives (T4.4). Local actions
+    # only — see the fixture's own header for why the repo's examples cannot be
+    # used here.
+    - type: file
+      target: /app/bench/g1b-shell-template.yaml

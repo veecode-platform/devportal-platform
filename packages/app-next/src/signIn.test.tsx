@@ -39,6 +39,31 @@ describe('appSignInModule replaces the default guest-only sign-in page', () => {
     // "Guest" (@backstage/core-components/dist/layout/SignInPage/
     // guestProvider.esm.js). Its absence proves this replaced the default
     // rather than rendering alongside it.
+    //
+    // Note this config sets no auth.environment, so the dev-only guest branch
+    // below is off — which is exactly the production shape.
     expect(screen.queryByText('Guest')).toBeNull();
+  });
+
+  // Parity with the OFS shell: packages/app/src/components/SignInPage/
+  // SignInPage.tsx offers ['guest', providerConfig] when auth.environment is
+  // 'development' and [providerConfig] otherwise. Without this, a developer (and
+  // the G1b bench) could not sign in at all without a real GitLab IdP.
+  it('offers guest alongside GitLab when auth.environment is development', async () => {
+    renderTestApp({
+      features: [appSignInModule],
+      initialRouteEntries: ['/'],
+      config: {
+        app: { title: 'Test App', baseUrl: 'http://localhost:3000' },
+        backend: { baseUrl: 'http://localhost:7007' },
+        auth: { environment: 'development' },
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Guest')).toBeTruthy();
+    });
+    // Guest is additive, not a replacement: the real provider stays on the page.
+    expect(screen.getByText('GitLab')).toBeTruthy();
   });
 });

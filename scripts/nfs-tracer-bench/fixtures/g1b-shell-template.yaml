@@ -1,0 +1,61 @@
+# G1b fixture — a Template the shell smoke can actually EXECUTE.
+#
+# The repo's own templates (examples/template-nodejs, template-azure-nodejs,
+# template-openapi) all end in publish:github or an Azure equivalent. Running
+# one of those on the bench would create a real remote repository, so they
+# cannot be the executed template here.
+#
+# This fixture keeps the part that matters for T4.4 — the wizard form, the
+# parameter schema, a stock FormFieldBlueprint picker, and a task that really
+# runs in the scaffolder backend — and drops the part that reaches outside the
+# bench. Steps are debug:log only: a builtin of @backstage/plugin-scaffolder-
+# backend with no filesystem or network effect.
+#
+# RepoUrlPicker is not decoration: examples/template-nodejs/template.yaml:38
+# uses that exact picker, so proving it renders and submits here is proving the
+# picker a real repo template depends on.
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: g1b-shell-smoke
+  title: G1b Shell Smoke
+  description: Executable template for the NFS shell runtime proof — local actions only
+  tags:
+    - g1b
+    - nfs
+spec:
+  owner: admins
+  type: service
+  parameters:
+    - title: Shell smoke input
+      required:
+        - name
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Anything — it is echoed back by debug:log
+          ui:autofocus: true
+        repoUrl:
+          title: Repository Location
+          type: string
+          # Same picker examples/template-nodejs/template.yaml:38 relies on.
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+  steps:
+    - id: echo
+      name: Echo the input
+      action: debug:log
+      input:
+        message: 'G1b shell smoke ran with name=${{ parameters.name }}'
+    - id: echo-repo
+      name: Echo the picked repository
+      action: debug:log
+      input:
+        message: 'G1b shell smoke picked repoUrl=${{ parameters.repoUrl }}'
+  output:
+    text:
+      - title: Result
+        content: 'G1b shell smoke completed for ${{ parameters.name }}'
