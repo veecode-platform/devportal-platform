@@ -72,6 +72,12 @@ services:
       # skips the integrity check for local paths
       # (docker/install-dynamic-plugins.py:49,271-289,442).
       - ./artifacts:/app/bench-artifacts:ro
+      # Overlay of the repo's boot path over the pinned image, so T1.1–T1.3 are
+      # exercised as they exist in the working tree without rebuilding a 1.4 GB
+      # image on every edit. T1.5 is what proves them from a real build.
+      # Same idea as the image-overlay loop in docs/DEVELOPMENT_GUIDE.md.
+      - ../../docker/entrypoint.nfs.sh:/app/entrypoint.nfs.sh:ro
+      - ../../docker/regenerate-extensions-install.js:/app/regenerate-extensions-install.js:ro
     healthcheck:
       # NOT /api/healthcheck: on this image that route requires auth and answers
       # 401, so it can never turn the container healthy. The Backstage readiness

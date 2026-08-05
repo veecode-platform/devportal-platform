@@ -101,6 +101,10 @@ COPY --chown=1001:0 app-config.yaml app-config.production.yaml app-config.nfs.ya
 COPY --chown=1001:0 docker/install-dynamic-plugins.py /app/install-dynamic-plugins.py
 COPY --chown=1001:0 --chmod=755 docker/entrypoint.nfs.sh /app/entrypoint.nfs.sh
 COPY --chown=1001:0 docker/dynamic-plugins.nfs.yaml /app/dynamic-plugins.nfs.yaml
+# ADR-014 stateless pre-step, same file the OFS image uses. It rebuilds
+# extensions-install.yaml from Postgres before the Python installer reads it.
+# Its runtime deps are already in this image: pg, yaml, @backstage/config-loader.
+COPY --chown=1001:0 docker/regenerate-extensions-install.js /app/regenerate-extensions-install.js
 
 RUN mkdir -p /app/dynamic-plugins-root /app/data
 

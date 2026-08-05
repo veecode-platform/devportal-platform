@@ -22,7 +22,12 @@
  *   - Write {plugins: [...]} atomically (temp file + rename) to
  *     ${DEVPORTAL_DB_PATH:-/app/data}/extensions-install.yaml.
  *   - Never hard-fail the boot: on any config/DB/write error, leave the file the
- *     entrypoint already guaranteed in place and log a warning.
+ *     entrypoint already guaranteed in place and log a warning. This is the OFS
+ *     default and stays untouched.
+ *   - EXCEPT when EXTENSIONS_PRESTEP_FAIL_CLOSED=true (opt-in, set only by the
+ *     NFS entrypoint — ADR-014 amendment / D-G5). Then a configured-but-unusable
+ *     Postgres aborts the boot with exit 78 instead of degrading silently. See
+ *     `bail()` for exactly which conditions abort and which stay soft.
  *
  * Config is read with the same --config files the backend gets (passed as args),
  * via @backstage/config-loader, so ${VAR:-default} and the SaaS/preset database
@@ -51,6 +56,59 @@ const STATEMENT_TIMEOUT_MS = 10000;
 
 const log = msg => process.stdout.write(`VEECODE prestep: ${msg}\n`);
 const warn = msg => process.stderr.write(`VEECODE prestep: WARNING — ${msg}\n`);
+
+// Opt-in, read once. Absent/anything-but-"true" keeps the historical fail-open
+// behavior byte-for-byte, so the OFS entrypoint — which does not set it — is
+// unaffected. Only docker/entrypoint.nfs.sh turns it on.
+const FAIL_CLOSED = process.env.EXTENSIONS_PRESTEP_FAIL_CLOSED === 'true';
+
+// Exit 78 matches the code the entrypoints already use for "boot refused because
+// the deployment is misconfigured" (preset variable validation), so operators see
+// one convention rather than two.
+const EXIT_MISCONFIGURED = 78;
+
+// SQLSTATE invalid_catalog_name — "database <x> does not exist".
+//
+// With pluginDivisionMode: database (the default) each plugin owns its own
+// database, and the marketplace backend creates `${prefix}extensions` the first
+// time it runs. Until then the pre-step's connection fails with this code. That
+// is the SAME legitimate state as "table not found": a tenant that has not
+// migrated yet, NOT an unreachable Postgres. Measured on the bench — a naive
+// fail-closed rejects it and breaks every first boot.
+//
+// Everything else (connection refused, timeout, auth failure, permission denied)
+// stays hard: those mean Postgres is declared the source of truth and cannot be
+// consulted.
+const PG_DATABASE_MISSING = '3D000';
+
+/**
+ * A condition that degrades under OFS but must refuse the boot under NFS.
+ *
+ * Called only for states where Postgres is CONFIGURED yet the marketplace
+ * selections cannot be reconstructed — unreachable database, unusable connection
+ * config, failed write. In those states a silent degrade boots the host with an
+ * empty or stale plugin set, which reads as "the operator uninstalled everything"
+ * and is exactly what D-G5 refuses.
+ *
+ * Deliberately NOT routed through here, because they are legitimate states and
+ * must keep booting even fail-closed:
+ *   - backend.database.client !== 'pg'  (SQLite/file deployments)
+ *   - marketplace_installations absent  (fresh tenant, plugin never migrated)
+ *   - the plugin's own database absent  (see PG_DATABASE_MISSING)
+ */
+function bail(msg) {
+  if (!FAIL_CLOSED) {
+    warn(msg);
+    return;
+  }
+  process.stderr.write(
+    `VEECODE prestep: FATAL — ${msg}\n` +
+      'VEECODE prestep: refusing to boot with an unreconstructed plugin set ' +
+      '(EXTENSIONS_PRESTEP_FAIL_CLOSED=true). Fix the database configuration or ' +
+      'reachability and restart.\n',
+  );
+  process.exit(EXIT_MISCONFIGURED);
+}
 
 // Parse repeated `--config <path>` args (the same shape the entrypoint passes).
 function parseConfigTargets(argv) {
@@ -186,7 +244,7 @@ async function main() {
   try {
     config = await loadConfig(targets);
   } catch (e) {
-    warn(`could not load app-config (${e.message}); leaving ${outFile} as-is`);
+    bail(`could not load app-config (${e.message}); leaving ${outFile} as-is`);
     return;
   }
 
@@ -210,7 +268,7 @@ async function main() {
     return;
   }
   if (!connection) {
-    warn(
+    bail(
       `backend.database.client=pg but no backend.database.connection found; leaving ${outFile} as-is`,
     );
     return;
@@ -227,7 +285,7 @@ async function main() {
   try {
     clientConfig = pgClientConfig(connection, overrideDb);
   } catch (e) {
-    warn(
+    bail(
       `invalid backend.database.connection (${e.message}); leaving ${outFile} as-is`,
     );
     return;
@@ -238,7 +296,17 @@ async function main() {
   try {
     ({ schema, rows } = await loadInstallations(clientConfig));
   } catch (e) {
-    warn(`could not read ${TABLE} (${e.message}); leaving ${outFile} as-is`);
+    if (e && e.code === PG_DATABASE_MISSING) {
+      // Fresh tenant: the marketplace backend has not created its database yet.
+      // Soft even fail-closed — see PG_DATABASE_MISSING.
+      warn(
+        `${where} does not exist yet (${e.message}); fresh tenant, leaving ${outFile} as-is`,
+      );
+      return;
+    }
+    // The D-G5 case: Postgres is declared the source of truth but cannot be
+    // read. Fail-open here is what boots a host with no plugins at all.
+    bail(`could not read ${TABLE} (${e.message}); leaving ${outFile} as-is`);
     return;
   }
   if (!schema) {
@@ -258,7 +326,7 @@ async function main() {
       `regenerated ${outFile} with ${plugins.length} plugin selection(s) from the database`,
     );
   } catch (e) {
-    warn(
+    bail(
       `could not write ${outFile} (${e.message}); boot continues with the existing file`,
     );
   }
@@ -268,7 +336,7 @@ if (require.main === module) {
   main().then(
     () => process.exit(0),
     e => {
-      warn(
+      bail(
         `unexpected error (${
           e && e.message
         }); leaving extensions-install.yaml as-is, boot continues`,
