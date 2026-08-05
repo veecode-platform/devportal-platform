@@ -66,6 +66,9 @@ services:
       # G1b: an executable Template for the shell smoke. The repo's own examples
       # all end in publish:github, so none of them can be run on the bench.
       - ./fixtures/g1b-shell-template.yaml:/app/bench/g1b-shell-template.yaml:ro
+      # The User/Group the guest sign-in resolves to. Without it anything that
+      # looks up the signed-in principal 404s — see the fixture's own header.
+      - ./fixtures/g1b-org.yaml:/app/bench/g1b-org.yaml:ro
       # Written by bench.sh on every `up`. entrypoint.nfs.sh:10-14 prefers this
       # path over the image's empty dynamic-plugins.nfs.yaml. It declares the
       # local catalog module when artifacts/ has one, otherwise `plugins: []`.

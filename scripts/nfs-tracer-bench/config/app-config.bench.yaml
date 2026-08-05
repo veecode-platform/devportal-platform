@@ -47,3 +47,6 @@ catalog:
     # used here.
     - type: file
       target: /app/bench/g1b-shell-template.yaml
+    # G1b: the User/Group the guest provider names (app-config.yaml:101-102).
+    - type: file
+      target: /app/bench/g1b-org.yaml
