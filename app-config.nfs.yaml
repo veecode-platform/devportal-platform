@@ -1,12 +1,36 @@
 app:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
   packageName: app-next
-  # Keep the NFS host's statically discovered frontend set explicit. Catalog is
-  # the only static capability needed by this control's fixture route; the
-  # dynamic fleet is configured by app-next/src/App.tsx and loaded at runtime.
+  # OFS-NFS-D-006, decided by measurement rather than preference: stock upstream
+  # plugins reach the shipped app through THIS allowlist; App.tsx's features[]
+  # array is reserved for modules this app authors and for anything the
+  # allowlist provably cannot deliver.
+  #
+  # What settled it: app-next's built bundle already carries every one of these
+  # packages in window['@backstage/discovered'] — the CLI injects any dependency
+  # with an NFS-shaped entry, and grepping packages/app-next/dist/static showed
+  # catalog, techdocs, scaffolder, catalog-graph, home and auth all present.
+  # Nothing was missing; the list below was simply filtering them out.
+  # discovery.esm.js:37 treats `include` as a STRICT allowlist (the only string
+  # mode is 'all'), so an unlisted package is discovered and then discarded —
+  # which is why /create and /docs answered 404 while their code was in the
+  # bundle.
+  #
+  # Deliberately absent:
+  #  - @backstage/plugin-auth stays in App.tsx features[]. It already works
+  #    there and is covered by consent.test.tsx; moving it would buy consistency
+  #    and risk T4.2 for nothing this round.
+  #  - @backstage/plugin-home is not listed: the homepage decision is T5.4
+  #    (upstream RHDH homepage via config), a different package.
+  #
+  # The dynamic fleet is separate — it is loaded at runtime by
+  # dynamicFrontendFeaturesLoader(), not discovered here.
   packages:
     include:
       - '@backstage/plugin-catalog'
+      - '@backstage/plugin-catalog-graph'
+      - '@backstage/plugin-scaffolder'
+      - '@backstage/plugin-techdocs'
 
 backend:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
