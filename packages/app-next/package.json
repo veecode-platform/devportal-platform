@@ -15,18 +15,28 @@
     "tsc": "tsc --noEmit"
   },
   "dependencies": {
+    "@backstage/core-app-api": "1.20.3",
+    "@backstage/core-plugin-api": "1.12.8",
     "@backstage/frontend-defaults": "0.5.0",
     "@backstage/frontend-dynamic-feature-loader": "0.1.14",
+    "@backstage/frontend-plugin-api": "0.17.3",
     "@backstage/plugin-catalog": "2.0.1",
+    "@backstage/plugin-catalog-graph": "0.6.6",
+    "@backstage/plugin-home": "0.9.8",
     "@backstage/ui": "0.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.4"
   },
   "devDependencies": {
+    "@backstage/catalog-model": "1.9.0",
     "@backstage/cli": "^0.36.4",
+    "@backstage/frontend-test-utils": "0.4.5",
+    "@backstage/integration-react": "1.2.20",
+    "@testing-library/react": "14.3.1",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "msw": "2.12.4",
     "typescript": "~5.8.0"
   },
   "files": [
