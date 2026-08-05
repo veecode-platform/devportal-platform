@@ -122,7 +122,11 @@ record(
 );
 
 // ── 2. Sign-in (T4.1) + consent route (T4.2) ───────────────────────────────
-const rootText = await bodyText();
+// Kept for the translation check below. Anything that only renders to an
+// unauthenticated visitor has to be captured here, before the guest click —
+// afterwards "/" is the authenticated home and the sign-in card is gone.
+const preSignInText = await bodyText();
+const rootText = preSignInText;
 const gitlabVisible = /gitlab/i.test(rootText);
 const guestVisible = /guest/i.test(rootText);
 const signInShot = await shot('02-signin');
@@ -266,6 +270,38 @@ notes.push(`guestSignIn=${signedIn}`);
     notFound ? 'absent' : tabs.length === 3 ? 'present' : 'blocked',
     `subTabs=${JSON.stringify(tabs)} marker=${matched ?? 'none'} shot=${file}`,
   );
+
+  // The acceptance criterion is sub-tabs AND the theme actually alternating.
+  // Asserting the three tab titles renders proves the page; it says nothing
+  // about the picker working, so this drives it.
+  //
+  // The signal is the persisted theme rather than a computed colour:
+  // AppThemeApi writes the selected id to localStorage, so a changed value is
+  // unambiguous evidence that setActiveThemeId ran. A background-colour diff
+  // would also be affected by transitions and by whatever the previous test
+  // left behind.
+  const themeBefore = await page
+    .evaluate(() => window.localStorage.getItem('theme'))
+    .catch(() => null);
+  let clicked = null;
+  for (const name of [/^dark$/i, /dark/i, /^light$/i]) {
+    const button = page.getByRole('button', { name }).first();
+    if (await button.isVisible().catch(() => false)) {
+      await button.click().catch(() => {});
+      clicked = String(name);
+      break;
+    }
+  }
+  await page.waitForTimeout(1_000);
+  const themeAfter = await page
+    .evaluate(() => window.localStorage.getItem('theme'))
+    .catch(() => null);
+  const themeFile = await shot('09b-theme');
+  record(
+    'themeToggle',
+    clicked && themeAfter && themeAfter !== themeBefore ? 'present' : 'blocked',
+    `clicked=${clicked ?? 'nothing'} theme ${JSON.stringify(themeBefore)} -> ${JSON.stringify(themeAfter)} shot=${themeFile}`,
+  );
 }
 
 // ── 7. Custom translation (T4.7) ───────────────────────────────────────────
@@ -298,11 +334,27 @@ notes.push(`guestSignIn=${signedIn}`);
           ? { marker: entry, route: '/' }
           : { marker: entry.slice(0, at), route: entry.slice(at + 1) };
       });
+    // Two things this check got wrong on its first run, both worth stating so
+    // they are not reintroduced:
+    //
+    // 1. Case. MUI applies `text-transform: uppercase` to button labels, and
+    //    Playwright's innerText reflects computed text-transform — so a marker
+    //    sourced from the translation file ("Enter DevPortal") is read back as
+    //    "ENTER DEVPORTAL" and an exact match fails on a string that IS
+    //    rendered. Matching case-insensitively asserts the wording, which is
+    //    the claim, instead of a styling detail.
+    //
+    // 2. Session state. A marker on the sign-in page is unreachable by the time
+    //    this runs, because the guest sign-in above already replaced it. The
+    //    pre-sign-in capture is folded in for '/' rather than re-navigating,
+    //    since signing out is not a surface this smoke owns.
     const results = [];
     for (const [index, { marker, route }] of pairs.entries()) {
       const { text } = await reached(route, [marker]);
+      const haystack = route === '/' ? `${preSignInText}\n${text}` : text;
+      const found = haystack.toLowerCase().includes(marker.toLowerCase());
       const file = await shot(`10-translation-${index + 1}`);
-      results.push({ marker, route, found: text.includes(marker), shot: file });
+      results.push({ marker, route, found, shot: file });
     }
     notes.push(`translationMarkers=${JSON.stringify(results)}`);
     const found = results.filter(r => r.found);
