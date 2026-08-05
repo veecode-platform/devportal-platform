@@ -41,6 +41,13 @@ backend:
     connect-src: ["'self'", 'http:', 'https:']
     # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
     # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+    # frame-src is a NEW key here (Helmet/default-src has no frame-src fallback
+    # that would cover it) — without it the default CSP blocks any <iframe>
+    # SILENTLY: no network error, just a broken-icon frame. Required for the
+    # Grafana EntityOverviewDashboardViewer mount point (T-A.2, see
+    # dynamic-plugins.default.yaml). Empty when GRAFANA_DOMAIN is unset, which
+    # is a no-op source token — no iframe target is configured yet.
+    frame-src: ["'self'", '${GRAFANA_DOMAIN:-}']
     script-src:
       [
         "'self'",
@@ -109,6 +116,19 @@ auth:
   #   '/test':
   #     target: 'https://example.com'
   #     changeOrigin: true
+  #
+  # Grafana's `/grafana/api` endpoint is NOT here — proved (booted against the
+  # published candidate image) that a `${GRAFANA_DOMAIN:-}` empty-default
+  # collapses `target:` to `undefined` via Backstage's substitution transform,
+  # which then DELETES the key outright (envVarValue || fallbackValue || void 0
+  # — an empty fallback is falsy too). The proxy plugin throws
+  # `Proxy target for route "/grafana/api" must be a string, but is of type
+  # undefined` and the WHOLE backend fails to start (readiness stuck at 503),
+  # because this file loads unconditionally on every boot. See the `proxy:`
+  # entry inside the grafana plugin's `pluginConfig` in
+  # dynamic-plugins.default.yaml / presets/recommended.yaml instead — that
+  # block only merges once `disabled: false`, i.e. once an operator has
+  # already supplied real values.
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs

@@ -20,6 +20,12 @@ backend:
     connect-src: ["'self'", 'http:', 'https:']
     # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
     # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+    # frame-src is a NEW key here — without it the default CSP blocks any
+    # <iframe> SILENTLY (no network error, just a broken-icon frame).
+    # Required for the Grafana EntityOverviewDashboardViewer mount point
+    # (T-A.2, see dynamic-plugins.default.yaml). Empty when GRAFANA_DOMAIN is
+    # unset, which is a no-op source token.
+    frame-src: ["'self'", '${GRAFANA_DOMAIN:-}']
   cors:
     origin: http://localhost:7007
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]

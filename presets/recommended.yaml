@@ -102,6 +102,65 @@ plugins:
                   props:
                     pollingIntervalMs: 30000
 
+  # ── Grafana (T-A.2, host admission only) ────────────────────────────
+  # disabled: true on purpose — this preset has no required variables
+  # today (see `requires.variables: {}` above) and Grafana needs
+  # GRAFANA_DOMAIN + GRAFANA_TOKEN once enabled. Flip `disabled` here
+  # (not in dynamic-plugins.default.yaml) once those are wired up.
+  # `package:` must match dynamic-plugins.default.yaml character for
+  # character — see docs/topics/plugin-packaging.md "Critical contract".
+  - package: oci://${PLUGIN_REGISTRY}/grafana:bs_1.53.0!backstage-community-plugin-grafana
+    disabled: true
+    pluginConfig:
+      grafana:
+        domain: ${GRAFANA_DOMAIN:-}
+        proxyPath: /grafana/api
+      # proxy: lives here, not in app-config.yaml — proved (booted against the
+      # published candidate image) that a `${GRAFANA_DOMAIN:-}` empty default
+      # on `proxy.endpoints` in an unconditionally-loaded file collapses
+      # `target:` to undefined and crashes the whole backend at boot. This
+      # pluginConfig only merges once `disabled: false`, at which point
+      # GRAFANA_DOMAIN/GRAFANA_TOKEN are expected to already be set — see
+      # dynamic-plugins.default.yaml for the full write-up.
+      proxy:
+        endpoints:
+          '/grafana/api':
+            target: ${GRAFANA_DOMAIN}
+            headers:
+              Authorization: Bearer ${GRAFANA_TOKEN}
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-grafana:
+            entityTabs:
+              - path: /grafana-dashboard
+                title: Grafana
+                mountPoint: entity.page.grafana-dashboard
+            mountPoints:
+              - mountPoint: entity.page.overview/cards
+                importName: EntityGrafanaDashboardsCard
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: grafana/dashboard-selector
+              - mountPoint: entity.page.overview/cards
+                importName: EntityGrafanaAlertsCard
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: grafana/alert-label-selector
+              - mountPoint: entity.page.grafana-dashboard/cards
+                importName: EntityOverviewDashboardViewer
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: grafana/overview-dashboard
+
 # No app-config additions — the baseline runs on app-config.yaml plus the
 # platform-level config files.
 appConfig: {}

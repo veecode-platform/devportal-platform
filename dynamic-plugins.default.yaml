@@ -265,6 +265,103 @@ plugins:
   - package: oci://${PLUGIN_REGISTRY}/sonarqube:bs_1.49.4!backstage-community-plugin-sonarqube-backend
     disabled: true
 
+  # ── Grafana ──────────────────────────────────────────────────────────
+  # T-A.2: host admission only — disabled: true here AND in
+  # presets/recommended.yaml. No real Grafana instance/domain/token exist
+  # in this repo; an operator supplies GRAFANA_DOMAIN + GRAFANA_TOKEN and
+  # flips `disabled` before any of this does anything. See the `proxy:`
+  # block and the `csp.frame-src` additions in app-config.yaml /
+  # app-config.production.yaml.
+  #
+  # Selector verified against the real OCI bundle (skopeo copy + tar listing
+  # of quay.io/veecode/grafana:bs_1.53.0): the top-level directory is
+  # `backstage-community-plugin-grafana`, WITHOUT a `-dynamic` suffix, even
+  # though the npm package's own `name` field is
+  # `@backstage-community/plugin-grafana-dynamic`. The bundled selector is
+  # derived from its `pluginPackages[0]` field
+  # (`@backstage-community/plugin-grafana`) instead — the naming rule
+  # (strip `@`, replace first `/` with `-`) applies to that value, not to
+  # the wrapper package's own name. Also confirmed by grepping the
+  # dist-scalprum chunks: EntityGrafanaDashboardsCard,
+  # EntityGrafanaAlertsCard, EntityOverviewDashboardViewer and
+  # DashboardViewer are all present as literal export names, alongside the
+  # three annotation strings used below.
+  #
+  # Three pitfalls that are invisible in code review:
+  #  1. `grafana/overview-dashboard` is a DIFFERENT annotation from
+  #     `grafana/dashboard-selector`. Without it on the entity, the
+  #     EntityOverviewDashboardViewer mount point below (the actual
+  #     Grafana iframe) never passes its `if:` gate and silently fails to
+  #     mount — no error, just a missing card.
+  #  2. Grafana OAuth login cannot complete *inside* the iframe — the IdP
+  #     sends X-Frame-Options/frame-ancestors that block it. The visiting
+  #     user must already hold a same-site Grafana session before the
+  #     iframe loads, or they see a blank/blocked frame with nothing in
+  #     the Backstage console pointing back here.
+  #  3. Grafana Explore requires the Editor role. If the OAuth role-sync
+  #     `api_url` doesn't request the org-role scope, users silently land
+  #     as Viewer and Explore just doesn't work.
+  - package: oci://${PLUGIN_REGISTRY}/grafana:bs_1.53.0!backstage-community-plugin-grafana
+    disabled: true
+    pluginConfig:
+      grafana:
+        domain: ${GRAFANA_DOMAIN:-}
+        proxyPath: /grafana/api
+      # Lives here, not in app-config.yaml: this whole pluginConfig block only
+      # merges once `disabled: false` (confirmed by reading
+      # docker/install-dynamic-plugins.py:373-375 — disabled entries return an
+      # empty pluginConfig, no merge at all). app-config.yaml loads
+      # unconditionally on every boot, so a `${GRAFANA_DOMAIN:-}` empty default
+      # there collapses `target:` to undefined and the proxy plugin throws
+      # "Proxy target for route ... must be a string" — proved by booting the
+      # published candidate image with that block in app-config.yaml: backend
+      # startup failed, readiness stuck at 503. Whoever flips `disabled` to
+      # false here is, by definition, also supplying GRAFANA_DOMAIN/
+      # GRAFANA_TOKEN, so a bare (no-default) substitution is intentional and
+      # safe in this location.
+      proxy:
+        endpoints:
+          '/grafana/api':
+            target: ${GRAFANA_DOMAIN}
+            headers:
+              Authorization: Bearer ${GRAFANA_TOKEN}
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-grafana:
+            entityTabs:
+              - path: /grafana-dashboard
+                title: Grafana
+                mountPoint: entity.page.grafana-dashboard
+            mountPoints:
+              - mountPoint: entity.page.overview/cards
+                importName: EntityGrafanaDashboardsCard
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: grafana/dashboard-selector
+              - mountPoint: entity.page.overview/cards
+                importName: EntityGrafanaAlertsCard
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: grafana/alert-label-selector
+              - mountPoint: entity.page.grafana-dashboard/cards
+                # This mounts the iframe (EntityOverviewDashboardViewer).
+                # Requires csp.frame-src to include the Grafana domain (see
+                # app-config.yaml / app-config.production.yaml) or it silently
+                # renders a broken-icon <iframe> with no network error.
+                importName: EntityOverviewDashboardViewer
+                config:
+                  layout:
+                    gridColumn: "1 / -1"
+                  if:
+                    allOf:
+                      - hasAnnotation: grafana/overview-dashboard
+
   # ── Pre-installed plugins (config only) ──────────────────────────────
   # These plugins are already present in dynamic-plugins-root/ at image
   # build time (from devportal-base or copied/extracted in the Dockerfile).
