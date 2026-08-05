@@ -177,16 +177,22 @@ notes.push(`guestSignIn=${signedIn}`);
 
 // ── 3. Catalog (T4.3) ──────────────────────────────────────────────────────
 {
-  const { notFound, matched, text } = await reached('/catalog', [
-    'nfs-kubernetes-control',
-    'Owner',
-    'No records',
-  ]);
+  // Deliberately NOT matching on 'Owner' or any other column header. The first
+  // version of this check did, and it passed against a table whose body was
+  // still showing a spinner — proving the page chrome rendered, which is not
+  // the claim. The list loads asynchronously, so the only honest signals are
+  // the fixture row itself or an explicit empty state.
+  const { notFound, text } = await reached(
+    '/catalog',
+    ['nfs-kubernetes-control', 'No records to display', 'No entities found'],
+    { timeout: 30_000 },
+  );
+  const fixtureVisible = text.includes('nfs-kubernetes-control');
   const file = await shot('04-catalog');
   record(
     'catalogList',
-    !notFound && Boolean(matched) ? 'present' : 'absent',
-    `marker=${matched ?? 'none'} fixtureVisible=${text.includes('nfs-kubernetes-control')} shot=${file}`,
+    notFound ? 'absent' : fixtureVisible ? 'present' : 'blocked',
+    `fixtureRowVisible=${fixtureVisible} routeResolved=${!notFound} shot=${file}`,
   );
 }
 {
