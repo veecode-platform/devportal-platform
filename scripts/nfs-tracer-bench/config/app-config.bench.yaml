@@ -48,13 +48,12 @@ catalog:
     - type: file
       target: /app/bench/g1b-shell-template.yaml
 
-app:
-  # Which sign-in provider the shell offers. signIn.tsx reads this key and picks
-  # from its five-provider map, falling back to github when the key is absent —
-  # the same contract as the OFS SignInPage. Parameterised here so one image can
-  # prove more than one provider: `BENCH_SIGNIN_PAGE=microsoft ./bench.sh -n x up`
-  # must render the Azure card and no GitLab card.
-  #
-  # Defaults to gitlab so the existing G1b evidence stays comparable. Note this is
-  # NOT the product default: absent the key, the app falls back to github.
-  signInPage: ${BENCH_SIGNIN_PAGE:-gitlab}
+# Which sign-in provider the shell offers. signIn.tsx reads this key and picks
+# from its five-provider map, falling back to github when the key is absent —
+# the same contract as the OFS SignInPage. Parameterised here so one image can
+# prove more than one provider: `BENCH_SIGNIN_PAGE=microsoft ./bench.sh -n x up`
+# must render the Azure card and no GitLab card.
+#
+# Defaults to gitlab so the existing G1b evidence stays comparable. Note this is
+# NOT the product default: absent the key, the app falls back to github.
+signInPage: ${BENCH_SIGNIN_PAGE:-gitlab}

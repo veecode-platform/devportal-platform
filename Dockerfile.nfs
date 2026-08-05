@@ -86,6 +86,13 @@ RUN --mount=type=bind,source=packages/backend/dist/bundle.tar.gz,target=/tmp/bun
 # compiled frontend is already in bundle.tar.gz; the checks below turn a stale
 # or incomplete host build into a build failure rather than a runtime mystery.
 COPY --chown=1001:0 packages/app-next/package.json ./packages/app-next/package.json
+# The config schema must be IN the image, not merely declared. Proven by A/B on
+# the bench: without this line a microsoft-configured instance renders the GitHub
+# sign-in card. packages/app/config.schema.json is present here but never
+# consulted — schema collection follows the dependency graph of the app named by
+# app.packageName (app-next), which does not include packages/app. See that
+# file's header for the full measurement.
+COPY --chown=1001:0 packages/app-next/config.d.ts ./packages/app-next/config.d.ts
 COPY --chown=1001:0 packages/app-next/fixtures ./packages/app-next/fixtures
 RUN test -f packages/app-next/dist/index.html && \
     ls packages/app-next/dist/static/main.*.js >/dev/null && \

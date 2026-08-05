@@ -56,6 +56,12 @@ services:
       BENCH_PG_PASSWORD: ${BENCH_PG_PASSWORD:-devportal}
       BENCH_PG_DATABASE: ${BENCH_PG_DATABASE:-backstage}
       LOG_LEVEL: ${BENCH_LOG_LEVEL:-info}
+      # Which sign-in provider config/app-config.bench.yaml selects. Declared
+      # here because compose passes ONLY what this block lists — a variable set in
+      # the invoking shell never reaches the container, so app-config's
+      # ${BENCH_SIGNIN_PAGE:-...} would silently take its default and two
+      # instances meant to differ would boot identically.
+      BENCH_SIGNIN_PAGE: ${BENCH_SIGNIN_PAGE:-gitlab}
     ports:
       - '${BENCH_HTTP_PORT:-17707}:7007'
     volumes:

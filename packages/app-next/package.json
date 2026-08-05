@@ -51,7 +51,9 @@
     "msw": "2.12.4",
     "typescript": "~5.8.0"
   },
+  "configSchema": "config.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "config.d.ts"
   ]
 }
