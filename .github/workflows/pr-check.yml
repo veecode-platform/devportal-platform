@@ -2,7 +2,7 @@ name: PR Check
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, nfs/next]
   repository_dispatch:
     types: [pr-validate]
 

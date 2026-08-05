@@ -1,0 +1,117 @@
+# nfs/next durable publish channel.
+#
+# Builds the NFS host image from the nfs/next branch. Publishing is manual and
+# gated by the `publish` input (default false): a push/PR only validates and
+# builds; only an explicit dispatch with publish=true writes to the registry.
+# Never writes :latest, :stable or any release tag. The moving :next tag is
+# produced only from the same immutable digest of this branch.
+#
+# Deliberately narrow:
+#   - never writes :latest, :stable or any release tag;
+#   - never touches publish.yml or the OFS Dockerfile;
+#   - replicates scripts/build-local-nfs-image.sh (host artefacts first,
+#     then Dockerfile.nfs) so the image is reproducible from the source commit.
+name: Publish NFS next image
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to registry (immutable -nfs.<sha> + :next). Default false.'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  IMAGE_NAME: docker.io/veecode/devportal
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable yarn 4 (packageManager)
+        run: corepack enable
+
+      - name: Build host artefacts (same steps as build-local-nfs-image.sh)
+        run: |
+          yarn install --immutable
+          NODE_OPTIONS="--max-old-space-size=6144" yarn workspace app-next tsc
+          NODE_OPTIONS="--max-old-space-size=6144" yarn workspace app-next build
+          NODE_OPTIONS="--max-old-space-size=6144" yarn build:backend
+
+      - name: Sanity-check artefacts before docker build
+        run: |
+          test -f packages/backend/dist/skeleton.tar.gz
+          test -f packages/backend/dist/bundle.tar.gz
+          test -f packages/app-next/dist/index.html
+          tar -tzf packages/backend/dist/skeleton.tar.gz | grep -F 'packages/app-next/package.json' >/dev/null
+          tar -tzf packages/backend/dist/bundle.tar.gz | grep -F 'packages/app-next/dist/index.html' >/dev/null
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build image (Dockerfile.nfs, amd64; never pushed by default)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.nfs
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:nfs-next-build
+          build-args: |
+            DEVPORTAL_VERSION=${{ steps.version.outputs.version }}
+
+      - name: Publish (only when publish=true)
+        if: inputs.publish == 'true'
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          IMMUTABLE_TAG="$(node -p "require('./package.json').version")-rc.2-nfs.${SHORT_SHA:0:7}"
+          echo "Publishing ${IMAGE_NAME}:${IMMUTABLE_TAG} and ${IMAGE_NAME}:next"
+          docker tag "${IMAGE_NAME}:nfs-next-build" "${IMAGE_NAME}:${IMMUTABLE_TAG}"
+          docker tag "${IMAGE_NAME}:nfs-next-build" "${IMAGE_NAME}:next"
+          docker push "${IMAGE_NAME}:${IMMUTABLE_TAG}"
+          docker push "${IMAGE_NAME}:next"
+          echo "immutable_tag=${IMMUTABLE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Record provenance (build only)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "## NFS next image (build)"
+            echo "- source commit: ${GITHUB_SHA}"
+            echo "- digest: ${DIGEST}"
+            echo "- publish: ${{ inputs.publish }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record provenance (published)
+        if: inputs.publish == 'true'
+        env:
+          IMMUTABLE_TAG: ${{ steps.publish.outputs.immutable_tag }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "## NFS next image (published)"
+            echo "- source commit: ${GITHUB_SHA}"
+            echo "- immutable tag: ${IMAGE_NAME}:${IMMUTABLE_TAG}"
+            echo "- moving tag: ${IMAGE_NAME}:next"
+            echo "- digest: ${DIGEST}"
+          } >> "$GITHUB_STEP_SUMMARY"
