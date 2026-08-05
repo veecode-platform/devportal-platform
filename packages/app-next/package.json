@@ -16,10 +16,13 @@
   },
   "dependencies": {
     "@backstage/core-app-api": "1.20.3",
+    "@backstage/core-components": "0.18.12",
     "@backstage/core-plugin-api": "1.12.8",
     "@backstage/frontend-defaults": "0.5.0",
     "@backstage/frontend-dynamic-feature-loader": "0.1.14",
     "@backstage/frontend-plugin-api": "0.17.3",
+    "@backstage/plugin-app-react": "0.2.1",
+    "@backstage/plugin-auth": "0.1.10",
     "@backstage/plugin-catalog": "2.0.1",
     "@backstage/plugin-catalog-graph": "0.6.6",
     "@backstage/plugin-home": "0.9.8",
