@@ -81,6 +81,13 @@ No host code is modified. Three hooks already exist in the image:
 | `/app/dynamic-plugins.yaml` wins over the empty image default | `docker/entrypoint.nfs.sh:10-14` | mounts the inventory `bench.sh` generates |
 | `package: ./<dir>` installs from a local path, skipping the integrity check | `docker/install-dynamic-plugins.py:49,271-289,442` | loads the module from `artifacts/` with no registry |
 
+The overlay covers **three** files of the boot path: `entrypoint.nfs.sh`,
+`regenerate-extensions-install.js` and `install-dynamic-plugins.py`. The third was
+missing until T1.2 tripped over it — the bench ran the installer baked into the
+pinned image while this README claimed the working tree was overlaid, so a check
+meant to fail the boot appeared to pass. When a new file joins the boot path, add
+it to the overlay too.
+
 Config layering the entrypoint builds, in order:
 
 ```

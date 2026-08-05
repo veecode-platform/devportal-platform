@@ -78,6 +78,14 @@ services:
       # Same idea as the image-overlay loop in docs/DEVELOPMENT_GUIDE.md.
       - ../../docker/entrypoint.nfs.sh:/app/entrypoint.nfs.sh:ro
       - ../../docker/regenerate-extensions-install.js:/app/regenerate-extensions-install.js:ro
+      # install-dynamic-plugins.py was MISSING here until T1.2 caught it. Without
+      # this mount the bench ran the installer baked into the pinned image while
+      # the README claimed the working tree was overlaid — so a change to the
+      # installer would be silently unexercised, and a check that should fail the
+      # boot would appear to pass. Verified at the time: the image's copy and the
+      # tree's copy had the same md5 (4c760c738e46...), i.e. no edit was reaching
+      # the container. Keep every file the boot path executes on this list.
+      - ../../docker/install-dynamic-plugins.py:/app/install-dynamic-plugins.py:ro
     healthcheck:
       # NOT /api/healthcheck: on this image that route requires auth and answers
       # 401, so it can never turn the container healthy. The Backstage readiness
