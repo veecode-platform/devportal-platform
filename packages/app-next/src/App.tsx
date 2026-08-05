@@ -4,6 +4,7 @@ import { createFrontendModule } from '@backstage/frontend-plugin-api';
 import '@backstage/ui/css/styles.css';
 import { apis } from './apis';
 import { signInPage } from './signIn';
+import { translations } from './translations';
 import authPlugin from '@backstage/plugin-auth';
 
 // Adds this app's own API factories (toast, visits and the OIDC/Auth0/SAML auth
@@ -26,11 +27,26 @@ export const appSignInModule = createFrontendModule({
   extensions: [signInPage],
 });
 
+// T4.7: EN overrides for 5 upstream translation refs (scaffolder, catalog-import,
+// core-components, search, user-settings) plus this app's own 'rhdh' namespace (see
+// ./translations/rhdh.ts — that one needs no extension, just the ref definition).
+// TranslationBlueprint (@backstage/plugin-app-react) attaches each to
+// api:app/translations, same pluginId as appApisModule/appSignInModule above — required
+// here, not just conventional: @backstage/plugin-app's TranslationsApi factory warns on
+// (and will eventually ignore) translation extensions registered under any other
+// plugin id. See translations.test.tsx for proof these are actually applied, not just
+// present as module objects.
+export const appTranslationsModule = createFrontendModule({
+  pluginId: 'app',
+  extensions: translations,
+});
+
 const app = createApp({
   features: [
     dynamicFrontendFeaturesLoader(),
     appApisModule,
     appSignInModule,
+    appTranslationsModule,
     // T4.2: @backstage/plugin-auth (pluginId 'auth') registers a real page at
     // /oauth2/authorize/:sessionId that talks to the exact same backend contract
     // as this app's OFS ConsentPage.tsx — GET/POST {authBaseUrl}/v1/sessions/:id
