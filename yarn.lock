@@ -16380,9 +16380,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/backstage-plugin-global-header@npm:1.22.1":
-  version: 1.22.1
-  resolution: "@red-hat-developer-hub/backstage-plugin-global-header@npm:1.22.1"
+"@red-hat-developer-hub/backstage-plugin-global-header@npm:2.0.0":
+  version: 2.0.0
+  resolution: "@red-hat-developer-hub/backstage-plugin-global-header@npm:2.0.0"
   dependencies:
     "@backstage/catalog-model": "npm:^1.9.0"
     "@backstage/core-components": "npm:^0.18.11"
@@ -16409,8 +16409,9 @@ __metadata:
     react-use: "npm:^17.5.0"
   peerDependencies:
     react: ^16.13.1 || ^17.0.0 || ^18.0.0
+    react-dom: ^16.13.1 || ^17.0.0 || ^18.0.0
     react-router-dom: ^6.0.0
-  checksum: 10c0/5b795fa34feb5e9b345278a161f75bd006e4c2e187a5ceb4311875759ff9ad7455a65cd62113c35710b94e9789c587e6129df493c6508610878d93dbcfd11104
+  checksum: 10c0/b26f78eb58bd0ee3a4bd9976569096bddf81c92fd53904dc3d0c8d1d21880ff5a4e6fa2aaed10f33f882e2b3d33771cd0572eca8852ae4ba7181f39da30e9cf8
   languageName: node
   linkType: hard
 
@@ -22045,7 +22046,7 @@ __metadata:
     "@backstage/ui": "npm:0.13.1"
     "@mui/icons-material": "npm:5.18.0"
     "@mui/material": "npm:5.18.0"
-    "@red-hat-developer-hub/backstage-plugin-global-header": "npm:1.22.1"
+    "@red-hat-developer-hub/backstage-plugin-global-header": "npm:2.0.0"
     "@types/react": "npm:^18"
     "@types/react-dom": "npm:^18"
     react: "npm:^18.3.1"

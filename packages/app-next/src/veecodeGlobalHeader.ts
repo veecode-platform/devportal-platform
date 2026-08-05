@@ -1,5 +1,5 @@
 import { createFrontendModule } from '@backstage/frontend-plugin-api';
-import { GlobalHeaderComponentBlueprint } from '@red-hat-developer-hub/backstage-plugin-global-header/alpha';
+import { GlobalHeaderComponentBlueprint } from '@red-hat-developer-hub/backstage-plugin-global-header';
 
 import { ToggleThemeButton } from './ToggleThemeButton';
 
