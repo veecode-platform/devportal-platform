@@ -1,0 +1,15 @@
+# Deployment input for the G1a run: the ONE backend that registers pluginId
+# `extensions`, which the gate requires. Pinned by DIGEST, not by the bs_1.53.0
+# tag, for the same reason T1.3 pins everything by digest — a tag can move and
+# would silently invalidate the evidence this run produces.
+#
+# CAVEAT, recorded on purpose: this bundle was built 2026-07-21, two weeks BEFORE
+# the T2.1 `./alpha` fix landed in devportal-plugins/main (1a56a6d, 2026-08-04).
+# Measured from the artifact itself — its frontend package declares
+# exports ['.', './package.json'] with NO './alpha', and it still ships
+# dist-scalprum/, i.e. it is an OFS-era export. The BACKEND is unaffected by that
+# (alpha is a frontend contract), so it is valid for G1a, which explicitly does
+# not require chrome. The tracer (T3.0) DOES need the frontend with alpha and
+# therefore needs a fresh publish first.
+  - package: oci://quay.io/veecode/marketplace@sha256:d98b28a1f8a453fe697bbc50780ae92e0c54eb7f3c789b0d184728d5b3c07a9e!devportal-marketplace-backend
+    disabled: false

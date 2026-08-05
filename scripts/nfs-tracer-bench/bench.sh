@@ -68,6 +68,10 @@ compose() { docker compose "$@"; }
 # see README § "Why the module is not optional".
 MODULE_DIR='artifacts/catalog-backend-module-extensions'
 
+# Optional file with additional `- package: ...` entries for the inventory (OCI
+# refs included). Absent by default, so the normal bench is unchanged.
+EXTRA_PLUGINS="${BENCH_EXTRA_PLUGINS:-config/extra-plugins.yaml}"
+
 # Regenerate the inventory the entrypoint will read. Always writes a valid file so
 # the compose mount never dangles.
 write_inventory() {
@@ -88,6 +92,15 @@ YAML
 plugins: []
 YAML
     MODE='empty-host'
+  fi
+  # Optional extra entries, appended verbatim. G1a needs one backend registering
+  # pluginId `extensions`, and that artifact lives in a registry rather than in
+  # artifacts/ — so the inventory has to be able to carry an OCI ref, not only the
+  # local module. Keep it a separate file: it is deployment input, and the
+  # generated file above says "do not edit".
+  if [[ -f "$EXTRA_PLUGINS" ]]; then
+    grep -v '^[[:space:]]*plugins:[[:space:]]*$' "$EXTRA_PLUGINS" >> .generated/dynamic-plugins.yaml
+    MODE="${MODE}+extra"
   fi
 }
 

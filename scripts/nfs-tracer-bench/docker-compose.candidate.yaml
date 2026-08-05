@@ -1,0 +1,39 @@
+# G1a rig — run the bench against a PUBLISHED candidate image, with the code
+# overlay removed.
+#
+# Why this file exists. docker-compose.yaml deliberately bind-mounts the working
+# tree's boot path (entrypoint.nfs.sh, regenerate-extensions-install.js,
+# install-dynamic-plugins.py) over the pinned image, so T1.1-T1.3 can be
+# exercised without rebuilding a 1.4 GB image on every edit. That is the right
+# default for development and the WRONG thing for G1a: the gate asks whether the
+# published image ITSELF carries pre-step + arbitration + digest-persistence, and
+# an overlay would answer the question with the working tree instead of the image.
+# The T1.0a bench already shipped one defect of exactly this shape — a mount was
+# missing while the README claimed it was there, so a check that should refuse the
+# boot appeared to pass. Overlaying while claiming to test the image is the same
+# error with the sign flipped.
+#
+# `volumes: !override` REPLACES the base list rather than merging into it, which
+# is what drops the three code mounts. Only deployment inputs stay: the appended
+# app-config, the catalog fixture, the generated inventory, and the local
+# artifacts directory. None of those are host code.
+#
+# Usage (bench.sh passes no -f, so COMPOSE_FILE is the seam):
+#   COMPOSE_FILE=docker-compose.yaml:docker-compose.candidate.yaml \
+#   BENCH_IMAGE=veecode/devportal@sha256:<digest> \
+#   ./bench.sh -n g1a up
+#
+# Verify the override actually took effect before trusting a green run. Note that
+# `docker compose config` resolves volume sources to ABSOLUTE paths, so grepping
+# for the literal '../../docker' matches nothing either way and proves nothing —
+# match the resolved path instead:
+#   docker compose config | grep 'source:' | grep -c '/docker/'
+# Base file: 3. With this override: 0.
+
+services:
+  devportal:
+    volumes: !override
+      - ./config/app-config.bench.yaml:/app/app-config.local.yaml:ro
+      - ./fixtures/marketplace-tracer.yaml:/app/bench/marketplace-tracer.yaml:ro
+      - ./.generated/dynamic-plugins.yaml:/app/dynamic-plugins.yaml:ro
+      - ./artifacts:/app/bench-artifacts:ro

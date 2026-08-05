@@ -1,0 +1,37 @@
+# D-G5 negative-test rig — point the host at a Postgres that cannot be reached and
+# assert the boot REFUSES to start.
+#
+# "PG inacessivel NAO aborta o boot" is a global stop condition of the migration
+# plan, which makes this the one test that must never be allowed to rot. It is a
+# separate file rather than an ad-hoc `-e` because docker-compose.yaml hardcodes
+# `BENCH_PG_HOST: postgres` (not an interpolation), so the value cannot be
+# overridden from the environment.
+#
+# An unresolvable hostname is used on purpose instead of a wrong port: DNS failure
+# is a HARD error, distinct from SQLSTATE 3D000 ("database does not exist"), which
+# the pre-step treats as a legitimate fresh-tenant state even under fail-closed.
+# Testing with 3D000 would prove nothing here — a fresh boot produces it normally.
+#
+# Expected: the devportal container EXITS with code 78 (EXIT_MISCONFIGURED) and the
+# log carries `VEECODE prestep: FATAL`. A container that becomes healthy is a
+# REGRESSION of D-G5, not a passing test.
+#
+# Usage:
+#   COMPOSE_FILE=docker-compose.yaml:docker-compose.candidate.yaml:docker-compose.pgdown.yaml \
+#   BENCH_IMAGE=veecode/devportal@sha256:<digest> \
+#   ./bench.sh -n dg5 up      # `up` is expected to FAIL; read the exit code and logs
+
+services:
+  devportal:
+    environment:
+      BENCH_PG_HOST: postgres-does-not-resolve.invalid
+    # The base file gates startup on postgres being healthy. That is still fine —
+    # the service is up, the HOST is simply pointed somewhere else.
+    healthcheck:
+      # Fail fast: the point is the exit code, not waiting out 40 retries on a
+      # container that is supposed to be dead.
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:7007/.backstage/health/v1/readiness || exit 1']
+      interval: 3s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
