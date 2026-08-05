@@ -270,23 +270,52 @@ notes.push(`guestSignIn=${signedIn}`);
 
 // ── 7. Custom translation (T4.7) ───────────────────────────────────────────
 {
-  // The marker is supplied by the caller so this file does not have to be
-  // edited when T4.7 picks its custom wording.
-  const marker = process.env.NFS_SHELL_TRANSLATION_MARKER;
-  if (!marker) {
+  // Markers are supplied by the caller so this file needs no edit when T4.7
+  // changes its wording. Accepts one or more `text@route` pairs, comma
+  // separated — more than one matters because each override lives on a
+  // different translation ref, so a single passing marker only proves that ref
+  // was applied, not that the module was.
+  //   NFS_SHELL_TRANSLATION_MARKERS='Enter DevPortal@/,Look & Feel@/settings'
+  const spec =
+    process.env.NFS_SHELL_TRANSLATION_MARKERS ??
+    (process.env.NFS_SHELL_TRANSLATION_MARKER
+      ? `${process.env.NFS_SHELL_TRANSLATION_MARKER}@${process.env.NFS_SHELL_TRANSLATION_ROUTE ?? '/settings'}`
+      : '');
+  if (!spec) {
     record(
       'translation',
       'blocked',
-      'NFS_SHELL_TRANSLATION_MARKER not set — no custom wording to look for (T4.7 not in this build)',
+      'no marker configured — set NFS_SHELL_TRANSLATION_MARKERS to check custom wording',
     );
   } else {
-    const route = process.env.NFS_SHELL_TRANSLATION_ROUTE ?? '/settings';
-    const { text } = await reached(route, [marker]);
-    const file = await shot('10-translation');
+    const pairs = spec
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean)
+      .map(entry => {
+        const at = entry.lastIndexOf('@');
+        return at === -1
+          ? { marker: entry, route: '/' }
+          : { marker: entry.slice(0, at), route: entry.slice(at + 1) };
+      });
+    const results = [];
+    for (const [index, { marker, route }] of pairs.entries()) {
+      const { text } = await reached(route, [marker]);
+      const file = await shot(`10-translation-${index + 1}`);
+      results.push({ marker, route, found: text.includes(marker), shot: file });
+    }
+    notes.push(`translationMarkers=${JSON.stringify(results)}`);
+    const found = results.filter(r => r.found);
     record(
       'translation',
-      text.includes(marker) ? 'present' : 'absent',
-      `marker=${JSON.stringify(marker)} route=${route} shot=${file}`,
+      found.length === results.length
+        ? 'present'
+        : found.length > 0
+          ? 'blocked'
+          : 'absent',
+      `${found.length}/${results.length} markers found: ${results
+        .map(r => `${JSON.stringify(r.marker)}@${r.route}=${r.found}`)
+        .join(' ')}`,
     );
   }
 }
