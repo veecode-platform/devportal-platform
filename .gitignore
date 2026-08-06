@@ -97,3 +97,8 @@ docs/superpowers/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Migration material collection. This is a public repo and this path once held real
+# production config plus a personal vault. Collected material belongs outside any repo —
+# see docs/migrations/ofs-to-nfs/CONVERGENCE-SANITISATION.md.
+docs/migrations/ofs-to-nfs/material/
