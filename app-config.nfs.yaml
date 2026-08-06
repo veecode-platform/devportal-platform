@@ -53,6 +53,13 @@ app:
       # binding has nothing to point at and "Register an existing component"
       # disappears from the catalog — a surface OFS has today.
       - '@backstage/plugin-catalog-import'
+      # T5.3. 2.0.0's "." export declares
+      #   "backstage": "@backstage/FrontendPlugin"
+      # so the plugin itself is discovered here. The two FrontendModules it also
+      # ships (globalHeaderModule, and ./global-header-translations-module) are
+      # not the plugin and do not arrive this way — globalHeaderModule is passed
+      # in App.tsx's features[].
+      - '@red-hat-developer-hub/backstage-plugin-global-header'
 
   # OFS binds these statically in packages/app/src/utils/dynamicUI/bindAppRoutes.ts
   # (lines 36-48); NFS replaces that code with config, and until now the NFS host
@@ -78,13 +85,6 @@ app:
       catalog.viewTechDoc: techdocs.docRoot
       scaffolder.registerComponent: catalog-import.importPage
       scaffolder.viewTechDoc: techdocs.docRoot
-      # T5.3. 2.0.0's "." export declares
-      #   "backstage": "@backstage/FrontendPlugin"
-      # so the plugin itself is discovered here. The two FrontendModules it also
-      # ships (globalHeaderModule, and ./global-header-translations-module) are
-      # not the plugin and do not arrive this way — globalHeaderModule is passed
-      # in App.tsx's features[].
-      - '@red-hat-developer-hub/backstage-plugin-global-header'
 
 backend:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
