@@ -458,19 +458,47 @@ notes.push(`guestSignIn=${signedIn}`);
 // the sidebar. Assert the catalog entry is still there.
 {
   await page.goto(`${baseUrl}/catalog`, { waitUntil: 'domcontentloaded' });
-  const navText = await page
-    .locator('nav')
-    .first()
-    .innerText()
-    .catch(() => '');
-  const entries = ['Catalog', 'Create', 'Docs', 'Settings'].filter(label =>
-    new RegExp(label, 'i').test(navText),
-  );
+  // NOT `nav` — this build has three of them and the first is the global
+  // header's, whose text is the profile chip. The first version of this check read
+  // that one, reported navEntries=[] and looked like an empty sidebar while the
+  // sidebar was rendering seven items, visible in the other checks' body text.
+  // Measured selector: the sidebar carries data-testid*="sidebar".
+  // Assert on hrefs, not on label text. Two reasons, both measured on this build:
+  // the sidebar collapses and its labels then have no visible text, so innerText
+  // returns '' and the check reported an empty sidebar twice while seven items were
+  // mounted; and label text is a translation surface, so wording work would break a
+  // structural check. Same lesson as the profile-menu selector: identity/label text
+  // is not a stable selector.
+  await page
+    .waitForSelector('a[href="/catalog"]', { timeout: 20_000 })
+    .catch(() => {});
+  const hrefs = await page
+    .locator('a[href^="/"]')
+    .evaluateAll(as => as.map(a => a.getAttribute('href')));
+  const expected = [
+    '/catalog',
+    '/catalog-graph',
+    '/catalog-import',
+    '/create',
+    '/search',
+    '/docs',
+    '/settings',
+  ];
+  const entries = expected.filter(href => hrefs.includes(href));
   const file = await shot('13-nav');
   record(
     'nav',
-    entries.includes('Catalog') ? 'present' : 'absent',
-    `navEntries=${JSON.stringify(entries)} shot=${file}`,
+    // /catalog-import is in the list on purpose: it is only reachable because the
+    // package entered the allowlist for the route bindings, so its presence here
+    // is a second, independent witness for that change.
+    entries.length === expected.length
+      ? 'present'
+      : entries.includes('/catalog')
+        ? 'blocked'
+        : 'absent',
+    `navEntries=${JSON.stringify(entries)} missing=${JSON.stringify(
+      expected.filter(h => !entries.includes(h)),
+    )} shot=${file}`,
   );
 }
 
