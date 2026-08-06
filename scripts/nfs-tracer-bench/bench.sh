@@ -68,6 +68,15 @@ compose() { docker compose "$@"; }
 # see README § "Why the module is not optional".
 MODULE_DIR='artifacts/catalog-backend-module-extensions'
 
+# The kubernetes control remote, opt-in with BENCH_WITH_K8S_REMOTE=1. This is the
+# same artifact the 2026-07-29 Gate 1 run used, and it exists for one reason: every
+# core surface on this bench is served by a STATICALLY discovered package, so a
+# green run says nothing about the Module Federation host path. This plugin is
+# deliberately absent from app.packages.include, so anything it renders can only
+# have arrived through the loader. Pair it with
+# NFS_SHELL_REMOTE_ROUTE in the smoke to assert that.
+K8S_REMOTE='oci://quay.io/veecode/backstage:bs_1.53.0!backstage-plugin-kubernetes'
+
 # Regenerate the inventory the entrypoint will read. Always writes a valid file so
 # the compose mount never dangles.
 write_inventory() {
@@ -88,6 +97,18 @@ YAML
 plugins: []
 YAML
     MODE='empty-host'
+  fi
+  if [[ "${BENCH_WITH_K8S_REMOTE:-0}" == '1' ]]; then
+    # `plugins: []` is a valid empty sequence, so appending an item to it would
+    # produce invalid YAML. Replace the marker instead when that is the shape.
+    if grep -qx 'plugins: \[\]' .generated/dynamic-plugins.yaml; then
+      sed -i 's|^plugins: \[\]$|plugins:|' .generated/dynamic-plugins.yaml
+    fi
+    cat >> .generated/dynamic-plugins.yaml <<YAML
+  - package: '${K8S_REMOTE}'
+    disabled: false
+YAML
+    MODE="${MODE}+k8s-remote"
   fi
 }
 

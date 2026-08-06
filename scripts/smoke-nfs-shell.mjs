@@ -385,6 +385,132 @@ notes.push(`guestSignIn=${signedIn}`);
   }
 }
 
+// ── 8. Search in the header (hygiene gap 1) ────────────────────────────────
+// The header ships a search component at position 100 by default. Before
+// @backstage/plugin-search entered app.packages.include, this build rendered
+// ZERO textboxes and logged four NotImplementedError for apiRef
+// plugin.search.queryservice. Presence alone is not enough: the component can
+// mount and still throw behind its extension boundary, so the absence of that
+// api error is half the assertion.
+{
+  await page.goto(`${baseUrl}/catalog`, { waitUntil: 'domcontentloaded' });
+  await page
+    .waitForSelector('input[type="search"], input[placeholder*="earch"]', {
+      timeout: 15_000,
+    })
+    .catch(() => {});
+  const boxes = await page
+    .locator('input[type="search"], input[placeholder*="earch"]')
+    .count();
+  const apiErrors = consoleErrors.filter(e =>
+    e.includes('plugin.search.queryservice'),
+  );
+  const file = await shot('11-search');
+  record(
+    'search',
+    boxes > 0 && apiErrors.length === 0
+      ? 'present'
+      : boxes > 0
+        ? 'blocked'
+        : 'absent',
+    `searchInputs=${boxes} queryserviceErrors=${apiErrors.length} shot=${file}`,
+  );
+}
+
+// ── 9. External route bindings (hygiene gap 2) ─────────────────────────────
+// app.routes.bindings is new and every one of its five entries fails SILENTLY
+// when wrong: an unbound external route renders no link at all, which is exactly
+// why the gap went unnoticed. So this asserts the affordances the bindings are
+// supposed to produce, not the config.
+{
+  const { text: catalogText } = await reached('/catalog', [
+    'nfs-kubernetes-control',
+    'No records to display',
+  ]);
+  // catalog.createComponent -> scaffolder.root, and
+  // scaffolder.registerComponent -> catalog-import.importPage. Either affordance
+  // proves a binding resolved; both are absent when nothing is bound.
+  const createAffordance = /create|register existing|register an existing/i.test(
+    catalogText,
+  );
+  const { text: entityText } = await reached(
+    '/catalog/default/component/nfs-kubernetes-control',
+    ['nfs-kubernetes-control'],
+  );
+  // catalog.viewTechDoc -> techdocs.docRoot puts a docs affordance on the entity.
+  const docsAffordance = /techdocs|view techdocs|docs/i.test(entityText);
+  const file = await shot('12-route-bindings');
+  record(
+    'routeBindings',
+    createAffordance && docsAffordance
+      ? 'present'
+      : createAffordance || docsAffordance
+        ? 'blocked'
+        : 'absent',
+    `createOrRegisterOnCatalog=${createAffordance} docsOnEntity=${docsAffordance} shot=${file}`,
+  );
+}
+
+// ── 10. Sidebar nav (hygiene gap 4 regression guard) ───────────────────────
+// plugin-catalog 2.0.6 DROPPED its navItems extension list; nav is now inferred
+// from PageBlueprint title+icon. That is the fix for the NavItemBlueprint
+// fragility, and it is also exactly the thing that could have silently emptied
+// the sidebar. Assert the catalog entry is still there.
+{
+  await page.goto(`${baseUrl}/catalog`, { waitUntil: 'domcontentloaded' });
+  const navText = await page
+    .locator('nav')
+    .first()
+    .innerText()
+    .catch(() => '');
+  const entries = ['Catalog', 'Create', 'Docs', 'Settings'].filter(label =>
+    new RegExp(label, 'i').test(navText),
+  );
+  const file = await shot('13-nav');
+  record(
+    'nav',
+    entries.includes('Catalog') ? 'present' : 'absent',
+    `navEntries=${JSON.stringify(entries)} shot=${file}`,
+  );
+}
+
+// ── 11. A dynamic remote in the SAME image as the core (OBJ1 bar) ──────────
+// Every core surface above is served by a statically discovered package. The
+// Module Federation host path — a remote fetched at boot and rendered — was last
+// proven on 2026-07-29 against a DIFFERENT image, so no single artifact had ever
+// shown both. The kubernetes control plugin is the ready-made remote: it is
+// absent from app.packages.include on purpose, so anything it renders can only
+// have come through the loader.
+{
+  const spec = process.env.NFS_SHELL_REMOTE_ROUTE ?? '';
+  if (!spec) {
+    record(
+      'dynamicRemote',
+      'blocked',
+      'no remote configured — set NFS_SHELL_REMOTE_ROUTE=<route>|<marker> to check the MF host path',
+    );
+  } else {
+    const [route, marker] = spec.split('|');
+    const discovered = await page.evaluate(
+      () => Object.keys(window['__@backstage/discovered__']?.modules ?? {}),
+    );
+    const staticallyPresent = discovered.some(m => /kubernetes/i.test(m));
+    const { notFound, matched } = await reached(route, [marker], {
+      timeout: 40_000,
+    });
+    const file = await shot('14-dynamic-remote');
+    record(
+      'dynamicRemote',
+      !notFound && Boolean(matched) && !staticallyPresent
+        ? 'present'
+        : !notFound && Boolean(matched)
+          ? 'blocked'
+          : 'absent',
+      `marker=${matched ?? 'none'} routeResolved=${!notFound} inStaticDiscovery=${staticallyPresent} shot=${file}`,
+    );
+  }
+}
+
 await browser.close();
 
 const report = {
