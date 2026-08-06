@@ -2,7 +2,15 @@ name: PR Check
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, nfs/next]
+  # Post-merge validation of the NFS trunk. `pull_request` alone fires only on PRs
+  # TARGETING nfs/next, so two PRs that each pass in isolation can merge into a
+  # broken nfs/next with nothing reporting it — the failure mode ADR
+  # OFS-NFS-D-007 §6 has to leave to process, since branch protection is
+  # unavailable on the org's free plan. This is the automated half of that.
+  # `main` is deliberately absent: it is validated by its own release path.
+  push:
+    branches: [nfs/next]
   repository_dispatch:
     types: [pr-validate]
 
