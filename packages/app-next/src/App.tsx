@@ -1,6 +1,10 @@
 import { dynamicFrontendFeaturesLoader } from '@backstage/frontend-dynamic-feature-loader';
 import { createApp } from '@backstage/frontend-defaults';
 import { createFrontendModule } from '@backstage/frontend-plugin-api';
+// T5.3: 2.0.0 promoted the NFS plugin from ./alpha to the package main entry;
+// ./alpha now only re-exports translations. Import path, not shape, is what
+// changed.
+import { globalHeaderModule } from '@red-hat-developer-hub/backstage-plugin-global-header';
 import '@backstage/ui/css/styles.css';
 import { apis } from './apis';
 import { signInPage } from './signIn';
@@ -41,6 +45,8 @@ export const appTranslationsModule = createFrontendModule({
   extensions: translations,
 });
 
+import { veecodeGlobalHeaderModule } from './veecodeGlobalHeader';
+
 const app = createApp({
   features: [
     dynamicFrontendFeaturesLoader(),
@@ -55,6 +61,15 @@ const app = createApp({
     // title/icon, so — like the OFS route it replaces — it stays out of the
     // auto-inferred nav.
     authPlugin,
+    // T5.3. These two are modules, not the plugin, so features[] is where they
+    // belong under OFS-NFS-D-006: the global-header PLUGIN arrives through
+    // app.packages.include (its "." export declares
+    // "backstage": "@backstage/FrontendPlugin"), while globalHeaderModule is a
+    // FrontendModule that mounts the header, and veecodeGlobalHeaderModule is
+    // this app's own. This is also the exact shape that was proven rendering in
+    // a browser, so it is not being changed on aesthetic grounds.
+    globalHeaderModule,
+    veecodeGlobalHeaderModule,
   ],
 });
 

@@ -39,6 +39,13 @@ app:
       # "General", "Authentication Providers", "Feature Flags". Upstream
       # delivers all three; nothing is ported from RHDH.
       - '@backstage/plugin-user-settings'
+      # T5.3. 2.0.0's "." export declares
+      #   "backstage": "@backstage/FrontendPlugin"
+      # so the plugin itself is discovered here. The two FrontendModules it also
+      # ships (globalHeaderModule, and ./global-header-translations-module) are
+      # not the plugin and do not arrive this way — globalHeaderModule is passed
+      # in App.tsx's features[].
+      - '@red-hat-developer-hub/backstage-plugin-global-header'
 
 backend:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
