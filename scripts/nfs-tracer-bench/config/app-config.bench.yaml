@@ -1,0 +1,62 @@
+# Bench overlay for the NFS tracer bench (T1.0a).
+#
+# Mounted at /app/app-config.local.yaml, which docker/entrypoint.nfs.sh:30-32
+# already appends to CONFIG_ARGS when present. No host code change is needed to
+# use this file — that gate exists in the image today.
+#
+# Config order the NFS entrypoint builds:
+#   app-config.yaml → app-config.production.yaml → app-config.nfs.yaml
+#   → app-config.local.yaml (THIS FILE) → dynamic-plugins-root/app-config.dynamic-plugins.yaml
+
+backend:
+  database:
+    # Real Postgres, not SQLite. app-config.production.yaml sets
+    # client: better-sqlite3 with directory ${DEVPORTAL_DB_PATH:-/app/data};
+    # this overrides it, which is the whole point of the bench.
+    #
+    # This also arms the pre-step gate: docker/regenerate-extensions-install.js
+    # acts only when backend.database.client === 'pg' (see its header). On this
+    # image the pre-step is not wired into the NFS entrypoint yet — that is T1.1.
+    client: pg
+    connection:
+      host: ${BENCH_PG_HOST}
+      port: ${BENCH_PG_PORT_INTERNAL}
+      user: ${BENCH_PG_USER}
+      password: ${BENCH_PG_PASSWORD}
+      database: ${BENCH_PG_DATABASE}
+    # Left at the default ('database') deliberately: Backstage then puts each
+    # plugin's tables in its OWN database, so `marketplace_installations` lands in
+    # `backstage_plugin_extensions`, NOT in ${BENCH_PG_DATABASE}. The pre-step
+    # discovers the owning schema through information_schema rather than guessing.
+    # T1.3 must read rows from that database. Requires a role that can CREATE
+    # DATABASE — see README § Postgres role.
+    pluginDivisionMode: database
+
+catalog:
+  # Arrays do not deep-merge in Backstage config: the last file wins outright.
+  # app-config.nfs.yaml:16-19 declares a single location (the kubernetes control
+  # fixture), so this block REPLACES it. Both are listed here to avoid silently
+  # dropping the one the image shipped.
+  locations:
+    - type: file
+      target: /app/bench/marketplace-tracer.yaml
+    - type: file
+      target: ${NFS_KUBERNETES_FIXTURE:-/app/packages/app-next/fixtures/kubernetes-control.yaml}
+    # G1b: the executable Template the shell smoke drives (T4.4). Local actions
+    # only — see the fixture's own header for why the repo's examples cannot be
+    # used here.
+    - type: file
+      target: /app/bench/g1b-shell-template.yaml
+    # G1b: the User/Group the guest provider names (app-config.yaml:101-102).
+    - type: file
+      target: /app/bench/g1b-org.yaml
+
+# Which sign-in provider the shell offers. signIn.tsx reads this key and picks
+# from its five-provider map, falling back to github when the key is absent —
+# the same contract as the OFS SignInPage. Parameterised here so one image can
+# prove more than one provider: `BENCH_SIGNIN_PAGE=microsoft ./bench.sh -n x up`
+# must render the Azure card and no GitLab card.
+#
+# Defaults to gitlab so the existing G1b evidence stays comparable. Note this is
+# NOT the product default: absent the key, the app falls back to github.
+signInPage: ${BENCH_SIGNIN_PAGE:-gitlab}
