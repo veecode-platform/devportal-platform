@@ -1,0 +1,60 @@
+# Run the published NFS host image the conventional way.
+#
+#   docker compose up
+#   open http://localhost:7007
+#
+# This is not the tracer bench in scripts/nfs-tracer-bench/ — that one exists to
+# prove things and carries fixtures, probes and a report. This one just runs the
+# image.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${PG_USER:-devportal}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-devportal}
+      POSTGRES_DB: ${PG_DATABASE:-backstage}
+    # The default superuser role satisfies the CREATEDB that Backstage's
+    # per-plugin database split needs. A least-privilege role must be granted
+    # CREATEDB explicitly or the boot fails creating backstage_plugin_*.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${PG_USER:-devportal} -d ${PG_DATABASE:-backstage}']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  devportal:
+    # Pinned by digest, not by the moving :next alias. Both tags are the same
+    # digest today; :next moves on the next publish and this file would silently
+    # start running something else. The matching immutable tag is
+    # veecode/devportal:2.3.0-rc.2-nfs.20a31a2.
+    image: veecode/devportal@sha256:6e3fbc54e6ef4e430b4e53c9c71a1e264642f97ccd3248e56f7275e8aac74273
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Must match the URL you actually open in the browser. app-config.nfs.yaml
+      # uses it for app.baseUrl, backend.baseUrl and backend.cors.origin at once,
+      # so a mismatch shows up as CORS failures rather than as a wrong link.
+      NFS_BASE_URL: ${NFS_BASE_URL:-http://localhost:7007}
+      # The NFS half of the Module Federation switch. With this false the backend
+      # installs the noop frontend-remote service (the OFS path) and dynamic
+      # frontend plugins are never announced to the host.
+      ENABLE_STANDARD_MODULE_FEDERATION: 'true'
+      PG_HOST: postgres
+      PG_PORT: '5432'
+      PG_USER: ${PG_USER:-devportal}
+      PG_PASSWORD: ${PG_PASSWORD:-devportal}
+      PG_DATABASE: ${PG_DATABASE:-backstage}
+    ports:
+      - '${NFS_PORT:-7007}:7007'
+    volumes:
+      # The entrypoint appends this to its --config list when the file is present.
+      - ./app-config.local.yaml:/app/app-config.local.yaml:ro
+      # Optional: drop a dynamic-plugins.yaml here to install remotes at boot.
+      # The image default (dynamic-plugins.nfs.yaml) installs nothing.
+      # - ./dynamic-plugins.yaml:/app/dynamic-plugins.yaml:ro
+
+volumes:
+  pgdata:
