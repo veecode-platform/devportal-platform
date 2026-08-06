@@ -1,0 +1,187 @@
+# nfs/next durable publish channel.
+#
+# Builds the NFS host image from the nfs/next branch. The only trigger is a
+# manual dispatch, and publishing is gated by the `publish` input (default
+# false): a dispatch left at the default validates and builds without writing
+# anything to the registry. Never writes :latest, :stable or any release tag.
+# The moving :next tag is produced only from the same immutable digest of this
+# branch — asserted at publish time, not merely claimed here.
+#
+# Deliberately narrow:
+#   - never writes :latest, :stable or any release tag;
+#   - never touches publish.yml or the OFS Dockerfile;
+#   - replicates scripts/build-local-nfs-image.sh (host artefacts first,
+#     then Dockerfile.nfs) so the image is reproducible from the source commit.
+#
+# This copy lives on main only so that workflow_dispatch exists at all — GitHub
+# lists a dispatchable workflow only when the file is present on the default
+# branch. A dispatch still runs the definition from whatever ref you select, so
+# nfs/next remains the branch that actually builds. main carries Dockerfile.nfs
+# and packages/app-next too, which is exactly the hazard: dispatched on the
+# default ref this would build main's older app-next and, with publish=true,
+# point :next at it. The ref guard below refuses that.
+name: Publish NFS next image
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to registry (immutable -nfs.<sha> + :next). Default false.'
+        required: false
+        # A quoted 'false' does not match `type: boolean`. Kept unquoted so the
+        # declared type and the default agree.
+        default: false
+        type: boolean
+
+env:
+  IMAGE_NAME: docker.io/veecode/devportal
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # Fail before anything is built, let alone pushed. main carries
+      # Dockerfile.nfs and packages/app-next, so a dispatch on the default ref
+      # would produce a real NFS image from the wrong branch.
+      - name: Refuse any ref other than nfs/next
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_NAME" != 'nfs/next' ]; then
+            echo "::error::this channel builds nfs/next only; got '${REF_NAME}'. Re-dispatch with --ref nfs/next."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable yarn 4 (packageManager)
+        run: corepack enable
+
+      - name: Build host artefacts (same steps as build-local-nfs-image.sh)
+        run: |
+          yarn install --immutable
+          NODE_OPTIONS="--max-old-space-size=6144" yarn workspace app-next tsc
+          NODE_OPTIONS="--max-old-space-size=6144" yarn workspace app-next build
+          NODE_OPTIONS="--max-old-space-size=6144" yarn build:backend
+
+      - name: Sanity-check artefacts before docker build
+        run: |
+          test -f packages/backend/dist/skeleton.tar.gz
+          test -f packages/backend/dist/bundle.tar.gz
+          test -f packages/app-next/dist/index.html
+          tar -tzf packages/backend/dist/skeleton.tar.gz | grep -F 'packages/app-next/package.json' >/dev/null
+          tar -tzf packages/backend/dist/bundle.tar.gz | grep -F 'packages/app-next/dist/index.html' >/dev/null
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build image (Dockerfile.nfs, amd64; never pushed by default)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.nfs
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:nfs-next-build
+          build-args: |
+            DEVPORTAL_VERSION=${{ steps.version.outputs.version }}
+
+      # The gate is written twice on purpose, in the same shape both times.
+      #
+      # A workflow_dispatch input declared `type: boolean` reaches the `inputs`
+      # context as a real boolean, while `github.event.inputs.*` is always a
+      # string. GitHub's `==` coerces mismatched types to numbers, so a single
+      # `inputs.publish == 'true'` compares 1 against NaN. Whichever
+      # interpretation holds, the form below is FALSE when the input is false —
+      # the asymmetry that matters, since publishing against the operator's
+      # `publish=false` is far worse than a dispatch that only builds.
+      - name: Publish (only when publish=true)
+        id: publish
+        if: ${{ inputs.publish == true || github.event.inputs.publish == 'true' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          : "${VERSION:?package version is empty}"
+          # package.json already carries the pre-release suffix (2.3.0-rc.2), so the
+          # tag is the version verbatim plus -nfs.<shortsha>. Appending a literal
+          # -rc.2 here produced 2.3.0-rc.2-rc.2-nfs.<sha>, which is not the tag
+          # ADR OFS-NFS-D-007 §4 specifies.
+          IMMUTABLE_TAG="${VERSION}-nfs.${SHORT_SHA:0:7}"
+          echo "Publishing ${IMAGE_NAME}:${IMMUTABLE_TAG} and ${IMAGE_NAME}:next"
+          docker tag "${IMAGE_NAME}:nfs-next-build" "${IMAGE_NAME}:${IMMUTABLE_TAG}"
+          docker tag "${IMAGE_NAME}:nfs-next-build" "${IMAGE_NAME}:next"
+
+          # The registry manifest digest is only knowable after the push. The build
+          # step runs with push:false/load:true, i.e. the docker exporter, which does
+          # not produce one — steps.build.outputs.digest is empty or local here. The
+          # whole migration plan tracks images BY DIGEST, so reporting the wrong one
+          # silently invalidates the evidence trail.
+          docker push "${IMAGE_NAME}:${IMMUTABLE_TAG}" | tee /tmp/push-immutable.log
+          docker push "${IMAGE_NAME}:next" | tee /tmp/push-next.log
+          # `|| true` on purpose: under `set -o pipefail` a grep that matches nothing
+          # aborts the step right here, and the operator sees a bare exit 1 that reads
+          # like the push itself failed — when in fact the image IS in the registry and
+          # only the digest capture broke. Let the explicit guard below say which.
+          DIGEST="$(grep -oE 'sha256:[0-9a-f]{64}' /tmp/push-immutable.log | tail -1 || true)"
+          NEXT_DIGEST="$(grep -oE 'sha256:[0-9a-f]{64}' /tmp/push-next.log | tail -1 || true)"
+          if [ -z "$DIGEST" ]; then
+            echo "::error::${IMAGE_NAME}:${IMMUTABLE_TAG} was pushed, but no manifest digest could be read from the docker push output — the image is in the registry and the provenance record is NOT trustworthy. Read the digest with: docker buildx imagetools inspect ${IMAGE_NAME}:${IMMUTABLE_TAG}"
+            exit 1
+          fi
+          # ADR OFS-NFS-D-007 §4 promises both tags are the same digest. Assert it
+          # rather than trust it.
+          if [ "$DIGEST" != "$NEXT_DIGEST" ]; then
+            echo "::error::the :next digest ($NEXT_DIGEST) differs from ${IMMUTABLE_TAG} ($DIGEST)"
+            exit 1
+          fi
+          {
+            echo "immutable_tag=${IMMUTABLE_TAG}"
+            echo "digest=${DIGEST}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record provenance (build only)
+        env:
+          PUBLISH_INPUT: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          # No registry digest exists on a build-only run (push:false/load:true), so
+          # the local image id is what can honestly be reported here. Printing an
+          # empty `digest:` field invited reading it as a published digest.
+          LOCAL_ID="$(docker image inspect --format '{{.Id}}' "${IMAGE_NAME}:nfs-next-build")"
+          {
+            echo "## NFS next image (build)"
+            echo "- source commit: ${GITHUB_SHA}"
+            echo "- local image id: ${LOCAL_ID}"
+            echo "- publish: ${PUBLISH_INPUT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record provenance (published)
+        if: ${{ inputs.publish == true || github.event.inputs.publish == 'true' }}
+        env:
+          IMMUTABLE_TAG: ${{ steps.publish.outputs.immutable_tag }}
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          {
+            echo "## NFS next image (published)"
+            echo "- source commit: ${GITHUB_SHA}"
+            echo "- immutable tag: ${IMAGE_NAME}:${IMMUTABLE_TAG}"
+            echo "- moving tag: ${IMAGE_NAME}:next"
+            echo "- digest: ${DIGEST}"
+            echo "- run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } >> "$GITHUB_STEP_SUMMARY"
