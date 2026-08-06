@@ -1,12 +1,90 @@
 app:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}
   packageName: app-next
-  # Keep the NFS host's statically discovered frontend set explicit. Catalog is
-  # the only static capability needed by this control's fixture route; the
-  # dynamic fleet is configured by app-next/src/App.tsx and loaded at runtime.
+  # OFS-NFS-D-006, decided by measurement rather than preference: stock upstream
+  # plugins reach the shipped app through THIS allowlist; App.tsx's features[]
+  # array is reserved for modules this app authors and for anything the
+  # allowlist provably cannot deliver.
+  #
+  # What settled it: app-next's built bundle already carries every one of these
+  # packages in window['@backstage/discovered'] — the CLI injects any dependency
+  # with an NFS-shaped entry, and grepping packages/app-next/dist/static showed
+  # catalog, techdocs, scaffolder, catalog-graph, home and auth all present.
+  # Nothing was missing; the list below was simply filtering them out.
+  # discovery.esm.js:37 treats `include` as a STRICT allowlist (the only string
+  # mode is 'all'), so an unlisted package is discovered and then discarded —
+  # which is why /create and /docs answered 404 while their code was in the
+  # bundle.
+  #
+  # Deliberately absent:
+  #  - @backstage/plugin-auth stays in App.tsx features[]. It already works
+  #    there and is covered by consent.test.tsx; moving it would buy consistency
+  #    and risk T4.2 for nothing this round.
+  #  - @backstage/plugin-home is not listed: the homepage decision is T5.4
+  #    (upstream RHDH homepage via config), a different package.
+  #
+  # The dynamic fleet is separate — it is loaded at runtime by
+  # dynamicFrontendFeaturesLoader(), not discovered here.
   packages:
     include:
       - '@backstage/plugin-catalog'
+      - '@backstage/plugin-catalog-graph'
+      - '@backstage/plugin-scaffolder'
+      - '@backstage/plugin-techdocs'
+      # T4.8. Verified from the published tarball before adding it: 0.9.5's
+      # exports map declares
+      #   "./alpha": { "backstage": "@backstage/FrontendPlugin", ... }
+      # so it is NFS-shaped and the CLI will discover it, and its alpha
+      # registers page:user-settings plus three SubPageBlueprint sub-pages —
+      # "General", "Authentication Providers", "Feature Flags". Upstream
+      # delivers all three; nothing is ported from RHDH.
+      - '@backstage/plugin-user-settings'
+      # The global header ships a `search` component at position 100 by default
+      # (upstream global-header 2.0.0, gh-component:global-header/search). It
+      # needs searchApiRef — api id `plugin.search.queryservice` — and this
+      # package's ./alpha is what registers it (ApiBlueprint.make({ api:
+      # searchApiRef }) in plugin-search/dist/alpha.esm.js). Absent from the
+      # allowlist, the api was never registered and the built image logged four
+      # NotImplementedError for that id while the header rendered no search box
+      # at all. Same failure shape as /create and /docs before D-006.
+      - '@backstage/plugin-search'
+      # Target of two external route bindings below (scaffolder.registerComponent
+      # and, in OFS, api-docs.registerApi). Without the plugin enabled the
+      # binding has nothing to point at and "Register an existing component"
+      # disappears from the catalog — a surface OFS has today.
+      - '@backstage/plugin-catalog-import'
+      # T5.3. 2.0.0's "." export declares
+      #   "backstage": "@backstage/FrontendPlugin"
+      # so the plugin itself is discovered here. The two FrontendModules it also
+      # ships (globalHeaderModule, and ./global-header-translations-module) are
+      # not the plugin and do not arrive this way — globalHeaderModule is passed
+      # in App.tsx's features[].
+      - '@red-hat-developer-hub/backstage-plugin-global-header'
+
+  # OFS binds these statically in packages/app/src/utils/dynamicUI/bindAppRoutes.ts
+  # (lines 36-48); NFS replaces that code with config, and until now the NFS host
+  # bound NOTHING. An unbound external route is not an error — the link simply
+  # does not render — which is why this was invisible: the pages all worked and
+  # only the cross-plugin buttons were missing.
+  #
+  # Names are `pluginId.routeName`, read from each plugin's own NFS definition
+  # rather than guessed:
+  #   catalog     dist/alpha/plugin.esm.js  externalRoutes: viewTechDoc,
+  #               createComponent, createFromTemplate, unregisterRedirect
+  #   scaffolder  routes: root, selectedTemplate, ...; externalRoutes:
+  #               registerComponent, viewTechDoc
+  #   techdocs    routes: root, docRoot, entityContent
+  #   catalog-import  routes: importPage
+  #
+  # OFS also binds api-docs.registerApi and org.catalogIndex; neither plugin is
+  # part of this host, so binding them would point at nothing.
+  routes:
+    bindings:
+      catalog.createComponent: scaffolder.root
+      catalog.createFromTemplate: scaffolder.selectedTemplate
+      catalog.viewTechDoc: techdocs.docRoot
+      scaffolder.registerComponent: catalog-import.importPage
+      scaffolder.viewTechDoc: techdocs.docRoot
 
 backend:
   baseUrl: ${NFS_BASE_URL:-http://localhost:7007}

@@ -1,0 +1,34 @@
+# The identity the bench actually signs in as.
+#
+# app-config.yaml:101-102 declares the guest provider as
+# `userEntityRef: user:default/admin` with `ownershipEntityRefs:
+# [group:default/admins]`, but no fixture defined either entity. Anything that
+# resolves the signed-in principal against the catalog therefore 404s by
+# construction — first caught by the T5.3 header run, where the profile card
+# retried `GET /api/catalog/entities/by-name/user/default/admin` five times and
+# produced five console errors that looked like a header defect and were not.
+#
+# Present in every scaffolder fixture too: `spec.owner: admins` only resolves to
+# a real owner once this Group exists.
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: admins
+  namespace: default
+  description: Bench owner group — matches ownershipEntityRefs in the guest provider
+spec:
+  type: team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: admin
+  namespace: default
+  description: The principal the bench's guest sign-in resolves to
+spec:
+  profile:
+    displayName: Bench Admin
+    email: admin@bench.local
+  memberOf:
+    - admins

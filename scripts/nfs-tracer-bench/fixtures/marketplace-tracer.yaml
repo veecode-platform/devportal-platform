@@ -1,0 +1,119 @@
+# Marketplace fixture for the NFS tracer bench (T1.0a).
+#
+# Purpose: give the bench a catalog that the marketplace backend can resolve,
+# without depending on the baked catalog index (Dockerfile:244-263 bakes it into
+# the OFS image only — Dockerfile.nfs does not copy it).
+#
+# The chain the tracer exercises is:
+#   Plugin --(relations)--> Package --spec.dynamicArtifact--> OCI ref
+#     ExtensionsCatalogClient.getPluginPackages(namespace, name) reads
+#     plugin.relations, keeping only partOf/hasPart whose targetRef starts with
+#     'package:'  (extensions-common/src/api/ExtensionsCatalogClient.ts:225-247)
+#     Then InstallationDataService.getPluginDynamicArtifacts() collects each
+#     Package's spec.dynamicArtifact.
+#
+# IMPORTANT — relations are DERIVED, never declared. `relations` is catalog
+# output, not entity input. Two processors emit them, and either side suffices:
+#   * ExtensionsPackageProcessor reads Package.spec.partOf   (…:92-116)
+#   * ExtensionsPluginProcessor  reads Plugin.spec.packages  (…:134-152)
+# Both live in @red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions.
+# If that module is NOT loaded, these entities still ingest, but plugin.relations
+# stays empty and getPluginPackages() returns [] — the marketplace resolves
+# nothing. See README § "What this fixture does and does not prove".
+#
+# This fixture declares BOTH sides on purpose, so it behaves the same whichever
+# processor is active.
+#
+# The dynamicArtifact refs match the artifacts exported on the tracer line
+# (overlays branch nfs/bs-1.53-tracer-20260804, tag bundle bs_1.53.0). They are
+# NOT published yet — publish-container was false. They are identity here, not
+# something the bench pulls.
+
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: marketplace
+  namespace: veecode
+  title: VeeCode Marketplace
+  description: >-
+    Tracer fixture for the VeeCode Marketplace: frontend, backend and
+    pending-changes, targeting the Backstage 1.53 line.
+spec:
+  author: VeeCode
+  support: community
+  categories:
+    - Extensions
+  description: >-
+    Three-part runtime surface (frontend, backend, pending-changes) as declared
+    by the marketplace workspace plugins-list.yaml.
+  # Emits partOf/hasPart via ExtensionsPluginProcessor.
+  packages:
+    - devportal-marketplace-frontend-dynamic
+    - devportal-marketplace-backend
+    - devportal-pending-changes-dynamic
+
+---
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: devportal-marketplace-frontend-dynamic
+  namespace: veecode
+  title: DevPortal Marketplace Frontend
+spec:
+  packageName: devportal-marketplace-frontend-dynamic
+  dynamicArtifact: oci://quay.io/veecode/marketplace:bs_1.53.0!devportal-marketplace-frontend-dynamic
+  version: 0.1.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.53.0
+  author: VeeCode
+  support: community
+  lifecycle: active
+  # Emits partOf/hasPart via ExtensionsPackageProcessor.
+  partOf:
+    - marketplace
+
+---
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: devportal-marketplace-backend
+  namespace: veecode
+  title: DevPortal Marketplace Backend
+spec:
+  packageName: devportal-marketplace-backend
+  dynamicArtifact: oci://quay.io/veecode/marketplace:bs_1.53.0!devportal-marketplace-backend
+  version: 0.1.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.53.0
+  author: VeeCode
+  support: community
+  lifecycle: active
+  partOf:
+    - marketplace
+
+---
+# Carried as a CANDIDATE only. The 04/08 export produced a valid artifact whose
+# mf-manifest exposes only '.' — no `alpha` — so the NFS loader (0.1.14, which
+# resolves by $$type) finds no FrontendPlugin/FrontendModule in it. That is the
+# open T5.1 work, not a defect of the export. Present here so the bench sees the
+# real three-package shape; must not be read as certified or supported.
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: devportal-pending-changes-dynamic
+  namespace: veecode
+  title: DevPortal Pending Changes
+spec:
+  packageName: devportal-pending-changes-dynamic
+  dynamicArtifact: oci://quay.io/veecode/marketplace:bs_1.53.0!devportal-pending-changes-dynamic
+  version: 0.1.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.53.0
+  author: VeeCode
+  support: community
+  lifecycle: active
+  partOf:
+    - marketplace

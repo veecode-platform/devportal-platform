@@ -1,0 +1,110 @@
+# NFS tracer bench (T1.0a) — minimal bench: NFS host + real Postgres + fixture.
+#
+# Deliberately NOT here: k3d, MinIO, Grafana, any GitLab. The tracer does not use
+# them; T1.0b adds them later for T5.6b/T5.6d.
+#
+# Every image is pinned by digest. No moving tags, ever — the plan tracks
+# evidence by digest, and a floating tag would silently invalidate it.
+#
+# Parameterised on purpose: project name and both host ports come from the
+# environment, so several benches run at once without colliding. Use
+# `./bench.sh -n <name> up`, which sets COMPOSE_PROJECT_NAME and derives ports.
+
+name: ${BENCH_PROJECT:-nfs-tracer}
+
+services:
+  postgres:
+    # postgres:17-alpine as of 2026-08-04
+    image: postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    environment:
+      POSTGRES_USER: ${BENCH_PG_USER:-devportal}
+      POSTGRES_PASSWORD: ${BENCH_PG_PASSWORD:-devportal}
+      POSTGRES_DB: ${BENCH_PG_DATABASE:-backstage}
+    ports:
+      - '${BENCH_PG_PORT:-15432}:5432'
+    tmpfs:
+      # State lives in RAM: every `up` starts from an empty database, which is
+      # what the stateless-boot claim (ADR-014) has to be tested against. It also
+      # makes `down` clean by construction — nothing survives to leak into the
+      # next run.
+      - /var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${BENCH_PG_USER:-devportal} -d ${BENCH_PG_DATABASE:-backstage}']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  devportal:
+    # The NFS image the 03/08 CI run produced, by digest.
+    # Entrypoint is /app/entrypoint.nfs.sh (verified with docker image inspect).
+    image: ${BENCH_IMAGE:-veecode/devportal@sha256:676d288f4c105121b21269717cd27db080c3d64b3eac062ba193fb7e4d620a1d}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # app-config.nfs.yaml uses this for app.baseUrl, backend.baseUrl and cors.
+      # It must carry the published host port, or the browser talks to the wrong
+      # origin and CORS rejects it.
+      NFS_BASE_URL: http://localhost:${BENCH_HTTP_PORT:-17707}
+      # Consumed by config/app-config.bench.yaml. Note PORT_INTERNAL is the port
+      # INSIDE the compose network (5432), not the published one.
+      BENCH_PG_HOST: postgres
+      BENCH_PG_PORT_INTERNAL: '5432'
+      BENCH_PG_USER: ${BENCH_PG_USER:-devportal}
+      BENCH_PG_PASSWORD: ${BENCH_PG_PASSWORD:-devportal}
+      BENCH_PG_DATABASE: ${BENCH_PG_DATABASE:-backstage}
+      LOG_LEVEL: ${BENCH_LOG_LEVEL:-info}
+      # Which sign-in provider config/app-config.bench.yaml selects. Declared
+      # here because compose passes ONLY what this block lists — a variable set in
+      # the invoking shell never reaches the container, so app-config's
+      # ${BENCH_SIGNIN_PAGE:-...} would silently take its default and two
+      # instances meant to differ would boot identically.
+      BENCH_SIGNIN_PAGE: ${BENCH_SIGNIN_PAGE:-gitlab}
+    ports:
+      - '${BENCH_HTTP_PORT:-17707}:7007'
+    volumes:
+      # The entrypoint appends this file if it exists (entrypoint.nfs.sh:30-32).
+      # That is the whole integration surface — no image rebuild, no code change.
+      - ./config/app-config.bench.yaml:/app/app-config.local.yaml:ro
+      - ./fixtures/marketplace-tracer.yaml:/app/bench/marketplace-tracer.yaml:ro
+      # G1b: an executable Template for the shell smoke. The repo's own examples
+      # all end in publish:github, so none of them can be run on the bench.
+      - ./fixtures/g1b-shell-template.yaml:/app/bench/g1b-shell-template.yaml:ro
+      # The User/Group the guest sign-in resolves to. Without it anything that
+      # looks up the signed-in principal 404s — see the fixture's own header.
+      - ./fixtures/g1b-org.yaml:/app/bench/g1b-org.yaml:ro
+      # Written by bench.sh on every `up`. entrypoint.nfs.sh:10-14 prefers this
+      # path over the image's empty dynamic-plugins.nfs.yaml. It declares the
+      # local catalog module when artifacts/ has one, otherwise `plugins: []`.
+      - ./.generated/dynamic-plugins.yaml:/app/dynamic-plugins.yaml:ro
+      # Locally built plugin packages, loaded without a registry:
+      # install-dynamic-plugins.py takes `package: ./<dir>` relative to /app and
+      # skips the integrity check for local paths
+      # (docker/install-dynamic-plugins.py:49,271-289,442).
+      - ./artifacts:/app/bench-artifacts:ro
+      # Overlay of the repo's boot path over the pinned image, so T1.1–T1.3 are
+      # exercised as they exist in the working tree without rebuilding a 1.4 GB
+      # image on every edit. T1.5 is what proves them from a real build.
+      # Same idea as the image-overlay loop in docs/DEVELOPMENT_GUIDE.md.
+      - ../../docker/entrypoint.nfs.sh:/app/entrypoint.nfs.sh:ro
+      - ../../docker/regenerate-extensions-install.js:/app/regenerate-extensions-install.js:ro
+      # install-dynamic-plugins.py was MISSING here until T1.2 caught it. Without
+      # this mount the bench ran the installer baked into the pinned image while
+      # the README claimed the working tree was overlaid — so a change to the
+      # installer would be silently unexercised, and a check that should fail the
+      # boot would appear to pass. Verified at the time: the image's copy and the
+      # tree's copy had the same md5 (4c760c738e46...), i.e. no edit was reaching
+      # the container. Keep every file the boot path executes on this list.
+      - ../../docker/install-dynamic-plugins.py:/app/install-dynamic-plugins.py:ro
+    healthcheck:
+      # NOT /api/healthcheck: on this image that route requires auth and answers
+      # 401, so it can never turn the container healthy. The Backstage readiness
+      # route is unauthenticated (verified: 200). Note the local bench/run-boot.sh still
+      # polls /api/healthcheck and expects 200 — true on the OFS image, not here.
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:7007/.backstage/health/v1/readiness || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 20s

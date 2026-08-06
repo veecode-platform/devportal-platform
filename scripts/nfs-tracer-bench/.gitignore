@@ -1,0 +1,4 @@
+# Locally unpacked plugin packages (./bench.sh fetch) — binary artifacts, never committed.
+artifacts/
+# Inventory written by bench.sh on every `up`.
+.generated/

@@ -1,5 +1,6 @@
 """Tests for install-dynamic-plugins.py — duplicate plugin detection."""
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -112,3 +113,62 @@ def test_disabled_preinstalled_skips_before_the_directory_check(tmp_path):
         {"package": "absent-plugin", "preInstalled": True, "disabled": True},
         {}, str(tmp_path))
     assert (path, config) == (None, {})
+
+
+# --- check_backend_plugin_id_collisions ---------------------------------------
+
+def _plugin_dir(root, dir_name, role, plugin_id, extra=None):
+    d = root / dir_name
+    d.mkdir()
+    backstage = {"role": role}
+    if plugin_id is not None:
+        backstage["pluginId"] = plugin_id
+    package_json = {"name": dir_name, "version": "0.0.0", "backstage": backstage}
+    if extra:
+        package_json.update(extra)
+    (d / "package.json").write_text(json.dumps(package_json))
+    return d
+
+
+def test_two_backend_plugins_same_plugin_id_raises(tmp_path):
+    _plugin_dir(tmp_path, "devportal-marketplace-backend-dynamic", "backend-plugin", "extensions")
+    _plugin_dir(tmp_path, "red-hat-developer-hub-backstage-plugin-extensions-backend-dynamic",
+                "backend-plugin", "extensions")
+    with pytest.raises(idp.InstallException, match="extensions"):
+        idp.check_backend_plugin_id_collisions(str(tmp_path))
+
+
+def test_frontend_and_backend_of_same_plugin_share_plugin_id_no_raise(tmp_path):
+    # The marketplace pairing this check must never break: the frontend and
+    # backend of ONE plugin register the same pluginId on purpose, and only
+    # the backend side counts toward a collision.
+    _plugin_dir(tmp_path, "devportal-marketplace-backend-dynamic", "backend-plugin", "extensions")
+    _plugin_dir(tmp_path, "devportal-marketplace-frontend-dynamic-dynamic", "frontend-plugin", "extensions")
+    idp.check_backend_plugin_id_collisions(str(tmp_path))  # no raise
+
+
+def test_backend_plugin_modules_targeting_same_plugin_id_do_not_collide(tmp_path):
+    # Several backend-plugin-module entries extending the same host plugin
+    # (e.g. catalog) is the normal, supported shape — not a registration.
+    _plugin_dir(tmp_path, "catalog-backend-module-extensions-dynamic", "backend-plugin-module", "catalog")
+    _plugin_dir(tmp_path, "catalog-backend-module-github-dynamic", "backend-plugin-module", "catalog")
+    idp.check_backend_plugin_id_collisions(str(tmp_path))  # no raise
+
+
+def test_distinct_plugin_ids_do_not_collide(tmp_path):
+    _plugin_dir(tmp_path, "plugin-a", "backend-plugin", "a")
+    _plugin_dir(tmp_path, "plugin-b", "backend-plugin", "b")
+    idp.check_backend_plugin_id_collisions(str(tmp_path))  # no raise
+
+
+def test_directory_without_package_json_is_ignored(tmp_path):
+    (tmp_path / "install-dynamic-plugins.lock").write_text("")
+    (tmp_path / "some-dir-with-no-manifest").mkdir()
+    idp.check_backend_plugin_id_collisions(str(tmp_path))  # no raise, no crash
+
+
+def test_malformed_package_json_is_ignored_not_crashed(tmp_path):
+    d = tmp_path / "corrupt-plugin"
+    d.mkdir()
+    (d / "package.json").write_text("{not valid json")
+    idp.check_backend_plugin_id_collisions(str(tmp_path))  # no raise, no crash

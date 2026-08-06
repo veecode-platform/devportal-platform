@@ -541,6 +541,64 @@ def check_plugin_identity_collisions(allPlugins: dict):
                 f"dynamic-plugins.default.yaml), or disable one entry.")
         seen[identity] = package
 
+def check_backend_plugin_id_collisions(dynamicPluginsRoot: str):
+    """Fail the boot if two installed plugins both register the same backend
+    Backstage `pluginId` — Backstage can only mount one backend per pluginId,
+    so a second one either silently loses or conflicts at the route it
+    mounts (e.g. two plugins both answering `/api/extensions/*`).
+
+    `pluginId` is declared in a plugin's `package.json` (`backstage.pluginId`),
+    not in `dynamic-plugins.yaml`, and is only readable once the package is
+    downloaded and extracted — unlike check_plugin_identity_collisions() above,
+    this cannot run as an upfront check over the YAML config. It runs instead
+    as a pass over `dynamicPluginsRoot` once every plugin for this boot has
+    been installed, skipped, or removed, and reads each candidate's
+    package.json directly. That also means it uniformly covers a plugin
+    however it ended up on disk this boot — freshly downloaded, reused
+    because its hash was already installed, or `preInstalled` from image
+    build time — with no extra bookkeeping.
+
+    Only `backstage.role: backend-plugin` entries are counted. A plugin's
+    frontend and backend legitimately share the SAME pluginId on purpose
+    (e.g. the marketplace frontend and backend both register "extensions")
+    — that pairing is not a collision, and only the backend side registers
+    the pluginId at runtime. `backend-plugin-module` entries extend an
+    existing plugin's backend rather than registering their own (several
+    catalog modules all target pluginId "catalog" with no conflict), so they
+    are excluded too. `disabled` entries never get a directory, so they are
+    implicitly excluded — there is nothing to opt them out of here."""
+    owner_by_plugin_id = {}  # pluginId -> first backend-plugin directory seen for it
+    for dir_name in sorted(os.listdir(dynamicPluginsRoot)):
+        dir_path = os.path.join(dynamicPluginsRoot, dir_name)
+        if not os.path.isdir(dir_path):
+            continue
+        package_json_path = os.path.join(dir_path, 'package.json')
+        if not os.path.isfile(package_json_path):
+            continue
+        try:
+            with open(package_json_path, 'r') as f:
+                package_json = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            # Not a plugin directory we can read the identity of — leave the
+            # verdict to whatever else validates it, don't crash the boot here.
+            continue
+
+        backstage = package_json.get('backstage')
+        if not isinstance(backstage, dict) or backstage.get('role') != 'backend-plugin':
+            continue
+        plugin_id = backstage.get('pluginId')
+        if not plugin_id:
+            continue
+
+        if plugin_id in owner_by_plugin_id:
+            raise InstallException(
+                f"Two backend plugins both register pluginId '{plugin_id}': "
+                f"'{owner_by_plugin_id[plugin_id]}' and '{dir_name}'. Backstage "
+                f"can only mount one backend per pluginId — disable one of the "
+                f"two entries (disabled: true) or remove it from the plugin "
+                f"inventory.")
+        owner_by_plugin_id[plugin_id] = dir_name
+
 def verify_package_integrity(plugin: dict, archive: str, working_directory: str) -> None:
     package = plugin['package']
     if 'integrity' not in plugin:
@@ -749,6 +807,16 @@ def main():
         plugin_directory = os.path.join(dynamicPluginsRoot, plugin_path_by_hash[hash_value])
         print('\n======= Removing previously installed dynamic plugin', plugin_path_by_hash[hash_value], flush=True)
         shutil.rmtree(plugin_directory, ignore_errors=True, onerror=None)
+
+    # Fail the boot if two installed backends register the same pluginId. Runs
+    # here — after install and after the stale-plugin cleanup above — so it
+    # sees the converged, final directory set for this boot: a stale
+    # about-to-be-removed directory can't produce a false collision, and
+    # pluginId (only readable from package.json once a package is on disk)
+    # is actually there to read. Not gated by DYNAMIC_PLUGINS_TOLERATE_FAILURES:
+    # that flag exists for transient per-plugin install failures, not for a
+    # structurally invalid plugin set, matching check_plugin_identity_collisions.
+    check_backend_plugin_id_collisions(dynamicPluginsRoot)
 
     # Fail the boot if any plugin failed to install. DYNAMIC_PLUGINS_TOLERATE_FAILURES=true
     # opts back into the old forgiving behavior (dev iteration, known-flaky upstream

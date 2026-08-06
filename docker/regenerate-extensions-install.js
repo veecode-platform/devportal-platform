@@ -22,7 +22,12 @@
  *   - Write {plugins: [...]} atomically (temp file + rename) to
  *     ${DEVPORTAL_DB_PATH:-/app/data}/extensions-install.yaml.
  *   - Never hard-fail the boot: on any config/DB/write error, leave the file the
- *     entrypoint already guaranteed in place and log a warning.
+ *     entrypoint already guaranteed in place and log a warning. This is the OFS
+ *     default and stays untouched.
+ *   - EXCEPT when EXTENSIONS_PRESTEP_FAIL_CLOSED=true (opt-in, set only by the
+ *     NFS entrypoint — ADR-014 amendment / D-G5). Then a configured-but-unusable
+ *     Postgres aborts the boot with exit 78 instead of degrading silently. See
+ *     `bail()` for exactly which conditions abort and which stay soft.
  *
  * Config is read with the same --config files the backend gets (passed as args),
  * via @backstage/config-loader, so ${VAR:-default} and the SaaS/preset database
@@ -34,6 +39,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const YAML = require('yaml');
 const { ConfigSources } = require('@backstage/config-loader');
 const { Client } = require('pg');
@@ -49,8 +55,66 @@ const TABLE = 'marketplace_installations';
 const CONNECT_TIMEOUT_MS = 5000;
 const STATEMENT_TIMEOUT_MS = 10000;
 
+// Same reasoning as the pg timeouts: a registry that does not answer must not
+// hang the boot. Resolution happens once per package, and only for rows whose
+// digest is still unknown, so this bound is paid at most once per plugin.
+const SKOPEO_TIMEOUT_MS = 20000;
+
 const log = msg => process.stdout.write(`VEECODE prestep: ${msg}\n`);
 const warn = msg => process.stderr.write(`VEECODE prestep: WARNING — ${msg}\n`);
+
+// Opt-in, read once. Absent/anything-but-"true" keeps the historical fail-open
+// behavior byte-for-byte, so the OFS entrypoint — which does not set it — is
+// unaffected. Only docker/entrypoint.nfs.sh turns it on.
+const FAIL_CLOSED = process.env.EXTENSIONS_PRESTEP_FAIL_CLOSED === 'true';
+
+// Exit 78 matches the code the entrypoints already use for "boot refused because
+// the deployment is misconfigured" (preset variable validation), so operators see
+// one convention rather than two.
+const EXIT_MISCONFIGURED = 78;
+
+// SQLSTATE invalid_catalog_name — "database <x> does not exist".
+//
+// With pluginDivisionMode: database (the default) each plugin owns its own
+// database, and the marketplace backend creates `${prefix}extensions` the first
+// time it runs. Until then the pre-step's connection fails with this code. That
+// is the SAME legitimate state as "table not found": a tenant that has not
+// migrated yet, NOT an unreachable Postgres. Measured on the bench — a naive
+// fail-closed rejects it and breaks every first boot.
+//
+// Everything else (connection refused, timeout, auth failure, permission denied)
+// stays hard: those mean Postgres is declared the source of truth and cannot be
+// consulted.
+const PG_DATABASE_MISSING = '3D000';
+
+/**
+ * A condition that degrades under OFS but must refuse the boot under NFS.
+ *
+ * Called only for states where Postgres is CONFIGURED yet the marketplace
+ * selections cannot be reconstructed — unreachable database, unusable connection
+ * config, failed write. In those states a silent degrade boots the host with an
+ * empty or stale plugin set, which reads as "the operator uninstalled everything"
+ * and is exactly what D-G5 refuses.
+ *
+ * Deliberately NOT routed through here, because they are legitimate states and
+ * must keep booting even fail-closed:
+ *   - backend.database.client !== 'pg'  (SQLite/file deployments)
+ *   - marketplace_installations absent  (fresh tenant, plugin never migrated)
+ *   - the plugin's own database absent  (see PG_DATABASE_MISSING)
+ */
+function bail(msg) {
+  if (!FAIL_CLOSED) {
+    warn(msg);
+    return;
+  }
+  process.stderr.write(
+    `VEECODE prestep: FATAL — ${msg}\n` +
+      'VEECODE prestep: refusing to boot with an unreconstructed plugin set ' +
+      '(EXTENSIONS_PRESTEP_FAIL_CLOSED=true). Fix the database configuration or ' +
+      'reachability and restart.\n',
+  );
+  process.exit(EXIT_MISCONFIGURED);
+}
 
 // Parse repeated `--config <path>` args (the same shape the entrypoint passes).
 function parseConfigTargets(argv) {
@@ -103,6 +167,11 @@ function pgClientConfig(connection, overrideDb) {
 // SINGLE connection (one TCP+TLS+auth handshake at boot). Prefers a schema whose
 // name mentions "extensions" when several match. Returns {schema, rows}; schema
 // is undefined when the table exists nowhere reachable (fresh tenant).
+//
+// T1.3: the read now also picks up `requested_ref` and `resolved_digest` WHEN THE
+// COLUMNS EXIST. They are discovered rather than assumed, because a database that
+// predates the migration must still be readable — selecting a missing column is a
+// hard SQL error, which would turn a rollback-era database into a refused boot.
 async function loadInstallations(clientConfig) {
   const client = new Client(clientConfig);
   await client.connect();
@@ -117,21 +186,116 @@ async function loadInstallations(clientConfig) {
     const schema = schemaRes.rows[0]
       ? schemaRes.rows[0].table_schema
       : undefined;
-    if (!schema) return { schema: undefined, rows: [] };
-    const dataRes = await client.query(
-      `SELECT config_yaml, package_name, disabled FROM "${schema}"."${TABLE}" ORDER BY package_name`,
+    if (!schema) return { schema: undefined, rows: [], columns: new Set() };
+
+    const colRes = await client.query(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = $2`,
+      [schema, TABLE],
     );
-    return { schema, rows: dataRes.rows };
+    const columns = new Set(colRes.rows.map(r => r.column_name));
+
+    const selected = ['config_yaml', 'package_name', 'disabled'];
+    for (const optional of ['requested_ref', 'resolved_digest']) {
+      if (columns.has(optional)) selected.push(optional);
+    }
+    const dataRes = await client.query(
+      `SELECT ${selected
+        .map(c => `"${c}"`)
+        .join(', ')} FROM "${schema}"."${TABLE}" ORDER BY package_name`,
+    );
+    return { schema, rows: dataRes.rows, columns };
   } finally {
     await client.end();
   }
 }
 
+// Split an OCI plugin ref into its image part and its `!selector` suffix.
+// Mirrors install-dynamic-plugins.py, which does `package.split('!')` and then
+// `image.replace('oci://','docker://')`. Returns null for anything that is not an
+// OCI ref — local `./dir` paths and bare npm names have no digest to resolve.
+function splitOciRef(ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('oci://')) return null;
+  const bang = ref.indexOf('!');
+  if (bang === -1) return null;
+  return { image: ref.slice(0, bang), selector: ref.slice(bang + 1) };
+}
+
+// Rewrite an OCI ref so the image is addressed by digest instead of by tag.
+// The installer's digest() does `skopeo inspect` on exactly this string and
+// compares the result against dynamic-plugin-image.hash, so pinning the digest
+// here is what makes a restart reuse the same bytes instead of re-resolving a tag
+// that may have moved.
+function refWithDigest(ref, digest) {
+  const parts = splitOciRef(ref);
+  if (!parts) return ref;
+  const repo = parts.image.replace(/^oci:\/\//, '').split('@')[0].split(':')[0];
+  return `oci://${repo}@${digest}!${parts.selector}`;
+}
+
+// Resolve an OCI ref to its manifest digest, once, via the skopeo already present
+// in the image (/usr/bin/skopeo). Returns `sha256:...` (canonical OCI form, with
+// the prefix) or null when the reference cannot be resolved.
+//
+// Bounded on purpose: an unreachable registry must not hang the boot, the same
+// reasoning behind the pg timeouts above.
+function resolveDigest(ref) {
+  const parts = splitOciRef(ref);
+  if (!parts) return null;
+  const imageUrl = parts.image.replace(/^oci:\/\//, 'docker://');
+  try {
+    const out = execFileSync('skopeo', ['inspect', imageUrl], {
+      encoding: 'utf8',
+      timeout: SKOPEO_TIMEOUT_MS,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const digest = JSON.parse(out).Digest;
+    return typeof digest === 'string' && digest.includes(':') ? digest : null;
+  } catch (e) {
+    warn(`skopeo could not resolve ${imageUrl}: ${(e && e.message) || e}`);
+    return null;
+  }
+}
+
+// Persist a digest we just resolved, so no later boot resolves the tag again.
+// Best-effort by design: if the write fails the YAML for THIS boot is still
+// correct (it was built from the digest in memory), and the next boot simply
+// resolves once more. A failed write must not refuse a boot that is otherwise
+// fully determined.
+async function persistDigest(clientConfig, schema, packageName, digest) {
+  const client = new Client(clientConfig);
+  try {
+    await client.connect();
+    await client.query(
+      `UPDATE "${schema}"."${TABLE}" SET resolved_digest = $1 WHERE package_name = $2`,
+      [digest, packageName],
+    );
+    log(`persisted resolved_digest for "${packageName}"`);
+  } catch (e) {
+    warn(
+      `could not persist resolved_digest for "${packageName}" (${e.message}); this boot still uses the resolved digest`,
+    );
+  } finally {
+    try {
+      await client.end();
+    } catch {
+      /* already closed */
+    }
+  }
+}
+
 // Mirror the marketplace backend's syncToYamlFile: use the stored plugin entry
 // (config_yaml) when present, otherwise synthesize {package, disabled}.
-function rowsToPlugins(rows) {
+//
+// T1.3: `effectiveRefs` maps package_name -> the ref to actually write, which for
+// OCI rows is the digest-pinned form. It overrides BOTH the synthesized entry and
+// a `package` already present inside config_yaml — otherwise a stored entry would
+// keep reintroducing the tag we just pinned away. Defaults to empty so the pure
+// transform stays callable from the unit tests with one argument.
+function rowsToPlugins(rows, effectiveRefs = new Map()) {
   const plugins = [];
   for (const row of rows) {
+    const effective = effectiveRefs.get(row.package_name);
     const raw = row.config_yaml != null ? String(row.config_yaml).trim() : '';
     if (raw) {
       // A single corrupt config_yaml must NOT drop every selection — parse
@@ -148,6 +312,7 @@ function rowsToPlugins(rows) {
         if (parsed.disabled === undefined && row.disabled != null) {
           parsed.disabled = !!row.disabled;
         }
+        if (effective) parsed.package = effective; // digest-pinned form wins
         if (!parsed.package) parsed.package = row.package_name; // backfill from the PK
         if (!parsed.package) {
           warn(
@@ -163,7 +328,10 @@ function rowsToPlugins(rows) {
       warn(`row has empty package_name and no usable config_yaml; skipping`);
       continue;
     }
-    plugins.push({ package: row.package_name, disabled: !!row.disabled });
+    plugins.push({
+      package: effective || row.package_name,
+      disabled: !!row.disabled,
+    });
   }
   return plugins;
 }
@@ -186,7 +354,7 @@ async function main() {
   try {
     config = await loadConfig(targets);
   } catch (e) {
-    warn(`could not load app-config (${e.message}); leaving ${outFile} as-is`);
+    bail(`could not load app-config (${e.message}); leaving ${outFile} as-is`);
     return;
   }
 
@@ -210,7 +378,7 @@ async function main() {
     return;
   }
   if (!connection) {
-    warn(
+    bail(
       `backend.database.client=pg but no backend.database.connection found; leaving ${outFile} as-is`,
     );
     return;
@@ -227,7 +395,7 @@ async function main() {
   try {
     clientConfig = pgClientConfig(connection, overrideDb);
   } catch (e) {
-    warn(
+    bail(
       `invalid backend.database.connection (${e.message}); leaving ${outFile} as-is`,
     );
     return;
@@ -235,10 +403,21 @@ async function main() {
 
   let schema;
   let rows;
+  let columns = new Set();
   try {
-    ({ schema, rows } = await loadInstallations(clientConfig));
+    ({ schema, rows, columns } = await loadInstallations(clientConfig));
   } catch (e) {
-    warn(`could not read ${TABLE} (${e.message}); leaving ${outFile} as-is`);
+    if (e && e.code === PG_DATABASE_MISSING) {
+      // Fresh tenant: the marketplace backend has not created its database yet.
+      // Soft even fail-closed — see PG_DATABASE_MISSING.
+      warn(
+        `${where} does not exist yet (${e.message}); fresh tenant, leaving ${outFile} as-is`,
+      );
+      return;
+    }
+    // The D-G5 case: Postgres is declared the source of truth but cannot be
+    // read. Fail-open here is what boots a host with no plugins at all.
+    bail(`could not read ${TABLE} (${e.message}); leaving ${outFile} as-is`);
     return;
   }
   if (!schema) {
@@ -251,14 +430,65 @@ async function main() {
     `pluginDivisionMode=${mode} — read "${schema}".${TABLE} in ${where} (${rows.length} row(s))`,
   );
 
-  const plugins = rowsToPlugins(rows);
+  // ── T1.3 / D-G8: pin every OCI selection to a digest ──────────────────────
+  //
+  // A restart must reinstall the SAME bytes, so the YAML never carries a bare
+  // tag. Two shapes arrive here:
+  //
+  //   * resolved_digest already stored  -> reuse it, no registry call at all.
+  //     This is what makes a restart deterministic: the tag is never consulted
+  //     again, even if it moved.
+  //   * digest still null (a row written before this change, or one the backend
+  //     just created) -> resolve ONCE via skopeo, write it back, and use it from
+  //     then on. Never materialise the bare tag as a fallback: that is precisely
+  //     the re-resolution this task exists to remove.
+  //
+  // Non-OCI selections (local ./dir, bare npm names) have no digest and pass
+  // through untouched.
+  const effectiveRefs = new Map();
+  const hasDigestColumn = columns.has('resolved_digest');
+  for (const row of rows) {
+    const requested = row.requested_ref || row.package_name;
+    if (!splitOciRef(requested)) continue; // not an OCI ref, nothing to pin
+
+    if (hasDigestColumn && row.resolved_digest) {
+      effectiveRefs.set(row.package_name, refWithDigest(requested, row.resolved_digest));
+      continue;
+    }
+
+    const digest = resolveDigest(requested);
+    if (!digest) {
+      // Postgres is the source of truth and the selection cannot be turned into
+      // an immutable reference. Fail-closed refuses the boot; fail-open (OFS)
+      // keeps the file it already had, exactly as before.
+      bail(
+        `could not resolve a digest for "${requested}"; refusing to materialise a bare tag`,
+      );
+      return;
+    }
+    effectiveRefs.set(row.package_name, refWithDigest(requested, digest));
+    if (hasDigestColumn) {
+      await persistDigest(clientConfig, schema, row.package_name, digest);
+    } else {
+      warn(
+        `resolved_digest column is absent (pre-migration database) — resolved ${digest} for this boot only, it will be resolved again next time`,
+      );
+    }
+  }
+  log(
+    `digest-pinned ${effectiveRefs.size} of ${rows.length} selection(s) (${
+      rows.length - effectiveRefs.size
+    } non-OCI)`,
+  );
+
+  const plugins = rowsToPlugins(rows, effectiveRefs);
   try {
     writeAtomic(outFile, YAML.stringify({ plugins }));
     log(
       `regenerated ${outFile} with ${plugins.length} plugin selection(s) from the database`,
     );
   } catch (e) {
-    warn(
+    bail(
       `could not write ${outFile} (${e.message}); boot continues with the existing file`,
     );
   }
@@ -268,7 +498,7 @@ if (require.main === module) {
   main().then(
     () => process.exit(0),
     e => {
-      warn(
+      bail(
         `unexpected error (${
           e && e.message
         }); leaving extensions-install.yaml as-is, boot continues`,
