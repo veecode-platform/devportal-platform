@@ -24,7 +24,17 @@ Usage: ./scripts/build-local-nfs-image.sh [OPTIONS]
 
 Options:
   --no-cache       Disable Docker layer caching
-  --skip-build     Use existing backend/app-next artefacts
+  --skip-build     Use existing backend/app-next artefacts. READ THIS FIRST:
+                   packages/app-next/dist reaches the image INSIDE
+                   packages/backend/dist/bundle.tar.gz, and only
+                   `yarn build:backend` produces that archive. So rebuilding
+                   app-next alone and then passing --skip-build ships the
+                   PREVIOUS frontend, silently — the image builds, boots, and
+                   reproduces the bug you just fixed. Measured, and it cost a
+                   full proof cycle.
+                   Safe only for files the Dockerfile COPYs directly:
+                   app-config.nfs.yaml, packages/app-next/config.d.ts,
+                   packages/app-next/fixtures, examples, rbac-policy*.csv.
   --memory=<size>  Docker build memory (default: 3g)
   --help, -h       Show this help
 
