@@ -25,6 +25,7 @@ import { getDefaultServiceFactories } from './defaultServiceFactories';
 import {
   healthCheckPlugin,
   versionPlugin,
+  nfsModuleFilterPlugin,
   pluginIDProviderService,
   rbacDynamicPluginsProvider,
 } from './modules';
@@ -128,6 +129,14 @@ if (
       }),
     }),
   );
+} else {
+  // The NFS half of the same switch, and it was missing: with standard Module
+  // Federation ON, the service above is the REAL one and it announces every
+  // exposed module of every installed frontend plugin to the host. Exported OFS
+  // bundles expose Scalprum-shaped modules next to any NFS entrypoint, and the
+  // host cannot tell them apart from the remote manifest alone. Upstream RHDH
+  // pairs the `if` with this `else` (RHIDP-15377); we shipped only the `if`.
+  backend.add(nfsModuleFilterPlugin);
 }
 
 backend.add(healthCheckPlugin);
