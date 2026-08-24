@@ -25,6 +25,7 @@ VeeCode DevPortal is an open-source Backstage distribution designed for producti
 - docs/BACKSTAGE_ARCHITECTURE.md - Pinned versions (1.53.0) + how the static + dynamic backend wire together
 - docs/DYNAMIC_PLUGINS_ARCHITECTURE.md - Scalprum + MF runtime; rhdh-cli vs janus-cli; authoring gotchas
 - docs/PLUGINS.md - Static + internal + dynamic plugin inventory; what each preset enables
+- docs/OCI_PLUGINS.md - OCI ref formats (one-image-per-plugin + `{{inherit}}` vs legacy workspace+selector); why `{{inherit}}` doesn't work in presets yet; fork-patched installer vs upstream TS
 - docs/CONFIGURATION_GUIDE.md - Preset path + raw Backstage path; app-config layering at boot
 - docs/DYNAMIC_PLUGIN_TRANSLATIONS.md - i18n in dynamic plugins; en + pt locales today
 - docs/RBAC.md - Shipped admin/developer/viewer policy; per-deploy overrides via RBAC_POLICY_PATH
