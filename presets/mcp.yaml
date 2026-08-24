@@ -38,12 +38,23 @@ version: 1.0.0
 #
 # Each entry is self-contained with full pluginConfig inline.
 # dynamic-plugins.default.yaml is documentation only (not in the runtime chain).
-
+#
+# Refs below are one-image-per-plugin (ADR-008 phase 3): the tag is pinned to
+# a literal `bs_<line>__<plugin-version>` and cannot use `${BACKSTAGE_VERSION}`
+# templating like the workspace-image refs above did — the per-plugin version
+# suffix isn't derivable from the Backstage line alone. This preset has no
+# `includes:` entry carrying a plugin-catalog-index (entrypoint.sh only wires
+# `extensions-install.yaml` + preset fragments into the chain — see its
+# "dynamic-plugins.default.yaml is NOT included" comment), so there is nothing
+# for a `{{inherit}}` tag to resolve against here; every Backstage bump that
+# also bumps one of these plugins means hand-editing the tag below. See
+# docs/OCI_PLUGINS.md § "Installer: fork-patched py vs upstream TS" for the
+# full explanation and the follow-up needed to template this again.
 requires:
   variables: {}
 
 plugins:
-  - package: oci://quay.io/veecode/backstage:bs_${BACKSTAGE_VERSION}!backstage-plugin-mcp-actions-backend
+  - package: oci://quay.io/veecode/backstage-plugin-mcp-actions-backend:bs_1.52.0__0.1.14
     disabled: false
     pluginConfig:
       backend:
@@ -55,11 +66,11 @@ plugins:
             - scaffolder-mcp-extras
             - catalog
             - scaffolder
-  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
+  - package: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras:bs_1.52.0__0.2.3
     disabled: false
-  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras
+  - package: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras:bs_1.52.0__0.2.4
     disabled: false
-  - package: oci://quay.io/veecode/mcp-integrations:bs_${BACKSTAGE_VERSION}!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+  - package: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.52.0__0.4.2
     disabled: false
 
 # No app-config additions — OAuth/DCR + permission.enabled already live in

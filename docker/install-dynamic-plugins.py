@@ -68,7 +68,16 @@ Configuration:
 Package Types:
     1. NPM packages: Standard package names (e.g., '@backstage/plugin-catalog')
     2. Local packages: Paths starting with './' (e.g., './my-local-plugin') - automatically detects changes via package.json version, modification times, and lock files
-    3. OCI packages: Images starting with 'oci://' (e.g., 'oci://quay.io/user/plugin:v1.0!plugin-name')
+    3. OCI packages: Images starting with 'oci://' (e.g., 'oci://quay.io/user/plugin:v1.0!plugin-name').
+       The `!<selector>` suffix names the path inside the image and is required
+       for workspace images bundling several plugins. A ref with no `!` targets
+       a one-image-per-plugin OCI image directly — the path inside it is
+       auto-detected from the image's `io.backstage.dynamic-packages` manifest
+       annotation, falling back to the image's own repo name (its last path
+       segment) when that annotation is absent. A tag of `{{inherit}}` defers
+       to whatever concrete tag the same image is pinned to elsewhere in the
+       merged plugin set — see resolve_inherit_refs() — normally supplied by
+       the plugin-catalog-index via `includes:`.
 
 Pull Policies:
     - IfNotPresent: Only download if not already installed (default for most packages)
@@ -93,6 +102,35 @@ class PullPolicy(StrEnum):
 class InstallException(Exception):
     """Exception class from which every exception in this library will derive."""
     pass
+
+# Tag used in an OCI ref to defer to whatever concrete tag the same image
+# (registry+repo, ignoring tag) is pinned to elsewhere in the merged plugin
+# set — mirrors upstream RHDH's `{{inherit}}` (see merger.ts::resolveInherit).
+# Resolved by resolve_inherit_refs() before any plugin gets installed.
+INHERIT_TAG = '{{inherit}}'
+
+def parse_oci_package(package: str) -> dict:
+    """Split an OCI plugin ref into its components.
+
+    Handles both:
+      oci://<registry>/<repo>:<tag>!<selector>   (workspace image, explicit selector)
+      oci://<registry>/<repo>:<tag>              (one-image-per-plugin, no selector)
+
+    `repo` is the ref with the tag stripped (registry+path only), used to
+    match "the same image" across two differently-tagged refs.
+    `rsplit(':', 1)` stays tag-safe even when the registry itself carries a
+    port (e.g. `host:5000/...`), since the tag is always the last
+    colon-separated segment."""
+    if '!' in package:
+        image, selector = package.split('!', 1)
+    else:
+        image, selector = package, None
+
+    if ':' not in image[len('oci://'):]:
+        raise InstallException(f"OCI package ref '{package}' has no tag")
+
+    repo, tag = image.rsplit(':', 1)
+    return {'image': image, 'repo': repo, 'tag': tag, 'selector': selector}
 
 class PluginInstaller:
     """Base class for plugin installers with common functionality."""
@@ -130,6 +168,7 @@ class OciDownloader:
         self.tmp_dir_obj = tempfile.TemporaryDirectory()
         self.tmp_dir = self.tmp_dir_obj.name
         self.image_to_tarball = {}
+        self.image_to_pluginpath = {}
         self.destination = destination
         self.max_entry_size = int(os.environ.get('MAX_ENTRY_SIZE', 20000000))
 
@@ -182,9 +221,51 @@ class OciDownloader:
                 filesToExtract.append(member)
             tar.extractall(os.path.abspath(self.destination), members=filesToExtract, filter='tar')
 
+    def _autodetect_plugin_path(self, image_url: str):
+        """Read the plugin's path inside the image from the OCI manifest
+        annotation `io.backstage.dynamic-packages` (written by the plugin
+        build pipeline — the same annotation upstream RHDH's own installer
+        auto-detects from). Returns None — never raises — when the
+        annotation is absent, unreadable, or names more than one plugin, so
+        the caller falls back instead of guessing which one a bare ref
+        meant."""
+        try:
+            raw = self.skopeo(['inspect', '--raw', image_url])
+            manifest = json.loads(raw)
+            annotation = manifest.get('annotations', {}).get('io.backstage.dynamic-packages')
+            if not annotation:
+                return None
+            packages = json.loads(base64.b64decode(annotation).decode('utf-8'))
+            if not isinstance(packages, list) or len(packages) != 1:
+                return None
+            return next(iter(packages[0]))
+        except (subprocess.CalledProcessError, InstallException, json.JSONDecodeError, binascii.Error, TypeError, StopIteration):
+            return None
+
+    def _parse(self, package: str) -> tuple[str, str]:
+        """Split an OCI package ref into (image, plugin_path).
+
+        `!<selector>` explicitly names the path inside the image (workspace
+        images bundling several plugins). Without it — the
+        one-image-per-plugin format — the path is auto-detected from the
+        manifest annotation, or falls back to the image's own repo name (its
+        last path segment), which is how VeeCode's per-plugin images lay out
+        their tar today."""
+        if '!' in package:
+            image, plugin_path = package.split('!', 1)
+            return image, plugin_path
+
+        image = package
+        if image not in self.image_to_pluginpath:
+            image_url = image.replace('oci://', 'docker://')
+            plugin_path = self._autodetect_plugin_path(image_url)
+            if plugin_path is None:
+                plugin_path = image.rsplit('/', 1)[-1].split(':', 1)[0]
+            self.image_to_pluginpath[image] = plugin_path
+        return image, self.image_to_pluginpath[image]
+
     def download(self, package: str) -> str:
-        # split by ! to get the path in the image
-        (image, plugin_path) = package.split('!')
+        image, plugin_path = self._parse(package)
         tar_file = self.get_plugin_tar(image)
         plugin_directory = os.path.join(self.destination, plugin_path)
         if os.path.exists(plugin_directory):
@@ -192,9 +273,9 @@ class OciDownloader:
             shutil.rmtree(plugin_directory, ignore_errors=True, onerror=None)
         self.extract_plugin(tar_file=tar_file, plugin_path=plugin_path)
         return plugin_path
-    
+
     def digest(self, package: str) -> str:
-        (image, _) = package.split('!')
+        image, _ = self._parse(package)
         image_url = image.replace('oci://', 'docker://')
         output = self.skopeo(['inspect', image_url])
         data = json.loads(output)
@@ -501,18 +582,82 @@ def mergePlugin(plugin: dict, allPlugins: dict, dynamicPluginsFile: str):
             continue
         allPlugins[package][key] = plugin[key]
 
+def resolve_inherit_refs(allPlugins: dict, dynamicPluginsFile: str) -> dict:
+    """Resolve OCI refs pinned with the `{{inherit}}` tag.
+
+    An entry like `oci://quay.io/veecode/<plugin>:{{inherit}}` carries no tag
+    of its own — it defers to whatever concrete tag the SAME image
+    (registry+repo, ignoring tag, plus the same `!selector` if any) is
+    pinned to elsewhere in the merged plugin set, normally an entry pulled
+    in via `includes:` from the plugin-catalog-index. This mirrors upstream
+    RHDH's merger.ts::resolveInherit.
+
+    The resolved entry keeps the concrete-tag entry's fields as its base and
+    layers the `{{inherit}}` entry's own fields on top (same override
+    precedence mergePlugin() applies for an exact-ref override), so a
+    preset can still flip `disabled`/`pluginConfig` on an inherited ref.
+
+    Zero or multiple matches is a hard InstallException, not a silent
+    guess — an inherit ref that can't be resolved unambiguously must fail
+    the boot, not install an arbitrary (or no) version."""
+    inherit_entries = {}
+    concrete_entries = {}
+    for package, plugin in allPlugins.items():
+        if package.startswith('oci://') and parse_oci_package(package)['tag'] == INHERIT_TAG:
+            inherit_entries[package] = plugin
+        else:
+            concrete_entries[package] = plugin
+
+    if not inherit_entries:
+        return allPlugins
+
+    resolved = dict(concrete_entries)
+    for package, plugin in inherit_entries.items():
+        parsed = parse_oci_package(package)
+        candidates = [
+            (other_package, other_plugin)
+            for other_package, other_plugin in concrete_entries.items()
+            if other_package.startswith('oci://')
+            and parse_oci_package(other_package)['repo'] == parsed['repo']
+            and parse_oci_package(other_package)['selector'] == parsed['selector']
+        ]
+        if len(candidates) != 1:
+            raise InstallException(
+                f"Cannot resolve {INHERIT_TAG} for '{package}': found {len(candidates)} "
+                f"matching pinned entr{'y' if len(candidates) == 1 else 'ies'} for image "
+                f"'{parsed['repo']}' (selector {parsed['selector']!r}) in the plugins merged "
+                f"from {dynamicPluginsFile} and its includes. Expected exactly one concrete "
+                f"tag to inherit from — usually supplied by the plugin-catalog-index.")
+
+        resolved_package, base_plugin = candidates[0]
+        merged_plugin = dict(base_plugin)
+        for key, value in plugin.items():
+            if key != 'package':
+                merged_plugin[key] = value
+        merged_plugin['package'] = resolved_package
+        resolved[resolved_package] = merged_plugin
+
+    return resolved
+
 def plugin_identity(package: str):
     """Stable identity of a plugin, independent of registry and tag.
 
-    For OCI refs the part after `!` is the npm package name (the selector),
-    which is globally unique, so it identifies the plugin regardless of which
-    image/tag it is pulled from. Non-OCI refs (npm package names, local `./`
-    paths) are their own identity. Returns None for a malformed OCI ref so the
-    caller skips it instead of crashing."""
+    For OCI refs with a `!<selector>`, the selector is the npm package name,
+    globally unique, so it identifies the plugin regardless of which
+    image/tag it is pulled from. For a bare OCI ref (one-image-per-plugin
+    format, no `!`), identity falls back to the image's own repo name —
+    the same fallback OciDownloader uses for plugin_path — so a workspace
+    image's `!name` ref and a per-plugin bare ref for the same plugin still
+    collide correctly. Non-OCI refs (npm package names, local `./` paths)
+    are their own identity. Returns None for an OCI ref with no tag at all
+    (malformed) so the caller skips it instead of crashing."""
     if package.startswith('oci://'):
-        if '!' not in package:
+        if '!' in package:
+            return package.split('!', 1)[1]
+        try:
+            return parse_oci_package(package)['repo'].rsplit('/', 1)[-1]
+        except InstallException:
             return None
-        return package.split('!', 1)[1]
     return package
 
 def check_plugin_identity_collisions(allPlugins: dict):
@@ -693,6 +838,11 @@ def main():
 
     for plugin in plugins:
         mergePlugin(plugin, allPlugins, dynamicPluginsFile)
+
+    # Resolve `{{inherit}}` OCI tags against the rest of the merged plugin set
+    # (see resolve_inherit_refs docstring) before any identity/hash computation
+    # below can observe the literal placeholder.
+    allPlugins = resolve_inherit_refs(allPlugins, dynamicPluginsFile)
 
     # Reject configs that enable the same plugin via two different refs.
     # Intentional same-ref overrides already collapsed to one key in mergePlugin.
