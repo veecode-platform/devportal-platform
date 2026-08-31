@@ -1,12 +1,17 @@
 name: ldap-ad
 description: Active Directory overrides for the `ldap` preset — switches the user attribute to `sAMAccountName` and remaps users/groups to AD's object classes. MUST compose with `ldap` (e.g. `VEECODE_PRESETS=ldap,ldap-ad`).
-version: 2.0.0
+version: 2.1.0
 
 # What this preset does:
 #  - This preset is an OVERRIDE-ONLY layer on top of `ldap`. It re-declares the
-#    `auth.providers.ldap.production.ldapAuthenticationOptions.usernameAttribute`
+#    `auth.providers.ldap.<ramp>.ldapAuthenticationOptions.usernameAttribute`
 #    and the `catalog.providers.ldapOrg.default.users` / `.groups` blocks with
 #    AD-flavored defaults (sAMAccountName, objectClass=user/group, richer `map:`).
+#  - The usernameAttribute override MUST be declared on BOTH ramps, mirroring
+#    `ldap`. Overriding only `production` means a NODE_ENV=development pod
+#    resolves `ldap`'s development ramp and authenticates against `uid` — the
+#    provider registers and login fails against a real AD, which is harder to
+#    diagnose than the provider going missing outright.
 #  - Composition order matters: list `ldap` BEFORE `ldap-ad` so the AD overrides
 #    win (Backstage config loader: scalars + objects deep-merge, arrays replace —
 #    later --config files win).
@@ -25,9 +30,11 @@ appConfig:
   auth:
     providers:
       ldap:
-        production:
+        production: &ldapAdAuthEnv
           ldapAuthenticationOptions:
             usernameAttribute: sAMAccountName
+        # Must mirror `ldap`'s ramps, or a development pod falls back to `uid`.
+        development: *ldapAdAuthEnv
 
   catalog:
     providers:
