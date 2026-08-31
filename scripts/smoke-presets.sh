@@ -87,6 +87,13 @@ ALL_TESTS=(
   # image, so locally this gate effectively exercises host code, not baked code.
   # In CI/publish, host == image source, so the gate is faithful there.
   'recommended+mount'
+  # Regression gate for the LDAP/NODE_ENV bug: the ldap auth plugin resolves its
+  # config sub-key from process.env.NODE_ENV, not auth.environment. A preset that
+  # declares only the `production` ramp boots CLEAN under the image's default
+  # NODE_ENV=production, so every other combo here is blind to it. The `+devenv`
+  # suffix forces NODE_ENV=development, which is the only condition under which
+  # the provider goes missing. Pass criterion is the auth-provider log check below.
+  'ldap,ldap-ad+devenv'
 )
 
 # --list-json: emit ALL_TESTS as a compact JSON array and exit. This is the single
@@ -153,7 +160,12 @@ for combo in "${TESTS[@]}"; do
   # The `+mount` suffix is a modifier, not a preset name. Strip it for the
   # VEECODE_PRESETS value but use its presence to drive the override mount.
   mount_override=""
+  dev_env=""
   presets_value="$combo"
+  if [[ "$combo" == *"+devenv" ]]; then
+    presets_value="${combo%+devenv}"
+    dev_env="NODE_ENV=development"
+  fi
   if [[ "$combo" == *"+mount" ]]; then
     presets_value="${combo%+mount}"
     [ -f "$DP_OVERRIDE_FIXTURE" ] || { echo "FAIL: override fixture missing at $DP_OVERRIDE_FIXTURE"; FAILURES=$((FAILURES+1)); RESULTS[$combo]="FIXTURE_MISSING"; continue; }
@@ -168,7 +180,7 @@ for combo in "${TESTS[@]}"; do
 
   start=$(date +%s)
   # shellcheck disable=SC2086
-  output=$(eval "DEVPORTAL_IMAGE=$IMAGE DEVPORTAL_MEM=$DEVPORTAL_MEM DEVPORTAL_MEMSWAP=$DEVPORTAL_MEMSWAP VEECODE_PRESETS=$presets_value $mount_override $env_line ./scripts/dev-run.sh run 2>&1")
+  output=$(eval "DEVPORTAL_IMAGE=$IMAGE DEVPORTAL_MEM=$DEVPORTAL_MEM DEVPORTAL_MEMSWAP=$DEVPORTAL_MEMSWAP VEECODE_PRESETS=$presets_value $mount_override $dev_env $env_line ./scripts/dev-run.sh run 2>&1")
   elapsed=$(($(date +%s) - start))
   BOOT_TIME[$combo]=$elapsed
 
@@ -205,9 +217,23 @@ for combo in "${TESTS[@]}"; do
     esac
   done
   if [ "$is_identity_combo" = "true" ]; then
-    RESULTS[$combo]="PASS (${elapsed}s, identity preset — healthcheck only)"
+    # A healthy pod does NOT mean the auth provider registered. When
+    # plugin-auth-backend fails to build a provider it either aborts the boot
+    # (NODE_ENV != development) or logs a WARN and installs a stub route that
+    # 404s every login (NODE_ENV == development) — the latter leaves
+    # /healthcheck at 200, so this log check is the only signal.
+    auth_log=$(docker logs devportal-dev 2>&1 | sed 's/\x1b\[[0-9;]*m//g' \
+      | grep -oE "(Skipping [a-z-]+ auth provider|Failed to initialize [a-z-]+ auth provider)" | sort -u || true)
+    if [ -n "$auth_log" ]; then
+      RESULTS[$combo]="FAIL_AUTH_PROVIDER_DROPPED (${elapsed}s)"
+      PLUGINS_COUNT[$combo]="-"
+      FAILURES=$((FAILURES + 1))
+      echo "FAIL: auth provider did not register — ${auth_log//$'\n'/; }"
+      continue
+    fi
+    RESULTS[$combo]="PASS (${elapsed}s, identity preset — provider registered)"
     PLUGINS_COUNT[$combo]="-"
-    echo "PASS: healthcheck reached in ${elapsed}s (identity preset; plugin count skipped)"
+    echo "PASS: healthcheck reached in ${elapsed}s, no auth provider dropped"
     continue
   fi
 

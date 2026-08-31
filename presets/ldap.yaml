@@ -1,6 +1,6 @@
 name: ldap
 description: LDAP auth + user/group sync — configures the static LDAP auth provider and ldapOrg catalog provider.
-version: 1.0.0
+version: 1.1.0
 exclusive_group: identity
 
 requires:
@@ -37,6 +37,23 @@ requires:
 # What this preset does:
 #  - Auth provider (static backend plugin — backstage-plugin-auth-backend-module-ldap-provider)
 #    is compiled into packages/backend/src/index.ts. Config-only here.
+#  - The auth block is declared under BOTH `production` and `development` (same
+#    YAML anchor). Reason: the ldap auth plugin resolves its config sub-key from
+#    `process.env.NODE_ENV` — a process variable, not config (see
+#    @veecode-platform/backstage-plugin-ldap-auth-backend, dist/provider.cjs.js:
+#    `config.get(process.env.NODE_ENV || 'development')`). It cannot honour the
+#    `auth.environment: production` set below, the way this platform's own
+#    authProvidersModule.ts does, because plugin-auth-backend hands a provider
+#    factory only the `auth.providers.<id>` subtree — the root key is out of its
+#    reach (providers/router.cjs.js: `providersConfig.getConfig(providerId)`).
+#    With only the `production` ramp, a pod whose NODE_ENV is `development`
+#    silently loses the provider: plugin-auth-backend logs `Skipping ldap auth
+#    provider` (a WARN, so the pod stays healthy) and installs a stub route that
+#    404s every login with "Auth provider registered for 'ldap' is
+#    misconfigured" — which reads as a credential failure and is not.
+#    An anchor (not a copy) so the two ramps cannot drift.
+#    Remove the `development` ramp only after the plugin stops keying off
+#    NODE_ENV (devportal-plugins#90) and that release is pinned in yarn.lock here.
 #  - Catalog provider (catalog-backend-module-ldap-org, static) — syncs users
 #    and groups from the directory. Also static, config-only here.
 #  - No dynamic plugins required.
@@ -55,7 +72,7 @@ appConfig:
     environment: production
     providers:
       ldap:
-        production:
+        production: &ldapAuthEnv
           cookies:
             secure: false
             field: backstage-token
@@ -68,6 +85,8 @@ appConfig:
               url: ${LDAP_URL}
               tlsOptions:
                 rejectUnauthorized: false
+        # NODE_ENV=development resolves this ramp. Same anchor — never a copy.
+        development: *ldapAuthEnv
 
   catalog:
     providers:
