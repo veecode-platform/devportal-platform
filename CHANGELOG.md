@@ -1,6 +1,9 @@
 # devportal-platform changelog
 
 
+## v2.2.2 (2026-08-31)
+* fix(presets): declare the LDAP auth block on both NODE_ENV ramps (#195) (b0dbe2b)
+
 ## v2.2.1 (2026-06-26)
 * fix: bump fast-xml-parser pin 5.7.0 -> ~5.7.2 (re-sync with devportal-base #135) (#88) (1c0a467)
 
