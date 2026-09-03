@@ -1,6 +1,6 @@
 name: ldap
 description: LDAP auth + user/group sync — configures the static LDAP auth provider and ldapOrg catalog provider.
-version: 1.1.0
+version: 1.2.0
 exclusive_group: identity
 
 requires:
@@ -100,12 +100,20 @@ appConfig:
             - dn: ${LDAP_USERS_BASE_DN}
               options:
                 filter: ${LDAP_USERS_FILTER:-(uid=*)}
+                # Paged search (RFC 2696). Without it the whole ingestion run
+                # aborts with SizeLimitExceededError on any directory whose
+                # server-side size limit is smaller than the result set
+                # (OpenLDAP defaults to 500, AD to 1000) — the catalog then has
+                # NO User entities and every login 404s with "User not found"
+                # even though the LDAP bind itself succeeds.
+                paged: true
               map:
                 description: l
           groups:
             - dn: ${LDAP_GROUPS_BASE_DN}
               options:
                 filter: ${LDAP_GROUPS_FILTER:-(objectClass=groupOfNames)}
+                paged: true
               map:
                 description: l
           schedule:

@@ -1,6 +1,6 @@
 name: ldap-ad
 description: Active Directory overrides for the `ldap` preset — switches the user attribute to `sAMAccountName` and remaps users/groups to AD's object classes. MUST compose with `ldap` (e.g. `VEECODE_PRESETS=ldap,ldap-ad`).
-version: 2.1.0
+version: 2.2.0
 
 # What this preset does:
 #  - This preset is an OVERRIDE-ONLY layer on top of `ldap`. It re-declares the
@@ -44,6 +44,14 @@ appConfig:
             - dn: ${LDAP_USERS_BASE_DN}
               options:
                 filter: ${LDAP_USERS_FILTER:-(&(objectClass=user)(!(objectClass=computer)))}
+                # Paged search (RFC 2696) — NON-OPTIONAL against AD. AD caps any
+                # single search at MaxPageSize (1000 by default); a corporate
+                # directory over that makes the unpaged ingestion run abort with
+                # SizeLimitExceededError, so the catalog ends up with NO User
+                # entities and every login 404s with "User not found" even
+                # though the LDAP bind succeeds. Mirrors `ldap` (arrays replace
+                # on config merge, so this block must carry its own `paged`).
+                paged: true
               map:
                 rdn: cn
                 name: sAMAccountName
@@ -56,6 +64,7 @@ appConfig:
             - dn: ${LDAP_GROUPS_BASE_DN}
               options:
                 filter: ${LDAP_GROUPS_FILTER:-(objectClass=group)}
+                paged: true
               map:
                 rdn: cn
                 name: cn
