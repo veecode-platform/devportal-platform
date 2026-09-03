@@ -1,6 +1,9 @@
 # devportal-platform changelog
 
 
+## v2.2.3 (2026-09-03)
+* fix(presets): enable paged LDAP search in the ldapOrg ingestion blocks (#202) (2178a58)
+
 ## v2.2.2 (2026-08-31)
 * fix(presets): declare the LDAP auth block on both NODE_ENV ramps (#195) (b0dbe2b)
 
