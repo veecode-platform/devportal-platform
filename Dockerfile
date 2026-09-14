@@ -66,7 +66,7 @@ RUN ARCH=$(arch | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/') && \
 COPY python /opt/python
 RUN --mount=type=cache,target=/root/.cache/pip \
     cd /opt/python/ && \
-    python3.12 -m pip install --upgrade pip setuptools pyyaml && \
+    python3.12 -m pip install --upgrade pip 'setuptools>=83.0.0' pyyaml && \
     python3.12 -m pip install -r requirements.txt --ignore-installed urllib3 && \
     mkdocs --version
 
