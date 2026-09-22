@@ -34,14 +34,15 @@ plantuml-markdown @ https://github.com/mikitex70/plantuml-markdown/archive/fcf62
 platformdirs==3.11.0
 pluggy==1.5.0
 pygments==2.17.2
-pymdown-extensions==10.3.1
+pymdown-extensions==10.21.3
 python-dateutil>=2.9.0.post0
 python-slugify==8.0.4
 pyyaml-env-tag==0.1
 pyyaml==6.0.1
 regex==2023.12.25
 requests==2.33.1
-setuptools
+soupsieve>=2.9.0
+setuptools>=78.1.1
 setuptools_scm<8.0
 six==1.16.0
 text-unidecode==1.3
